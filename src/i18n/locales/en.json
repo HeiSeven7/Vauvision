@@ -1,0 +1,107 @@
+{
+  "locale": {
+    "en": "English",
+    "ru": "Русский",
+    "language": "English",
+    "lang": "en",
+    "theme": "Theme"
+  },
+  "elmessage": {
+    "formSuccess": "The form has been successfully submitted.",
+    "formError": "Oops, repeat again",
+    "localeSuccess": "Success, your language English",
+    "shareContacts": "Share contacts",
+    "noshareContacts": "You have already shared",
+    "orderSuggest": "You have suggested an order",
+    "profileSuccess": "Profile sent for moderation",
+    "taskSuccess": "The task has been sent for moderation",
+    "authSuccess": "You have successfully logged in",
+    "authPhone": "You have been sent a code to our Telegram bot",
+    "phoneError": "You are not registered in our Telegram bot",
+    "responseSuccess": "Response sent successfully",
+    "faqSuccess": "Your request has been sent, the technical service will review it within 24 hours.",
+    "copySuccess": "Text copied",
+    "copyError": "Error while copying",
+    "linkError": "Download link missing",
+    "downloadError": "There are no documents to download"
+  },
+  "interval": {
+    "years": "{count} years | {count} years | {count} years | {count} years",
+    "months" :"{count} months | {count} months | {count} months | {count} months",
+    "days": "{count} days | {count} days | {count} days | {count} days",
+    "hours": "{count} hours | {count} hours | {count} hours | {count} hours",
+    "minutes": "{count} minutes | {count} minutes | {count} minutes | {count} minutes",
+    "seconds": "{count} seconds | {count} seconds | {count} seconds | {count} seconds",
+    "ago": "ago",
+    "responses": "{count} response | {count} response | {count} responses | {count} responses",
+    "views": "{count} view | {count} view | {count} views | {count} views",
+    "negotiable": "Negotiable",
+    "perproject": "For a project",
+    "perhour": "In an hour",
+    "moderation": "Moderation",
+    "active": "Active",
+    "limited": "Limited",
+    "mutual_response": "Confirmed",
+    "offer": "Offer",
+    "response": "Response",
+    "starscount": "{count} stars | {count} stars | {count} stars | {count} stars"
+  },
+  "error": {
+    "min10max1500": "Length should be 10 to 1500",
+    "min5max50": "Length should be 5 to 50",
+    "min1max10": "Select from 1 to 10 items",
+    "min1max20": "Select from 1 to 20 items",
+    "message": "Enter your message",
+    "title": "Enter the project name",
+    "project": "Select a project",
+    "director": "Select a director",
+    "executor": "Select the task performer",
+    "date": "Select date",
+    "description": "Enter a description"
+  },
+  "button": {
+    "select": "Select",
+    "clear": "Clear",
+    "send": "Send",
+    "faq": "Contact support",
+    "show": "View catalog",
+    "hide": "Hide",
+    "tomain": "To main",
+    "downloadAll": "Download all",
+    "next": "Next",
+    "prev": "Prev"
+  },
+  "sort": {
+    "search": "Search",
+    "filters": "Filters",
+    "minprice": "At the lowest price",
+    "maxprice": "At the maximum price",
+    "alphabetically": "Alphabetically",
+    "reversealphabetical": "In reverse alphabetical order",
+    "dateadded": "By date added",
+    "datedescending": "By date descending",
+    "price": "Price",
+    "sort": "Sort",
+    "category": "Category",
+    "skills": "Key skills",
+    "offer": "Offers",
+    "response": "Responses",
+    "all": "All",
+    "tags": "Tags",
+    "brands": "Brands"
+  },
+  "errorPage": {
+    "head": "404",
+    "desc": "This page does not exist."
+  },
+  "product": {
+    "main": "Main",
+    "article": "Art.",
+    "documents": "Documents",
+    "characteristics": "Characteristics",
+    "similar": "Similar products"
+  },
+  "category": {
+    "all": "All categories"
+  }
+}

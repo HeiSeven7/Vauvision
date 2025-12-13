@@ -1,0 +1,44 @@
+{
+  "name": "anywork",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@intlify/unplugin-vue-i18n": "^5.0.0",
+    "@tiptap/extension-blockquote": "^2.10.4",
+    "@tiptap/extension-bold": "^2.10.4",
+    "@tiptap/extension-bullet-list": "^2.10.4",
+    "@tiptap/extension-character-count": "^2.10.4",
+    "@tiptap/extension-link": "^2.10.4",
+    "@tiptap/extension-list-item": "^2.10.4",
+    "@tiptap/extension-underline": "^2.10.4",
+    "@tiptap/pm": "^2.10.4",
+    "@tiptap/starter-kit": "^2.10.4",
+    "@tiptap/vue-3": "^2.10.4",
+    "autosize": "^6.0.1",
+    "axios": "^1.7.7",
+    "element-plus": "^2.8.5",
+    "swiper": "^11.2.5",
+    "vue": "^3.4.35",
+    "vue-axios": "^3.5.2",
+    "vue-i18n": "^10.0.0",
+    "vue-router": "^4.4.4",
+    "vue-tel-input": "^9.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.3",
+    "@types/vue-tel-input": "^2.1.7",
+    "@vitejs/plugin-vue": "^5.1.2",
+    "gh-pages": "^6.3.0",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.0",
+    "vue-tsc": "^2.0.29"
+  }
+}

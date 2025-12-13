@@ -1,0 +1,102 @@
+{
+  "locale": {
+    "en": "English",
+    "ru": "Русский",
+    "language": "Русский",
+    "lang": "ru",
+    "theme": "Тема"
+  },
+  "elmessage": {
+    "formSuccess": "Форма успешно отправлена",
+    "formError": "Упс, повторите еще раз",
+    "localeSuccess": "Успешно, ваш язык Русский",
+    "authSuccess": "Вы успешно авторизовались",
+    "authPhone": "Вам отправлен код в наш бот Telegram",
+    "phoneError": "Вы не зарегистрированы в нашем боте Telegram",
+    "faqSuccess": "Ваше обращение отправлено, техническая служба рассмотрит в течение 24-х часов.",
+    "copySuccess": "Текст скопирован",
+    "copyError": "Ошибка при копировании",
+    "linkError": "Ссылка для скачивания отсутствует",
+    "downloadError": "Нет документов для скачивания"
+  },
+  "interval": {
+    "years": "{count} лет | {count} год | {count} года | {count} лет",
+    "months": "{count} месяцев | {count} месяц | {count} месяца | {count} месяцев",
+    "days": "{count} дней | {count} день | {count} дня | {count} дней",
+    "hours": "{count} часов | {count} час | {count} часа | {count} часов",
+    "minutes": "{count} минут | {count} минуту | {count} минуты | {count} минут",
+    "seconds": "{count} секунд | {count} секунду | {count} секунды | {count} секунд",
+    "ago": "назад",
+    "responses": "{count} откликов | {count} отклик | {count} отклика | {count} откликов",
+    "views": "{count} просмотров | {count} просмотр | {count} просмотра | {count} просмотров",
+    "negotiable": "Договорная",
+    "perproject": "За проект",
+    "perhour": "За час",
+    "moderation": "На модерации",
+    "active": "Активно",
+    "limited": "Ограничено",
+    "mutual_response": "Подтвержден",
+    "offer": "Предложение",
+    "response": "Отклик",
+    "starscount": "{count} звезд | {count} звезду | {count} звезды | {count} звезд"
+  },
+  "error": {
+    "min10max1500": "Длина должна быть от 10 до 1500",
+    "min5max50": "Длина должна быть от 5 до 50",
+    "min1max10": "Выберите от 1 до 10 пунктов",
+    "min1max20": "Выберите от 1 до 20 пунктов",
+    "message": "Введите сообщение",
+    "title": "Введите название проекта",
+    "project": "Выберите проект",
+    "director": "Выберите постановщика",
+    "executor": "Выберите исполнителя",
+    "date": "Выберите дату",
+    "description": "Введите описание"
+  },
+  "button": {
+    "select": "Выбрать",
+    "clear": "Очистить",
+    "send": "Отправить",
+    "faq": "Связаться с поддержкой",
+    "show": "Показать больше",
+    "showСCatalog": "Смотреть каталог",
+    "hide": "Скрыть",
+    "tomain": "На главную",
+    "downloadAll": "Скачать все",
+    "next": "Далее",
+    "prev": "Назад"
+  },
+  "sort": {
+    "search": "Поиск",
+    "filters": "Фильтры",
+    "minprice": "По минимальной цене",
+    "maxprice": "По максимальной цене",
+    "alphabetically": "По алфавиту",
+    "reversealphabetical": "По обратному алфавиту",
+    "dateadded": "По дате добавления",
+    "datedescending": "По дате убывания",
+    "price": "Цена",
+    "sort": "Сортировка",
+    "category": "Категории",
+    "skills": "Ключевые навыки",
+    "offer": "Предложения",
+    "response": "Отклики",
+    "all": "Все",
+    "tags": "Теги",
+    "brands": "Бренды"
+  },
+  "errorPage": {
+    "head": "404",
+    "desc": "Такой страницы не существует."
+  },
+  "product": {
+    "main": "Главная",
+    "article": "Арт.",
+    "documents": "Документы",
+    "characteristics": "Характеристики",
+    "similar": "Похожие товары"
+  },
+  "category": {
+    "all": "Все категории"
+  }
+}
