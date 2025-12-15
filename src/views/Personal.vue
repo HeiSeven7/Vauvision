@@ -70,7 +70,7 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h6 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h6>
+                      <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
                       <p class="personal__releases_album text_very">Lune</p>
                     </div>
                     <div class="personal__releases_codes">
@@ -92,7 +92,7 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h6 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h6>
+                      <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
                       <p class="personal__releases_album text_very">Lune</p>
                     </div>
                     <div class="personal__releases_codes">
@@ -114,7 +114,7 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h6 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h6>
+                      <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
                       <p class="personal__releases_album text_very">Lune</p>
                     </div>
                     <div class="personal__releases_codes">
@@ -136,7 +136,7 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h6 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h6>
+                      <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
                       <p class="personal__releases_album text_very">Lune</p>
                     </div>
                     <div class="personal__releases_codes">
@@ -158,7 +158,7 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h6 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h6>
+                      <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
                       <p class="personal__releases_album text_very">Lune</p>
                     </div>
                     <div class="personal__releases_codes">
@@ -485,6 +485,7 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
 .personal__balance_list {
   display: flex;
   padding: 40px;
+  flex-wrap: wrap;
   gap: 40px;
 }
 .personal__balance_item {
@@ -540,11 +541,18 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
   position: relative;
   background-color: var(--bg);
   border: 1px solid var(--border);
+  overflow: hidden;
 }
 .personal__release_flex {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  position: relative;
+  z-index: 2;
+}
+.personal__release_button {
+  position: relative;
+  z-index: 2;
 }
 .personal__release_desc {
   max-width: 510px;
@@ -554,6 +562,7 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
   width: 315px;
   max-width: calc(100% - 510px - 20px);
   height: 100%;
+  flex: 0 0 auto;
   position: absolute;
   top: 0;
   right: 0;
@@ -995,8 +1004,18 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
   margin: 50px auto 0;
 }
 @media (max-width: 1919px) {
+  .personal__block {
+    padding: 50px 0 40px 40px;
+  }
   .personal__balance_list {
     gap: 75px;
+  }
+  .personal__release_desc {
+    max-width: 410px;
+  }
+  .personal__release_image {
+    width: 270px;
+    max-width: calc(100% - 410px - 20px);
   }
 }
 @media (max-width: 1439px) {
@@ -1065,8 +1084,45 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
     min-width: 120px;
     text-transform: uppercase;
   }
+  .personal__block {
+    width: 100%;
+    padding: 45px 0;
+    margin: 0;
+  }
+  .personal__right {
+    display: none;
+  }
+  .personal__content {
+    width: 100%;
+  }
+  .personal__balance_info {
+    padding: 30px 30px 20px;
+  }
+  .personal__balance_list {
+    padding: 30px;
+    gap: 30px 40px;
+  }
+  .personal__balance_item:first-child {
+    width: 100%;
+  }
+  .personal__release_desc {
+    max-width: 480px;
+  }
+  .personal__release_image {
+    width: 230px;
+    max-width: calc(100% - 480px - 20px);
+  }
+  .personal__releases {
+    padding: 30px;
+  }
+  .personal__releases_title {
+    padding: 0 0 20px;
+  }
 }
 @media (max-width: 767px) {
+  .personal__container {
+    padding: 0;
+  }
   .personal__reports {
     padding: 30px 20px;
   }
@@ -1091,6 +1147,25 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
   }
   .personal__transactions_item {
     padding: 15px 0;
+  }
+  .personal__balance_info {
+    padding: 30px 15px 20px;
+  }
+  .personal__balance_list {
+    padding: 30px 15px;
+    flex-direction: column;
+  }
+  .personal__release {
+    padding: 30px 15px;
+  }
+  .personal__release_desc {
+    max-width: 100%;
+  }
+  .personal__release_image {
+    width: 194px;
+    max-width: 100%;
+    top: auto;
+    bottom: -70px;
   }
 }
 </style>

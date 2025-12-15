@@ -138,6 +138,10 @@ import Tr from "@/i18n/translation";
   .menu__block {
     left: 30px;
   }
+  .menu__back,
+  .menu__block {
+    display: none;
+  }
 }
 @media (max-width: 1023px) {
   .menu__block {
