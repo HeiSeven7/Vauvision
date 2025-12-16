@@ -1161,7 +1161,8 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
     padding: 0;
   }
   .personal__reports,
-  .personal__transactions {
+  .personal__transactions,
+  .personal__releases {
     padding: 30px 15px;
   }
   .personal__balance_info {
