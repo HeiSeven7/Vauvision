@@ -1122,13 +1122,13 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
     gap: 10px;
   }
   .personal__transactions_type {
-    width: calc(100% - 105px - 10px);
+    width: calc(100% - 115px - 10px);
     min-width: auto;
     flex: 0 0 auto;
     order: 1;
   }
   .personal__transactions_status {
-    width: 105px;
+    width: 115px;
     min-width: auto;
     flex: 0 0 auto;
     justify-content: flex-end;
