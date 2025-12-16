@@ -65,8 +65,17 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
               <h5 class="personal__releases_title">Релизы</h5>
               <ul class="personal__releases_list">
                 <li class="personal__releases_item">
-                  <div class="personal__releases_image">
-                    <img src="@/assets/img/personal/releases/releases_1.webp" alt="">
+                  <div class="personal__releases_information">
+                    <div class="personal__releases_image">
+                      <img src="@/assets/img/personal/releases/releases_1.webp" alt="">
+                    </div>
+                    <div class="personal__releases_flex">
+                      <div class="personal__releases_top">
+                        <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                        <p class="personal__releases_album text_very">Lune</p>
+                      </div>
+                      <p class="personal__releases_date text_very">10.10.2025</p>
+                    </div>
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
@@ -87,8 +96,17 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
                   </div>
                 </li>
                 <li class="personal__releases_item">
-                  <div class="personal__releases_image">
-                    <img src="@/assets/img/personal/releases/releases_2.webp" alt="">
+                  <div class="personal__releases_information">
+                    <div class="personal__releases_image">
+                      <img src="@/assets/img/personal/releases/releases_2.webp" alt="">
+                    </div>
+                    <div class="personal__releases_flex">
+                      <div class="personal__releases_top">
+                        <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                        <p class="personal__releases_album text_very">Lune</p>
+                      </div>
+                      <p class="personal__releases_date text_very">10.10.2025</p>
+                    </div>
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
@@ -109,8 +127,17 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
                   </div>
                 </li>
                 <li class="personal__releases_item">
-                  <div class="personal__releases_image">
-                    <img src="@/assets/img/personal/releases/releases_3.webp" alt="">
+                  <div class="personal__releases_information">
+                    <div class="personal__releases_image">
+                      <img src="@/assets/img/personal/releases/releases_3.webp" alt="">
+                    </div>
+                    <div class="personal__releases_flex">
+                      <div class="personal__releases_top">
+                        <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                        <p class="personal__releases_album text_very">Lune</p>
+                      </div>
+                      <p class="personal__releases_date text_very">10.10.2025</p>
+                    </div>
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
@@ -131,8 +158,17 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
                   </div>
                 </li>
                 <li class="personal__releases_item">
-                  <div class="personal__releases_image">
-                    <img src="@/assets/img/personal/releases/releases_4.webp" alt="">
+                  <div class="personal__releases_information">
+                    <div class="personal__releases_image">
+                      <img src="@/assets/img/personal/releases/releases_4.webp" alt="">
+                    </div>
+                    <div class="personal__releases_flex">
+                      <div class="personal__releases_top">
+                        <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                        <p class="personal__releases_album text_very">Lune</p>
+                      </div>
+                      <p class="personal__releases_date text_very">10.10.2025</p>
+                    </div>
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
@@ -153,8 +189,17 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
                   </div>
                 </li>
                 <li class="personal__releases_item">
-                  <div class="personal__releases_image">
-                    <img src="@/assets/img/personal/releases/releases_5.webp" alt="">
+                  <div class="personal__releases_information">
+                    <div class="personal__releases_image">
+                      <img src="@/assets/img/personal/releases/releases_5.webp" alt="">
+                    </div>
+                    <div class="personal__releases_flex">
+                      <div class="personal__releases_top">
+                        <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                        <p class="personal__releases_album text_very">Lune</p>
+                      </div>
+                      <p class="personal__releases_date text_very">10.10.2025</p>
+                    </div>
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
@@ -629,6 +674,9 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
   width: 100%;
   flex-direction: column;
 }
+.personal__releases_information .personal__releases_flex {
+  display: none;
+}
 .personal__releases_top {
   display: flex;
   padding: 0 0 16px;
@@ -1017,73 +1065,12 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
     width: 270px;
     max-width: calc(100% - 410px - 20px);
   }
+  .personal__releases_image {
+    width: 140px;
+    height: 140px;
+  }
 }
 @media (max-width: 1439px) {
-  .personal__reports_item {
-    flex-wrap: wrap;
-    gap: 15px;
-  }
-  .personal__reports_header {
-    display: none;
-  }
-  .personal__reports_cell {
-    flex: 1 1 100%;
-    width: 100%;
-  }
-  .personal__reports_info {
-    order: 1;
-  }
-  .personal__reports_date {
-    order: 2;
-  }
-  .personal__reports_actions {
-    order: 3;
-    justify-content: flex-start;
-  }
-  .personal__reports_cell::before {
-    content: attr(data-label);
-    display: inline-block;
-    font-weight: 600;
-    margin-right: 10px;
-    min-width: 120px;
-    text-transform: uppercase;
-  }
-  .personal__reports_file {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-  }
-  .personal__reports_buttons {
-    justify-content: flex-start;
-  }
-  .personal__transactions_item {
-    flex-wrap: wrap;
-    gap: 15px;
-  }
-  .personal__transactions_header {
-    display: none;
-  }
-  .personal__transactions_cell {
-    flex: 1 1 100%;
-    width: 100%;
-  }
-  .personal__transactions_type { order: 1; }
-  .personal__transactions_date { order: 2; }
-  .personal__transactions_period { order: 3; }
-  .personal__transactions_status { order: 4; }
-  .personal__transactions_amount { 
-    order: 5; 
-    justify-content: flex-start;
-  }
-  .personal__transactions_cell::before {
-    content: attr(data-label);
-    display: inline-block;
-    font-weight: 600;
-    margin-right: 10px;
-    min-width: 120px;
-    text-transform: uppercase;
-  }
   .personal__block {
     width: 100%;
     padding: 45px 0;
@@ -1118,35 +1105,64 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
   .personal__releases_title {
     padding: 0 0 20px;
   }
+  .personal__releases_load,
+  .personal__reports_load,
+  .personal__transactions_load {
+    margin: 40px auto 0;
+  }
+}
+@media (max-width: 1023px) {
+  .personal__reports_header,
+  .personal__transactions_header {
+    display: none;
+  }
+  .personal__reports_item,
+  .personal__transactions_item {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .personal__transactions_type {
+    width: calc(100% - 105px - 10px);
+    min-width: auto;
+    flex: 0 0 auto;
+    order: 1;
+  }
+  .personal__transactions_status {
+    width: 105px;
+    min-width: auto;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    order: 2;
+  }
+  .personal__transactions_date {
+    min-width: auto;
+    order: 3;
+  }
+  .personal__transactions_period {
+    min-width: auto;
+    order: 4;
+  }
+  .personal__transactions_amount {
+    min-width: auto;
+    order: 5;
+  }
+  .personal__reports_info {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+  .personal__releases_load,
+  .personal__reports_load,
+  .personal__transactions_load {
+    margin: 30px 0 0;
+  }
 }
 @media (max-width: 767px) {
   .personal__container {
     padding: 0;
   }
-  .personal__reports {
-    padding: 30px 20px;
-  }
-  .personal__reports_item {
-    padding: 15px 0;
-  }
-  .personal__reports_file {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 5px;
-  }
-  .personal__reports_buttons {
-    width: 100%;
-    flex-direction: column;
-  }
-  .personal__reports_button {
-    width: 100%;
-    justify-content: center;
-  }
+  .personal__reports,
   .personal__transactions {
-    padding: 30px 20px;
-  }
-  .personal__transactions_item {
-    padding: 15px 0;
+    padding: 30px 15px;
   }
   .personal__balance_info {
     padding: 30px 15px 20px;
@@ -1166,6 +1182,30 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
     max-width: 100%;
     top: auto;
     bottom: -70px;
+  }
+  .personal__releases_item,
+  .personal__releases_info {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .personal__releases_info .personal__releases_top,
+  .personal__releases_info .personal__releases_date {
+    display: none;
+  }
+  .personal__releases_information {
+    display: flex;
+    width: 100%;
+    gap: 15px;
+  }
+  .personal__releases_information .personal__releases_flex {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 15px;
+  }
+  .personal__releases_image {
+    width: 100px;
+    height: 100px;
   }
 }
 </style>
