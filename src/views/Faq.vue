@@ -114,7 +114,7 @@ const setContentRef = (el: HTMLElement, index: number) => {
   <div class="container personal__container">
     <Menu />
     <div class="personal__block">
-      <div class="faq__flex">
+      <div class="faq__content">
         <div class="faq__top">
           <h3 class="faq__head">ответы на ваши вопросы</h3>
           <p class="faq__desc">Не нашли ответ на вопрос? Написать в поддержку.</p>
@@ -160,7 +160,7 @@ const setContentRef = (el: HTMLElement, index: number) => {
 .personal {
   margin: 0 0 auto;
 }
-.faq__flex {
+.faq__content {
   display: flex;
   width: calc(100% - 440px);
   flex-direction: column;
@@ -171,6 +171,9 @@ const setContentRef = (el: HTMLElement, index: number) => {
   flex-direction: column;
   gap: 20px;
 }
+.faq__head {
+  text-transform: uppercase;
+}
 .faq__list {
   display: flex;
   flex-direction: column;
@@ -178,6 +181,7 @@ const setContentRef = (el: HTMLElement, index: number) => {
 }
 .faq__item {
   background-color: var(--bg);
+  border: 1px solid var(--border);
 }
 .faq__button {
   display: flex;
@@ -221,7 +225,7 @@ const setContentRef = (el: HTMLElement, index: number) => {
   padding: 0 40px 40px;
 }
 @media (max-width: 1919px) {
-  .faq__flex {
+  .faq__content {
     width: calc(100% - 340px);
     gap: 30px;
   }
@@ -236,7 +240,7 @@ const setContentRef = (el: HTMLElement, index: number) => {
   }
 }
 @media (max-width: 1439px) {
-  .faq__flex {
+  .faq__content {
     width: 100%;
   }
   .faq__top {
@@ -244,7 +248,7 @@ const setContentRef = (el: HTMLElement, index: number) => {
   }
 }
 @media (max-width: 767px) {
-  .faq__flex {
+  .faq__content {
     gap: 15px;
   }
   .faq__button {
