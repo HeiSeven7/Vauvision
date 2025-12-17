@@ -13,12 +13,12 @@ import Menu from "@/components/layout/Menu.vue";
   <div class="container personal__container">
     <Menu />
     <div class="personal__block">
+      <div class="partner__top">
+        <h3 class="partner__head">ЧТО ТАКОЕ ПАРТНЁРСКАЯ ПРОГРАММА VAUVISION?</h3>
+        <p class="partner__desc">Не нашли ответ на вопрос? Написать в поддержку.</p>
+      </div>
       <div class="partner__flex">
         <div class="partner__content">
-          <div class="partner__top">
-            <h3 class="partner__head">ЧТО ТАКОЕ ПАРТНЁРСКАЯ ПРОГРАММА VAUVISION?</h3>
-            <p class="partner__desc">Не нашли ответ на вопрос? Написать в поддержку.</p>
-          </div>
           <div class="partner__empty">
             <h5 class="partner__heading">Партнеры, зарегистрировавшиеся по вашей ссылке</h5>
             <p class="partner__description button">у вас Пока нет партнеров</p>
