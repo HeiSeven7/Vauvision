@@ -485,19 +485,6 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
 </template>
 
 <style lang="css" scoped>
-.personal {
-  min-height: calc(100vh - 80px);
-  margin: 0 0 auto;
-  background-color: var(--bg-gray);
-}
-.personal__block {
-  display: flex;
-  width: calc(100% - 280px);
-  padding: 60px 0 80px 120px;
-  margin: 0 0 0 auto;
-  flex-direction: column;
-  gap: 20px;
-}
 .personal__flex {
   display: flex;
   gap: 20px;
@@ -1052,9 +1039,6 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
   margin: 50px auto 0;
 }
 @media (max-width: 1919px) {
-  .personal__block {
-    padding: 50px 0 40px 40px;
-  }
   .personal__balance_list {
     gap: 75px;
   }
@@ -1071,11 +1055,6 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
   }
 }
 @media (max-width: 1439px) {
-  .personal__block {
-    width: 100%;
-    padding: 45px 0;
-    margin: 0;
-  }
   .personal__right {
     display: none;
   }
