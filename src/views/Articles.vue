@@ -18,7 +18,7 @@ import Menu from "@/components/layout/Menu.vue";
           <div class="articles__top">
             <a href="" class="articles__link">
               <div class="articles__image">
-                <img src="@/assets/img/personal/articles/default.webp" alt="">
+                <img src="@/assets/img/personal/articles/articles_6.webp" alt="">
               </div>
             </a>
             <h5 class="articles__head">Lorem ipsum dolor sit amet consectetur</h5>
@@ -39,7 +39,7 @@ import Menu from "@/components/layout/Menu.vue";
           <div class="articles__top">
             <a href="" class="articles__link">
               <div class="articles__image">
-                <img src="@/assets/img/personal/articles/default.webp" alt="">
+                <img src="@/assets/img/personal/articles/articles_1.webp" alt="">
               </div>
             </a>
             <h5 class="articles__head">Lorem ipsum dolor sit amet consectetur</h5>
@@ -58,7 +58,7 @@ import Menu from "@/components/layout/Menu.vue";
           <div class="articles__top">
             <a href="" class="articles__link">
               <div class="articles__image">
-                <img src="@/assets/img/personal/articles/default.webp" alt="">
+                <img src="@/assets/img/personal/articles/articles_2.webp" alt="">
               </div>
             </a>
             <h5 class="articles__head">Lorem ipsum dolor sit amet consectetur</h5>
@@ -76,7 +76,7 @@ import Menu from "@/components/layout/Menu.vue";
           <div class="articles__top">
             <a href="" class="articles__link">
               <div class="articles__image">
-                <img src="@/assets/img/personal/articles/default.webp" alt="">
+                <img src="@/assets/img/personal/articles/articles_3.webp" alt="">
               </div>
             </a>
             <h5 class="articles__head">Lorem ipsum dolor sit amet consectetur</h5>
@@ -94,7 +94,7 @@ import Menu from "@/components/layout/Menu.vue";
           <div class="articles__top">
             <a href="" class="articles__link">
               <div class="articles__image">
-                <img src="@/assets/img/personal/articles/default.webp" alt="">
+                <img src="@/assets/img/personal/articles/articles_4.webp" alt="">
               </div>
             </a>
             <h5 class="articles__head">Lorem ipsum dolor sit amet consectetur</h5>
@@ -114,7 +114,7 @@ import Menu from "@/components/layout/Menu.vue";
           <div class="articles__top">
             <a href="" class="articles__link">
               <div class="articles__image">
-                <img src="@/assets/img/personal/articles/default.webp" alt="">
+                <img src="@/assets/img/personal/articles/articles_5.webp" alt="">
               </div>
             </a>
             <h5 class="articles__head">Lorem ipsum dolor sit amet consectetur</h5>

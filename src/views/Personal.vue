@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+// import { useRouter } from "vue-router";
 import Header from "@/components/layout/Header.vue";
 // import Footer from "@/components/layout/Footer.vue";
 import Menu from "@/components/layout/Menu.vue";
@@ -9,7 +10,7 @@ import WalletSVG from "@/uikit/icon/WalletSVG.vue";
 import PaySVG from "@/uikit/icon/PaySVG.vue";
 import ReportsSVG from "@/uikit/icon/ReportsSVG.vue";
 import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
-// import { useRouter } from "vue-router";
+import Tr from "@/i18n/translation";
 
 // const router = useRouter();
 </script>
@@ -412,7 +413,9 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
           <div class="personal__articles">
             <div class="personal__articles_top">
               <h5 class="personal__articles_head">Cтатьи</h5>
-              <a href="" class="personal__articles_all button">Смотреть больше</a>
+              <RouterLink class="personal__articles_all button" :to="Tr.i18nRoute({ name: 'articles' })">
+                Смотреть больше
+              </RouterLink>
             </div>
             <ul class="personal__articles_list">
               <li class="personal__articles_item">
