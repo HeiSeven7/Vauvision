@@ -1042,6 +1042,9 @@ import Tr from "@/i18n/translation";
   margin: 50px auto 0;
 }
 @media (max-width: 1919px) {
+  .personal__content {
+    width: calc(100% - 340px);
+  }
   .personal__balance_list {
     gap: 75px;
   }

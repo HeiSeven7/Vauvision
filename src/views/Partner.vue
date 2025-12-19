@@ -1,10 +1,8 @@
 <script lang="ts" setup>
 import Header from "@/components/layout/Header.vue";
-// import Footer from "@/components/layout/Footer.vue";
 import Menu from "@/components/layout/Menu.vue";
-// import { useRouter } from "vue-router";
-
-// const router = useRouter();
+import PersonalSVG from "@/uikit/icon/PersonalSVG.vue";
+import MoreSVG from "@/uikit/icon/MoreSVG.vue";
 </script>
 
 <template>
@@ -15,98 +13,173 @@ import Menu from "@/components/layout/Menu.vue";
     <div class="personal__block">
       <div class="partner__top">
         <h3 class="partner__head">ЧТО ТАКОЕ ПАРТНЁРСКАЯ ПРОГРАММА VAUVISION?</h3>
-        <p class="partner__desc">Не нашли ответ на вопрос? Написать в поддержку.</p>
+        <p class="partner__desc">Получайте 400 рублей за каждого друга, выкладывающего релизы через VAUVISION по вашей реферальной ссылке! А также за их каждый следующий релиз и за каждый релиз их друзей! </p>
       </div>
       <div class="partner__flex">
         <div class="partner__content">
-          <div class="partner__empty">
+          <div class="partner__table">
             <h5 class="partner__heading">Партнеры, зарегистрировавшиеся по вашей ссылке</h5>
-            <p class="partner__description button">у вас Пока нет партнеров</p>
-          </div>
-          <div class="personal__registered">
-            <h5 class="personal__registered_head">Финансовые транзакции</h5>
-            <ul class="personal__registered_list">
-              <li class="personal__registered_item personal__registered_header">
-                <div class="personal__registered_cell personal__registered_type text_very">Тип транзакции</div>
-                <div class="personal__registered_cell personal__registered_date text_very">Дата</div>
-                <div class="personal__registered_cell personal__registered_period text_very">Период</div>
-                <div class="personal__registered_cell personal__registered_status text_very">Статус</div>
-                <div class="personal__registered_cell personal__registered_amount text_very">Сумма</div>
+            <ul class="partner__list">
+              <li class="partner__item partner__header">
+                <div class="partner__cell partner__name">Партнер</div>
+                <div class="partner__cell partner__email">E-mail</div>
+                <div class="partner__cell partner__date">Дата регистрации</div>
+                <div class="partner__cell partner__earnings">Начисления</div>
+                <div class="partner__cell partner__releases">Релизы</div>
+                <div class="partner__cell partner__actions"></div>
               </li>
-              <li class="personal__registered_item">
-                <div class="personal__registered_cell personal__registered_type">
-                  <div class="personal__registered_image"><TransactionSVG /></div>
-                  <span class="personal__registered_typevalue button">Выплата роялти</span>
+              <li class="partner__item">
+                <div class="partner__cell partner__name">
+                  <div class="partner__user">
+                    <PersonalSVG />
+                  </div>
+                  <span class="partner__name-text">Superkuper</span>
                 </div>
-                <div class="personal__registered_cell personal__registered_date">
-                  <span class="personal__registered_datevalue text_small">15.10.2025</span>
+                <div class="partner__cell partner__email">
+                  <span class="partner__email-text">mail@yandex.ru</span>
                 </div>
-                <div class="personal__registered_cell personal__registered_period">
-                  <span class="personal__registered_periodvalue text_small">Q3 2025</span>
+                <div class="partner__cell partner__date">
+                  <span class="partner__date-text">12.10.2025</span>
                 </div>
-                <div class="personal__registered_cell personal__registered_status">
-                  <span class="personal__registered_statusvalue text_small">Завершено</span>
+                <div class="partner__cell partner__earnings">
+                  <span class="partner__earnings-text">400 ₽</span>
                 </div>
-                <div class="personal__registered_cell personal__registered_amount">
-                  <span class="personal__registered_amountvalue text_small">55 000 ₽</span>
+                <div class="partner__cell partner__releases">
+                  <span class="partner__releases-text">3 релиза</span>
                 </div>
-              </li>
-              <li class="personal__registered_item">
-                <div class="personal__registered_cell personal__registered_type">
-                  <div class="personal__registered_image"><TransactionSVG /></div>
-                  <span class="personal__registered_typevalue button">Пополнение счета</span>
-                </div>
-                <div class="personal__registered_cell personal__registered_date">
-                  <span class="personal__registered_datevalue text_small">10.10.2025</span>
-                </div>
-                <div class="personal__registered_cell personal__registered_period">
-                  <span class="personal__registered_periodvalue text_small">-</span>
-                </div>
-                <div class="personal__registered_cell personal__registered_status">
-                  <span class="personal__registered_statusvalue text_small">Завершено</span>
-                </div>
-                <div class="personal__registered_cell personal__registered_amount">
-                  <span class="personal__registered_amountvalue text_small">55 000 ₽</span>
+                <div class="partner__cell partner__actions">
+                  <button class="partner__more">
+                    <MoreSVG/>
+                  </button>
                 </div>
               </li>
-              <li class="personal__registered_item">
-                <div class="personal__registered_cell personal__registered_type">
-                  <div class="personal__registered_image"><TransactionSVG /></div>
-                  <span class="personal__registered_typevalue button">Выплата бонусов</span>
+              <li class="partner__item">
+                <div class="partner__cell partner__name">
+                  <div class="partner__user">
+                    <PersonalSVG />
+                  </div>
+                  <span class="partner__name-text">Superkuper</span>
                 </div>
-                <div class="personal__registered_cell personal__registered_date">
-                  <span class="personal__registered_datevalue text_small">05.10.2025</span>
+                <div class="partner__cell partner__email">
+                  <span class="partner__email-text">mail@yandex.ru</span>
                 </div>
-                <div class="personal__registered_cell personal__registered_period">
-                  <span class="personal__registered_periodvalue text_small">Сентябрь 2025</span>
+                <div class="partner__cell partner__date">
+                  <span class="partner__date-text">12.10.2025</span>
                 </div>
-                <div class="personal__registered_cell personal__registered_status">
-                  <span class="personal__registered_statusvalue text_small">В обработке</span>
+                <div class="partner__cell partner__earnings">
+                  <span class="partner__earnings-text">400 ₽</span>
                 </div>
-                <div class="personal__registered_cell personal__registered_amount">
-                  <span class="personal__registered_amountvalue text_small">55 000 ₽</span>
+                <div class="partner__cell partner__releases">
+                  <span class="partner__releases-text">3 релиза</span>
+                </div>
+                <div class="partner__cell partner__actions">
+                  <button class="partner__more">
+                    <MoreSVG/>
+                  </button>
                 </div>
               </li>
-              <li class="personal__registered_item">
-                <div class="personal__registered_cell personal__registered_type">
-                  <div class="personal__registered_image"><TransactionSVG /></div>
-                  <span class="personal__registered_typevalue button">Комиссия сервиса</span>
+              <li class="partner__item">
+                <div class="partner__cell partner__name">
+                  <div class="partner__user">
+                    <PersonalSVG />
+                  </div>
+                  <span class="partner__name-text">Superkuper</span>
                 </div>
-                <div class="personal__registered_cell personal__registered_date">
-                  <span class="personal__registered_datevalue text_small">01.10.2025</span>
+                <div class="partner__cell partner__email">
+                  <span class="partner__email-text">mail@yandex.ru</span>
                 </div>
-                <div class="personal__registered_cell personal__registered_period">
-                  <span class="personal__registered_periodvalue text_small">-</span>
+                <div class="partner__cell partner__date">
+                  <span class="partner__date-text">12.10.2025</span>
                 </div>
-                <div class="personal__registered_cell personal__registered_status">
-                  <span class="personal__registered_statusvalue text_small">Завершено</span>
+                <div class="partner__cell partner__earnings">
+                  <span class="partner__earnings-text">400 ₽</span>
                 </div>
-                <div class="personal__registered_cell personal__registered_amount">
-                  <span class="personal__registered_amountvalue text_small">55 000 ₽</span>
+                <div class="partner__cell partner__releases">
+                  <span class="partner__releases-text">3 релиза</span>
+                </div>
+                <div class="partner__cell partner__actions">
+                  <button class="partner__more">
+                    <MoreSVG/>
+                  </button>
+                </div>
+              </li>
+              <li class="partner__item">
+                <div class="partner__cell partner__name">
+                  <div class="partner__user">
+                    <PersonalSVG />
+                  </div>
+                  <span class="partner__name-text">Superkuper</span>
+                </div>
+                <div class="partner__cell partner__email">
+                  <span class="partner__email-text">mail@yandex.ru</span>
+                </div>
+                <div class="partner__cell partner__date">
+                  <span class="partner__date-text">12.10.2025</span>
+                </div>
+                <div class="partner__cell partner__earnings">
+                  <span class="partner__earnings-text">400 ₽</span>
+                </div>
+                <div class="partner__cell partner__releases">
+                  <span class="partner__releases-text">3 релиза</span>
+                </div>
+                <div class="partner__cell partner__actions">
+                  <button class="partner__more">
+                    <MoreSVG/>
+                  </button>
+                </div>
+              </li>
+              <li class="partner__item">
+                <div class="partner__cell partner__name">
+                  <div class="partner__user">
+                    <PersonalSVG />
+                  </div>
+                  <span class="partner__name-text">Superkuper</span>
+                </div>
+                <div class="partner__cell partner__email">
+                  <span class="partner__email-text">mail@yandex.ru</span>
+                </div>
+                <div class="partner__cell partner__date">
+                  <span class="partner__date-text">12.10.2025</span>
+                </div>
+                <div class="partner__cell partner__earnings">
+                  <span class="partner__earnings-text">400 ₽</span>
+                </div>
+                <div class="partner__cell partner__releases">
+                  <span class="partner__releases-text">3 релиза</span>
+                </div>
+                <div class="partner__cell partner__actions">
+                  <button class="partner__more">
+                    <MoreSVG/>
+                  </button>
+                </div>
+              </li>
+              <li class="partner__item">
+                <div class="partner__cell partner__name">
+                  <div class="partner__user">
+                    <PersonalSVG />
+                  </div>
+                  <span class="partner__name-text">Superkuper</span>
+                </div>
+                <div class="partner__cell partner__email">
+                  <span class="partner__email-text">mail@yandex.ru</span>
+                </div>
+                <div class="partner__cell partner__date">
+                  <span class="partner__date-text">12.10.2025</span>
+                </div>
+                <div class="partner__cell partner__earnings">
+                  <span class="partner__earnings-text">400 ₽</span>
+                </div>
+                <div class="partner__cell partner__releases">
+                  <span class="partner__releases-text">3 релиза</span>
+                </div>
+                <div class="partner__cell partner__actions">
+                  <button class="partner__more">
+                    <MoreSVG/>
+                  </button>
                 </div>
               </li>
             </ul>
-            <button class="personal__registered_load button__primary">
+            <button class="partner__load button__primary">
               <span>Загрузить еще</span>
             </button>
           </div>
@@ -122,11 +195,11 @@ import Menu from "@/components/layout/Menu.vue";
           <div class="partner__referral">
             <div class="partner__referral_info">
               <h5 class="partner__referral_head">реферальная ссылка</h5>
-              <p class="partner__referral_desc">Зарабатывайте вместе с VAUVISION. Получайте реальные деньги за каждого вашего друга, выложевшего релиз.</p>
+              <p class="partner__referral_desc">Зарабатывайте вместе с VAUVISION.Получайте реальные деньги за каждого вашего друга, выложевшего релиз.</p>
             </div>
             <div class="partner__referral_info">
               <p class="partner__referral_heading button">ваша реферальная ссылка</p>
-              <button class="partner__conditions_button button__primary text_very"><span>Появится после принятия условий участия</span></button>
+              <button class="partner__conditions_copy text_very"><span>Появится после принятия условий участия</span></button>
             </div>
           </div>
         </div>
@@ -134,7 +207,6 @@ import Menu from "@/components/layout/Menu.vue";
     </div>
   </div>
 </section>
-<!-- <Footer></Footer> -->
 </template>
 
 <style lang="css" scoped>
@@ -145,7 +217,8 @@ import Menu from "@/components/layout/Menu.vue";
   display: flex;
   gap: 40px;
 }
-.partner__content {
+.partner__content,
+.partner__top {
   display: flex;
   width: calc(100% - 440px);
   flex: 0 0 auto;
@@ -153,25 +226,115 @@ import Menu from "@/components/layout/Menu.vue";
   gap: 40px;
 }
 .partner__top,
-.partner__empty {
+.partner__table {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
-.partner__empty {
+.partner__table {
   padding: 40px;
   background-color: var(--bg);
   border: 1px solid var(--border);
 }
 .partner__head,
 .partner__heading,
-.partner__description,
 .partner__conditions_head {
   text-transform: uppercase;
+}
+.partner__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background-color: var(--border);
+}
+.partner__item {
+  display: flex;
+  width: 100%;
+  padding: 20px 0;
+  align-items: center;
+  background-color: var(--bg);
+  gap: 20px;
+}
+.partner__header,
+.partner__header .partner__earnings {
+  text-transform: capitalize;
+  color: var(--text-gray);
+}
+.partner__cell {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.partner__name {
+  flex: 2;
+  min-width: 140px;
+}
+.partner__email {
+  flex: 2;
+  min-width: 140px;
+}
+.partner__date {
+  flex: 1;
+  min-width: 140px;
+}
+.partner__earnings {
+  flex: 1;
+  min-width: 100px;
+  font-weight: 500;
+  color: var(--color);
+}
+.partner__releases {
+  flex: 1;
+  min-width: 100px;
+}
+.partner__actions {
+  flex: 0 0 40px;
+  min-width: 40px;
+  justify-content: flex-end;
+}
+.partner__user {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  color: #00000038;
+  background-color: var(--bg-gray);
+}
+.partner__user svg {
+  width: 24px;
+  height: 24px;
+  object-fit: cover;
+}
+.partner__more {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-gray);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+.partner__more:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+.partner__more svg {
+  width: 20px;
+  height: 20px;
+}
+.partner__load {
+  margin: 30px auto 0;
 }
 .partner__right {
   display: flex;
   flex-direction: column;
+  flex-wrap: wrap;
   gap: 20px;
 }
 .partner__conditions,
@@ -194,143 +357,115 @@ import Menu from "@/components/layout/Menu.vue";
 .partner__referral_desc {
   color: var(--text-gray);
 }
-
-.personal__registered {
-  display: flex;
-  padding: 40px;
-  flex-direction: column;
-  gap: 20px;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-}
-.personal__registered_head {
-  text-transform: uppercase;
-}
-.personal__registered_list {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  background-color: var(--border);
-}
-.personal__registered_item {
-  display: flex;
+.partner__conditions_copy {
   width: 100%;
-  padding: 20px 0;
-  align-items: center;
+  padding: 15px 20px;
+  color: var(--text);
   background-color: var(--bg);
-  gap: 20px;
+  border: 1px solid var(--text);
+  transition: background-color 0.15s linear, border-color 0.15s linear, color 0.15s linear;
 }
-.personal__registered_header {
-  text-transform: capitalize;
-  color: var(--text-gray);
+.partner__conditions_copy:hover {
+  color: var(--white);
+  background-color: var(--color);
+  border-color: var(--color);
 }
-.personal__registered_cell {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-.personal__registered_type {
-  flex: 2;
-  min-width: 180px;
-}
-.personal__registered_date {
-  flex: 1;
-  min-width: 120px;
-}
-.personal__registered_period {
-  flex: 1;
-  min-width: 120px;
-}
-.personal__registered_status {
-  flex: 1;
-  min-width: 140px;
-}
-.personal__registered_amount {
-  flex: 1;
-  min-width: 120px;
-  justify-content: flex-end;
-  font-weight: 500;
-}
-.personal__registered_image {
-  display: flex;
-  width: 40px;
-  height: 40px;
-  align-items: center;
-  justify-content: center;
-  background-color: #F2F1EF;
-  border-radius: 4px;
+.partner__conditions_copy span {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
   overflow: hidden;
 }
-.personal__registered_image svg {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-  color: var(--text);
-}
-.personal__registered_typevalue {
-  color: var(--text);
-}
-.personal__registered_datevalue,
-.personal__registered_periodvalue {
-  color: var(--text-gray);
-}
-.personal__registered_statusvalue {
-  display: flex;
-  padding: 7px 15px;
-  border-radius: 4px;
-  overflow: hidden;
-}
-.personal__registered_amountvalue {
-  color: var(--text);
-}
-.personal__registered_load {
-  margin: 50px auto 0;
+
+@media (max-width: 1919px) {
+  .partner__content,
+  .partner__top {
+    width: calc(100% - 340px);
+  }
+  .partner__releases {
+    display: none;
+  }
 }
 @media (max-width: 1439px) {
-  .personal__registered_load {
-    margin: 40px auto 0;
+  .partner__content,
+  .partner__top {
+    width: 100%;
+  }
+  .partner__flex {
+    flex-direction: column;
+  }
+  .partner__right {
+    flex-direction: row;
+  }
+  .partner__conditions,
+  .partner__referral {
+    width: calc(50% - 10px);
+  }
+  .partner__conditions {
+    justify-content: space-between;
   }
 }
 @media (max-width: 1023px) {
-  .personal__registered_header {
+}
+@media (max-width: 767px) {
+  .partner__table {
+    padding: 30px 15px;
+  }
+  .partner__header {
     display: none;
   }
-  .personal__registered_item {
+  .partner__item {
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 10px 20px;
+    padding: 15px 0;
   }
-  .personal__registered_type {
-    width: calc(100% - 115px - 10px);
+  .partner__name {
+    width: calc(100% - 50px - 20px);
     min-width: auto;
     flex: 0 0 auto;
     order: 1;
   }
-  .personal__registered_status {
-    width: 115px;
+  .partner__actions {
+    width: 50px;
     min-width: auto;
     flex: 0 0 auto;
-    justify-content: flex-end;
     order: 2;
   }
-  .personal__registered_date {
+  .partner__date {
     min-width: auto;
+    flex: 0 0 auto;
     order: 3;
   }
-  .personal__registered_period {
+  .partner__email {
     min-width: auto;
+    flex: 0 0 auto;
     order: 4;
   }
-  .personal__registered_amount {
+  .partner__earnings {
     min-width: auto;
+    margin: 0 0 0 auto;
+    flex: 0 0 auto;
+    justify-content: flex-end;
     order: 5;
   }
-  .personal__registered_load {
-    margin: 30px 0 0;
+  .partner__load {
+    margin: 20px 0 0;
   }
-}
-@media (max-width: 767px) {
-  .personal__registered {
-    padding: 30px 15px;
+  
+  .partner__flex {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .partner__right {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .partner__conditions,
+  .partner__referral {
+    width: 100%;
   }
 }
 </style>
