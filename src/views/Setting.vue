@@ -647,6 +647,7 @@ initializeData()
           </div>
           <div class="setting__details">
             <h5 class="setting__details_heading">Банковские данные</h5>
+            <p class="setting__details_description">Вы можете заполнить только раздел Физ. лица или Индивидуального предпринимателя. При заполнении одного раздела информация в другом будет удалена.</p>
             <div class="setting__details_flex">
               <div class="form__labels">
                 <label class="form__label">
@@ -929,20 +930,23 @@ initializeData()
   flex-direction: column;
   gap: 30px;
 }
-.form__labels {
+.setting__details_description {
+  color: var(--text-gray);
+}
+.setting__details .form__labels {
   width: 100%;
   flex-wrap: nowrap;
   overflow-y: hidden;
   overflow-x: scroll;
 }
-.form__label {
+.setting__details .form__label {
   flex: 0 0 auto;
 }
-.form__labels::-webkit-scrollbar {
+.setting__details .form__labels::-webkit-scrollbar {
   display: none;
   width: 0px;
 }
-.form__labels::-webkit-scrollbar-thumb {
+.setting__details .form__labels::-webkit-scrollbar-thumb {
   display: none;
   width: 0px;
 }
