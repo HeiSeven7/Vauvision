@@ -496,7 +496,7 @@ import Tr from "@/i18n/translation";
   display: flex;
   width: calc(100% - 440px);
   flex-direction: column;
-  gap: 30px;
+  gap: 20px;
   overflow: hidden;
 }
 .personal__balance {
@@ -1042,6 +1042,9 @@ import Tr from "@/i18n/translation";
   margin: 50px auto 0;
 }
 @media (max-width: 1919px) {
+  .personal__flex {
+    gap: 20px;
+  }
   .personal__content {
     width: calc(100% - 340px);
   }

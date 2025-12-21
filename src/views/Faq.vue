@@ -164,7 +164,7 @@ const setContentRef = (el: HTMLElement, index: number) => {
   display: flex;
   width: calc(100% - 440px);
   flex-direction: column;
-  gap: 40px;
+  gap: 20px;
 }
 .faq__top {
   display: flex;
@@ -225,6 +225,9 @@ const setContentRef = (el: HTMLElement, index: number) => {
   padding: 0 40px 40px;
 }
 @media (max-width: 1919px) {
+  .faq__flex {
+    gap: 20px;
+  }
   .faq__content {
     width: calc(100% - 340px);
     gap: 30px;

@@ -223,7 +223,7 @@ import MoreSVG from "@/uikit/icon/MoreSVG.vue";
   width: calc(100% - 440px);
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 40px;
+  gap: 20px;
 }
 .partner__top,
 .partner__table {
@@ -381,6 +381,9 @@ import MoreSVG from "@/uikit/icon/MoreSVG.vue";
 }
 
 @media (max-width: 1919px) {
+  .partner__flex {
+    gap: 20px;
+  }
   .partner__content,
   .partner__top {
     width: calc(100% - 340px);
