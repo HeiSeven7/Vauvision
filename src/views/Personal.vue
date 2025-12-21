@@ -791,11 +791,12 @@ import Tr from "@/i18n/translation";
   display: flex;
   width: 60px;
   height: 60px;
+  flex: 0 0 auto;
 }
 .personal__articles_image img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
 }
 .personal__articles_info {
   display: flex;
