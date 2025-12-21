@@ -287,7 +287,6 @@ const closeMenu = () => {
   display: flex;
   width: 279px;
   height: 100%;
-  padding: 0 0 0 30px;
   align-items: center;
   border-right: 1px solid var(--border);
   transition: color 0.15s linear;

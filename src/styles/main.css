@@ -555,8 +555,19 @@ section {
   transition: color 0.2s linear, background-color 0.2s linear, border-color 0.2s linear;
 }
 
+.button__primary svg,
+.button__red svg,
+.button__black svg,
+.button__second svg,
+.button__pagination svg {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
 .button__primary span {
-  padding: 17.5px 30px;
+  padding: 12px 20px;
   font-weight: 400;
   text-transform: uppercase;
   color: var(--text);

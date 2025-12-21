@@ -1,9 +1,11 @@
 <script lang="ts" setup>
 import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { View, Hide } from '@element-plus/icons-vue'
 import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
-import { View, Hide } from '@element-plus/icons-vue'
+import PhotoSVG from "@/uikit/icon/PhotoSVG.vue";
+import UploadSVG from "@/uikit/icon/UploadSVG.vue";
 
 // Состояние видимости паролей
 const passwordVisible = ref(false)
@@ -415,19 +417,22 @@ initializeData()
                 <img 
                   v-if="profileImage" 
                   :src="profileImage" 
+                  class="setting__photo_img"
                   alt="Profile"
-                  style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;"
                 />
                 <div 
+                  class="setting__photo_img"
                   v-else
-                  style="width: 100px; height: 100px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center;"
                 >
                   <span style="color: #909399;">No photo</span>
+                </div>
+                <div class="setting__photo_svg">
+                  <PhotoSVG/>
                 </div>
               </div>
               <div class="setting__photo_info">
                 <label class="setting__photo_upload button__primary" :disabled="isUploadingImage">
-                  <span v-if="!isUploadingImage">Загрузить фото</span>
+                  <span v-if="!isUploadingImage"><UploadSVG/>Загрузить фото</span>
                   <span v-else>Загрузка...</span>
                   <input 
                     type="file" 
@@ -812,8 +817,46 @@ initializeData()
 }
 .setting__photo_flex {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 40px;
+}
+.setting__photo_image {
+  display: flex;
+  width: 100px;
+  height: 100px;
+  position: relative;
+}
+.setting__photo_img {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  object-fit: contain;
+  background-color: var(--border);
+  border-radius: 50%;
+  overflow: hidden;
+}
+.setting__photo_svg {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  color: var(--bg);
+  background-color: var(--text);
+  border-radius: 50%;
+  overflow: hidden;
+}
+.setting__photo_svg svg {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 }
 .setting__photo_info {
   display: flex;
@@ -886,6 +929,23 @@ initializeData()
   flex-direction: column;
   gap: 30px;
 }
+.form__labels {
+  width: 100%;
+  flex-wrap: nowrap;
+  overflow-y: hidden;
+  overflow-x: scroll;
+}
+.form__label {
+  flex: 0 0 auto;
+}
+.form__labels::-webkit-scrollbar {
+  display: none;
+  width: 0px;
+}
+.form__labels::-webkit-scrollbar-thumb {
+  display: none;
+  width: 0px;
+}
 .setting__details .form__groups {
   display: flex;
   flex-wrap: wrap;
@@ -949,9 +1009,43 @@ initializeData()
   .setting__right {
     flex-direction: row;
   }
+  .setting__photo,
+  .setting__personal,
+  .setting__general,
+  .setting__passport,
+  .setting__password,
+  .setting__details,
+  .setting__delete {
+    padding: 30px;
+  }
 }
 @media (max-width: 1023px) {
 }
 @media (max-width: 767px) {
+  .personal__container {
+    padding: 0;
+  }
+  .setting__personal_flex .form__group,
+  .setting__general_flex .form__group,
+  .setting__details .form__group,
+  .setting__password_flex .form__group {
+    width: 100%;
+  }
+  .setting__photo_info {
+    flex-direction: column;
+    gap: 15px;
+  }
+  .setting__photo,
+  .setting__personal,
+  .setting__general,
+  .setting__passport,
+  .setting__password,
+  .setting__details,
+  .setting__delete {
+    padding: 30px 15px;
+  }
+  .setting__top {
+    padding: 0 15px;
+  }
 }
 </style>
