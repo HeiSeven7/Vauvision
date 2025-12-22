@@ -24,15 +24,15 @@ import Tr from "@/i18n/translation";
       <div class="personal__balance">
         <div class="personal__balance_info">
           <h3 class="personal__balance_head">Баланс и бонусы аккаунта</h3>
-          <p class="personal__balance_desc">Take advantage of this incredible offer and maximize your profits.</p>
+          <p class="personal__balance_desc">Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится</p>
         </div>
         <div class="personal__divider"></div>
         <ul class="personal__balance_list">
           <li class="personal__balance_item">
             <div class="personal__balance_top">
-              <h4 class="personal__balance_heading">Квартальный отчет</h4>
+              <div class="personal__balance_svg"><WalletSVG/></div><h4 class="personal__balance_heading">Квартальный отчет</h4>
             </div>
-            <button class="personal__balance_button button__red"><span><DownloadSVG/>Скачать квартальный отчет</span></button>
+            <button class="personal__balance_button button__red"><span><DownloadSVG/>Скачать отчет</span></button>
           </li>
           <li class="personal__balance_item">
             <div class="personal__balance_top">
@@ -72,7 +72,7 @@ import Tr from "@/i18n/translation";
                     </div>
                     <div class="personal__releases_flex">
                       <div class="personal__releases_top">
-                        <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                        <h5 class="personal__releases_head"><span>Сингл</span> НаWhere Have You Been (Orchestra)</h5>
                         <p class="personal__releases_album text_very">Lune</p>
                       </div>
                       <p class="personal__releases_date text_very">10.10.2025</p>
@@ -80,7 +80,7 @@ import Tr from "@/i18n/translation";
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                      <h5 class="personal__releases_head"><span>Сингл</span> НаWhere Have You Been (Orchestra)</h5>
                       <p class="personal__releases_album text_very">Lune</p>
                     </div>
                     <div class="personal__releases_codes">
@@ -90,8 +90,8 @@ import Tr from "@/i18n/translation";
                     <div class="personal__releases_bottom">
                       <p class="personal__releases_date text_very">10.10.2025</p>
                       <div class="personal__releases_agreements">
-                        <a href="#" class="personal__releases_agreement" download=""><DownloadSVG/><span>Скачать договор</span></a>
-                        <a href="#" class="personal__releases_agreement" target="_blank"><EyeSVG/><span>Открыть договор</span></a>
+                        <a href="#" class="personal__releases_agreement button" download=""><DownloadSVG/><span>Скачать договор</span></a>
+                        <a href="#" class="personal__releases_agreement button" target="_blank"><EyeSVG/><span>Открыть договор</span></a>
                       </div>
                     </div>
                   </div>
@@ -103,7 +103,7 @@ import Tr from "@/i18n/translation";
                     </div>
                     <div class="personal__releases_flex">
                       <div class="personal__releases_top">
-                        <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                        <h5 class="personal__releases_head"><span>Альбом</span> НаWhere Have You Been (Orchestra)</h5>
                         <p class="personal__releases_album text_very">Lune</p>
                       </div>
                       <p class="personal__releases_date text_very">10.10.2025</p>
@@ -111,7 +111,7 @@ import Tr from "@/i18n/translation";
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                      <h5 class="personal__releases_head"><span>Альбом</span> НаWhere Have You Been (Orchestra)</h5>
                       <p class="personal__releases_album text_very">Lune</p>
                     </div>
                     <div class="personal__releases_codes">
@@ -121,8 +121,8 @@ import Tr from "@/i18n/translation";
                     <div class="personal__releases_bottom">
                       <p class="personal__releases_date text_very">10.10.2025</p>
                       <div class="personal__releases_agreements">
-                        <a href="#" class="personal__releases_agreement" download=""><DownloadSVG/><span>Скачать договор</span></a>
-                        <a href="#" class="personal__releases_agreement" target="_blank"><EyeSVG/><span>Открыть договор</span></a>
+                        <a href="#" class="personal__releases_agreement button" download=""><DownloadSVG/><span>Скачать договор</span></a>
+                        <a href="#" class="personal__releases_agreement button" target="_blank"><EyeSVG/><span>Открыть договор</span></a>
                       </div>
                     </div>
                   </div>
@@ -134,7 +134,7 @@ import Tr from "@/i18n/translation";
                     </div>
                     <div class="personal__releases_flex">
                       <div class="personal__releases_top">
-                        <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                        <h5 class="personal__releases_head"><span>Сингл</span> НаWhere Have You Been (Orchestra)</h5>
                         <p class="personal__releases_album text_very">Lune</p>
                       </div>
                       <p class="personal__releases_date text_very">10.10.2025</p>
@@ -142,7 +142,7 @@ import Tr from "@/i18n/translation";
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                      <h5 class="personal__releases_head"><span>Сингл</span> НаWhere Have You Been (Orchestra)</h5>
                       <p class="personal__releases_album text_very">Lune</p>
                     </div>
                     <div class="personal__releases_codes">
@@ -152,8 +152,8 @@ import Tr from "@/i18n/translation";
                     <div class="personal__releases_bottom">
                       <p class="personal__releases_date text_very">10.10.2025</p>
                       <div class="personal__releases_agreements">
-                        <a href="#" class="personal__releases_agreement" download=""><DownloadSVG/><span>Скачать договор</span></a>
-                        <a href="#" class="personal__releases_agreement" target="_blank"><EyeSVG/><span>Открыть договор</span></a>
+                        <a href="#" class="personal__releases_agreement button" download=""><DownloadSVG/><span>Скачать договор</span></a>
+                        <a href="#" class="personal__releases_agreement button" target="_blank"><EyeSVG/><span>Открыть договор</span></a>
                       </div>
                     </div>
                   </div>
@@ -165,7 +165,7 @@ import Tr from "@/i18n/translation";
                     </div>
                     <div class="personal__releases_flex">
                       <div class="personal__releases_top">
-                        <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                        <h5 class="personal__releases_head"><span>Сингл</span> НаWhere Have You Been (Orchestra)</h5>
                         <p class="personal__releases_album text_very">Lune</p>
                       </div>
                       <p class="personal__releases_date text_very">10.10.2025</p>
@@ -173,7 +173,7 @@ import Tr from "@/i18n/translation";
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                      <h5 class="personal__releases_head"><span>Сингл</span> НаWhere Have You Been (Orchestra)</h5>
                       <p class="personal__releases_album text_very">Lune</p>
                     </div>
                     <div class="personal__releases_codes">
@@ -183,8 +183,8 @@ import Tr from "@/i18n/translation";
                     <div class="personal__releases_bottom">
                       <p class="personal__releases_date text_very">10.10.2025</p>
                       <div class="personal__releases_agreements">
-                        <a href="#" class="personal__releases_agreement" download=""><DownloadSVG/><span>Скачать договор</span></a>
-                        <a href="#" class="personal__releases_agreement" target="_blank"><EyeSVG/><span>Открыть договор</span></a>
+                        <a href="#" class="personal__releases_agreement button" download=""><DownloadSVG/><span>Скачать договор</span></a>
+                        <a href="#" class="personal__releases_agreement button" target="_blank"><EyeSVG/><span>Открыть договор</span></a>
                       </div>
                     </div>
                   </div>
@@ -196,7 +196,7 @@ import Tr from "@/i18n/translation";
                     </div>
                     <div class="personal__releases_flex">
                       <div class="personal__releases_top">
-                        <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                        <h5 class="personal__releases_head"><span>Сингл</span> НаWhere Have You Been (Orchestra)</h5>
                         <p class="personal__releases_album text_very">Lune</p>
                       </div>
                       <p class="personal__releases_date text_very">10.10.2025</p>
@@ -204,7 +204,7 @@ import Tr from "@/i18n/translation";
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h5 class="personal__releases_head">НаWhere Have You Been (Orchestra)</h5>
+                      <h5 class="personal__releases_head"><span>Сингл</span> НаWhere Have You Been (Orchestra)</h5>
                       <p class="personal__releases_album text_very">Lune</p>
                     </div>
                     <div class="personal__releases_codes">
@@ -214,8 +214,8 @@ import Tr from "@/i18n/translation";
                     <div class="personal__releases_bottom">
                       <p class="personal__releases_date text_very">10.10.2025</p>
                       <div class="personal__releases_agreements">
-                        <a href="#" class="personal__releases_agreement" download=""><DownloadSVG/><span>Скачать договор</span></a>
-                        <a href="#" class="personal__releases_agreement" target="_blank"><EyeSVG/><span>Открыть договор</span></a>
+                        <a href="#" class="personal__releases_agreement button" download=""><DownloadSVG/><span>Скачать договор</span></a>
+                        <a href="#" class="personal__releases_agreement button" target="_blank"><EyeSVG/><span>Открыть договор</span></a>
                       </div>
                     </div>
                   </div>
@@ -227,7 +227,10 @@ import Tr from "@/i18n/translation";
             </div>
           </div>
           <div class="personal__reports">
-            <h5 class="personal__reports_head">Ранее полученные отчеты</h5>
+            <div class="personal__reports_top">
+              <h5 class="personal__reports_head">Ранее полученные отчеты</h5>
+              <p class="personal__reports_desc">Новый отчёт нужно скачать через кнопку «Скачать отчёт» вверху страницы</p>
+            </div>
             <ul class="personal__reports_list">
               <li class="personal__reports_item personal__reports_header">
                 <div class="personal__reports_cell personal__reports_info text_very">Отчет</div>
@@ -238,7 +241,7 @@ import Tr from "@/i18n/translation";
                 <div class="personal__reports_cell personal__reports_info">
                   <div class="personal__reports_image"><ReportsSVG /></div>
                   <div class="personal__reports_file">
-                    <span class="personal__reports_filename">Homepage_statement_V2.pdf</span>
+                    <span class="personal__reports_filename">ArtistName Q1 2025.pdf</span>
                     <span class="personal__reports_filesize">2.4 MB</span>
                   </div>
                 </div>
@@ -262,7 +265,7 @@ import Tr from "@/i18n/translation";
                 <div class="personal__reports_cell personal__reports_info">
                   <div class="personal__reports_image"><ReportsSVG /></div>
                   <div class="personal__reports_file">
-                    <span class="personal__reports_filename">Q1_2025_Report.pdf</span>
+                    <span class="personal__reports_filename">ArtistName Q2 2025.pdf</span>
                     <span class="personal__reports_filesize">3.1 MB</span>
                   </div>
                 </div>
@@ -286,7 +289,7 @@ import Tr from "@/i18n/translation";
                 <div class="personal__reports_cell personal__reports_info">
                   <div class="personal__reports_image"><ReportsSVG /></div>
                   <div class="personal__reports_file">
-                    <span class="personal__reports_filename">Annual_Statement_2024.pdf</span>
+                    <span class="personal__reports_filename">ArtistName Q3 2025.pdf</span>
                     <span class="personal__reports_filesize">5.7 MB</span>
                   </div>
                 </div>
@@ -676,6 +679,9 @@ import Tr from "@/i18n/translation";
 .personal__releases_head {
   text-transform: uppercase;
 }
+.personal__releases_head span {
+  color: var(--text-gray);
+}
 .personal__releases_codes {
   display: flex;
   flex-wrap: wrap;
@@ -843,8 +849,16 @@ import Tr from "@/i18n/translation";
   background-color: var(--bg);
   border: 1px solid var(--border);
 }
+.personal__reports_top {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .personal__reports_head {
   text-transform: uppercase;
+}
+.personal__reports_desc {
+  color: var(--text-gray);
 }
 .personal__reports_list {
   display: flex;

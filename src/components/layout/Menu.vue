@@ -48,6 +48,12 @@ import Tr from "@/i18n/translation";
         <span>Статьи</span>
       </RouterLink>
     </li>
+    <li class="menu__item">
+      <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'faq' })">
+        <span><FaqSVG /></span>
+        <span>Связь с поддержкой</span>
+      </RouterLink>
+    </li>
   </ul>
 </div>
 </template>
@@ -125,7 +131,6 @@ import Tr from "@/i18n/translation";
   width: 16px;
   height: 16px;
   object-fit: contain;
-  transform: translateY(1.7px);
 }
 
 @media (max-width: 1919px) {

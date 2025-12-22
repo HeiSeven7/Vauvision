@@ -86,7 +86,7 @@ const closeMenu = () => {
           </RouterLink>
           
           <div class="header__info">
-            <div class="header__balance header__button">
+            <div class="header__balance header__button" title="Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится">
               <PaySVG />
               <span>Баланс: 144 000 руб.</span>
             </div>
@@ -203,6 +203,16 @@ const closeMenu = () => {
                   <span>Статьи</span>
                 </RouterLink>
               </li>
+              <li class="burger__nav_item">
+                <RouterLink 
+                  :to="Tr.i18nRoute({ name: 'faq' })" 
+                  class="burger__nav_link"
+                  @click="closeMenu"
+                >
+                  <FaqSVG class="burger__nav_icon" />
+                  <span>Связь с поддержкой</span>
+                </RouterLink>
+              </li>
               <li class="burger__nav_item burger__logout">
                 <button class="burger__nav_link" @click="closeMenu">
                   <LogoutSVG class="burger__nav_icon" />
@@ -214,7 +224,7 @@ const closeMenu = () => {
           
           <!-- Кнопки -->
           <div class="burger__buttons">
-            <div class="header__balance header__button">
+            <div class="header__balance header__button" title="Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится">
               <PaySVG />
               <span>Баланс: 144 000 руб.</span>
             </div>
@@ -616,6 +626,9 @@ const closeMenu = () => {
   .header__burger.active span:after {
     top: 0;
     transform: rotate3d(0, 0, 1, 45deg);
+  }
+  .header__flex {
+    gap: 20px;
   }
 }
 </style>
