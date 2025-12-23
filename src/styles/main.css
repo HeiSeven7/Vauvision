@@ -617,6 +617,23 @@ section {
   color: var(--text);
   background-color: var(--bg);
 }
+.pagination__buttons {
+  display: flex;
+  width: 100%;
+  padding: 40px 0 0;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+.pagination__buttons_button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pagination__buttons_button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .button__pagination_next span:first-child,
 .button__pagination_prev span:last-child {
@@ -642,24 +659,6 @@ section {
   text-align: right;
 }
 
-.button__pagination_next span:last-child {
-  position: relative;
-  right: 5px;
-}
-
-.button__pagination_prev span:first-child {
-  position: relative;
-  right: -5px;
-}
-
-.button__pagination_next:hover span:last-child {
-  right: 0px;
-}
-
-.button__pagination_prev:hover span:first-child {
-  right: 0px;
-}
-
 .button__pagination_next span:last-child,
 .button__pagination_prev span:first-child {
   width: 40px;
@@ -679,13 +678,23 @@ section {
   transform: rotate(180deg);
 }
 
-.pagination_page {
+.pagination__buttons {
   display: flex;
-  width: 100%;
-  max-width: 260px;
+  padding: 50px 0 0;
   align-items: center;
   justify-content: center;
-  text-align: center;
+}
+.pagination__buttons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-top: 30px;
+}
+.pagination__buttons_info {
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--text-secondary);
 }
 
 .link {
@@ -957,6 +966,9 @@ section {
   }
   .personal__block {
     padding: 50px 0 40px 40px;
+  }
+  .pagination__buttons {
+    padding: 20px 0 0;
   }
 }
 

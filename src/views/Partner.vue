@@ -1,8 +1,176 @@
 <script lang="ts" setup>
+import { ref, computed } from "vue";
 import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
 import PersonalSVG from "@/uikit/icon/PersonalSVG.vue";
 import MoreSVG from "@/uikit/icon/MoreSVG.vue";
+import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
+
+// Интерфейс для партнера
+interface Partner {
+  id: number;
+  name: string;
+  email: string;
+  date: string;
+  earnings: string;
+  releases: string;
+}
+
+// Объект для списка партнеров
+const partnersData = ref<Partner[]>([
+  {
+    id: 1,
+    name: "Superkuper",
+    email: "mail@yandex.ru",
+    date: "12.10.2025",
+    earnings: "400 ₽",
+    releases: "3 релиза"
+  },
+  {
+    id: 2,
+    name: "leoneo",
+    email: "leoneo@mail.com",
+    date: "11.10.2025",
+    earnings: "800 ₽",
+    releases: "6 релизов"
+  },
+  {
+    id: 3,
+    name: "tat55",
+    email: "tatiana@example.com",
+    date: "10.10.2025",
+    earnings: "1200 ₽",
+    releases: "9 релизов"
+  },
+  {
+    id: 4,
+    name: "musiclover",
+    email: "music@protonmail.com",
+    date: "09.10.2025",
+    earnings: "400 ₽",
+    releases: "2 релиза"
+  },
+  {
+    id: 5,
+    name: "beatmaker",
+    email: "beats@gmail.com",
+    date: "08.10.2025",
+    earnings: "1600 ₽",
+    releases: "12 релизов"
+  },
+  {
+    id: 6,
+    name: "dj_pro",
+    email: "dj@yandex.ru",
+    date: "07.10.2025",
+    earnings: "400 ₽",
+    releases: "1 релиз"
+  },
+  {
+    id: 7,
+    name: "soundmaster",
+    email: "sound@mail.ru",
+    date: "06.10.2025",
+    earnings: "1200 ₽",
+    releases: "8 релизов"
+  },
+  {
+    id: 8,
+    name: "vocalist",
+    email: "vocal@protonmail.com",
+    date: "05.10.2025",
+    earnings: "800 ₽",
+    releases: "5 релизов"
+  },
+  {
+    id: 9,
+    name: "guitarhero",
+    email: "guitar@example.com",
+    date: "04.10.2025",
+    earnings: "400 ₽",
+    releases: "3 релиза"
+  },
+  {
+    id: 10,
+    name: "producer_x",
+    email: "producer@yandex.ru",
+    date: "03.10.2025",
+    earnings: "2000 ₽",
+    releases: "15 релизов"
+  },
+  {
+    id: 11,
+    name: "bassline",
+    email: "bass@mail.com",
+    date: "02.10.2025",
+    earnings: "400 ₽",
+    releases: "2 релиза"
+  },
+  {
+    id: 12,
+    name: "synthwave",
+    email: "synth@example.com",
+    date: "01.10.2025",
+    earnings: "1200 ₽",
+    releases: "7 релизов"
+  },
+  {
+    id: 13,
+    name: "drummer",
+    email: "drums@yandex.ru",
+    date: "30.09.2025",
+    earnings: "800 ₽",
+    releases: "4 релиза"
+  },
+  {
+    id: 14,
+    name: "mixengineer",
+    email: "mix@protonmail.com",
+    date: "29.09.2025",
+    earnings: "400 ₽",
+    releases: "3 релиза"
+  },
+  {
+    id: 15,
+    name: "composer",
+    email: "compose@mail.ru",
+    date: "28.09.2025",
+    earnings: "1600 ₽",
+    releases: "10 релизов"
+  }
+]);
+
+// Пагинация для партнеров
+const partnersPerPage = ref<number>(6);
+const currentPartnersPage = ref<number>(1);
+
+// Вычисляемые свойства для партнеров
+const totalPartnersPages = computed(() => {
+  return Math.ceil(partnersData.value.length / partnersPerPage.value);
+});
+
+const paginatedPartners = computed(() => {
+  const start = (currentPartnersPage.value - 1) * partnersPerPage.value;
+  const end = start + partnersPerPage.value;
+  return partnersData.value.slice(start, end);
+});
+
+const showPartnersPagination = computed(() => {
+  return partnersData.value.length > partnersPerPage.value;
+});
+
+// Методы для пагинации партнеров
+const nextPartnersPage = () => {
+  if (currentPartnersPage.value < totalPartnersPages.value) {
+    currentPartnersPage.value++;
+  }
+};
+
+const prevPartnersPage = () => {
+  if (currentPartnersPage.value > 1) {
+    currentPartnersPage.value--;
+  }
+};
 </script>
 
 <template>
@@ -28,149 +196,28 @@ import MoreSVG from "@/uikit/icon/MoreSVG.vue";
                 <div class="partner__cell partner__releases">Релизы</div>
                 <div class="partner__cell partner__actions"></div>
               </li>
-              <li class="partner__item">
+              <li 
+                class="partner__item" 
+                v-for="partner in paginatedPartners" 
+                :key="partner.id"
+              >
                 <div class="partner__cell partner__name">
                   <div class="partner__user">
                     <PersonalSVG />
                   </div>
-                  <span class="partner__name-text">Superkuper</span>
+                  <span class="partner__name-text">{{ partner.name }}</span>
                 </div>
                 <div class="partner__cell partner__email">
-                  <span class="partner__email-text">mail@yandex.ru</span>
+                  <span class="partner__email-text">{{ partner.email }}</span>
                 </div>
                 <div class="partner__cell partner__date">
-                  <span class="partner__date-text">12.10.2025</span>
+                  <span class="partner__date-text">{{ partner.date }}</span>
                 </div>
                 <div class="partner__cell partner__earnings">
-                  <span class="partner__earnings-text">400 ₽</span>
+                  <span class="partner__earnings-text">{{ partner.earnings }}</span>
                 </div>
                 <div class="partner__cell partner__releases">
-                  <span class="partner__releases-text">3 релиза</span>
-                </div>
-                <div class="partner__cell partner__actions">
-                  <button class="partner__more">
-                    <MoreSVG/>
-                  </button>
-                </div>
-              </li>
-              <li class="partner__item">
-                <div class="partner__cell partner__name">
-                  <div class="partner__user">
-                    <PersonalSVG />
-                  </div>
-                  <span class="partner__name-text">Superkuper</span>
-                </div>
-                <div class="partner__cell partner__email">
-                  <span class="partner__email-text">mail@yandex.ru</span>
-                </div>
-                <div class="partner__cell partner__date">
-                  <span class="partner__date-text">12.10.2025</span>
-                </div>
-                <div class="partner__cell partner__earnings">
-                  <span class="partner__earnings-text">400 ₽</span>
-                </div>
-                <div class="partner__cell partner__releases">
-                  <span class="partner__releases-text">3 релиза</span>
-                </div>
-                <div class="partner__cell partner__actions">
-                  <button class="partner__more">
-                    <MoreSVG/>
-                  </button>
-                </div>
-              </li>
-              <li class="partner__item">
-                <div class="partner__cell partner__name">
-                  <div class="partner__user">
-                    <PersonalSVG />
-                  </div>
-                  <span class="partner__name-text">Superkuper</span>
-                </div>
-                <div class="partner__cell partner__email">
-                  <span class="partner__email-text">mail@yandex.ru</span>
-                </div>
-                <div class="partner__cell partner__date">
-                  <span class="partner__date-text">12.10.2025</span>
-                </div>
-                <div class="partner__cell partner__earnings">
-                  <span class="partner__earnings-text">400 ₽</span>
-                </div>
-                <div class="partner__cell partner__releases">
-                  <span class="partner__releases-text">3 релиза</span>
-                </div>
-                <div class="partner__cell partner__actions">
-                  <button class="partner__more">
-                    <MoreSVG/>
-                  </button>
-                </div>
-              </li>
-              <li class="partner__item">
-                <div class="partner__cell partner__name">
-                  <div class="partner__user">
-                    <PersonalSVG />
-                  </div>
-                  <span class="partner__name-text">Superkuper</span>
-                </div>
-                <div class="partner__cell partner__email">
-                  <span class="partner__email-text">mail@yandex.ru</span>
-                </div>
-                <div class="partner__cell partner__date">
-                  <span class="partner__date-text">12.10.2025</span>
-                </div>
-                <div class="partner__cell partner__earnings">
-                  <span class="partner__earnings-text">400 ₽</span>
-                </div>
-                <div class="partner__cell partner__releases">
-                  <span class="partner__releases-text">3 релиза</span>
-                </div>
-                <div class="partner__cell partner__actions">
-                  <button class="partner__more">
-                    <MoreSVG/>
-                  </button>
-                </div>
-              </li>
-              <li class="partner__item">
-                <div class="partner__cell partner__name">
-                  <div class="partner__user">
-                    <PersonalSVG />
-                  </div>
-                  <span class="partner__name-text">Superkuper</span>
-                </div>
-                <div class="partner__cell partner__email">
-                  <span class="partner__email-text">mail@yandex.ru</span>
-                </div>
-                <div class="partner__cell partner__date">
-                  <span class="partner__date-text">12.10.2025</span>
-                </div>
-                <div class="partner__cell partner__earnings">
-                  <span class="partner__earnings-text">400 ₽</span>
-                </div>
-                <div class="partner__cell partner__releases">
-                  <span class="partner__releases-text">3 релиза</span>
-                </div>
-                <div class="partner__cell partner__actions">
-                  <button class="partner__more">
-                    <MoreSVG/>
-                  </button>
-                </div>
-              </li>
-              <li class="partner__item">
-                <div class="partner__cell partner__name">
-                  <div class="partner__user">
-                    <PersonalSVG />
-                  </div>
-                  <span class="partner__name-text">Superkuper</span>
-                </div>
-                <div class="partner__cell partner__email">
-                  <span class="partner__email-text">mail@yandex.ru</span>
-                </div>
-                <div class="partner__cell partner__date">
-                  <span class="partner__date-text">12.10.2025</span>
-                </div>
-                <div class="partner__cell partner__earnings">
-                  <span class="partner__earnings-text">400 ₽</span>
-                </div>
-                <div class="partner__cell partner__releases">
-                  <span class="partner__releases-text">3 релиза</span>
+                  <span class="partner__releases-text">{{ partner.releases }}</span>
                 </div>
                 <div class="partner__cell partner__actions">
                   <button class="partner__more">
@@ -179,9 +226,42 @@ import MoreSVG from "@/uikit/icon/MoreSVG.vue";
                 </div>
               </li>
             </ul>
-            <button class="partner__load button__primary">
+            
+            <!-- Пагинация -->
+            <div class="pagination__buttons" v-if="showPartnersPagination">
+              <button 
+                class="pagination__buttons_button button button__pagination button__pagination_prev"
+                @click="prevPartnersPage"
+                :disabled="currentPartnersPage === 1"
+              >
+                <span><ButtonSVG /></span>
+                <span>{{ $t('button.prev') }}</span>
+              </button>
+              
+              <div class="pagination__buttons_info">
+                {{ currentPartnersPage }}/{{ totalPartnersPages }}
+              </div>
+              
+              <button 
+                class="pagination__buttons_button button button__pagination button__pagination_next"
+                @click="nextPartnersPage"
+                :disabled="currentPartnersPage === totalPartnersPages"
+              >
+                <span>{{ $t('button.next') }}</span>
+                <span><ButtonSVG /></span>
+              </button>
+            </div>
+            
+            <!-- Альтернатива: кнопка "Загрузить еще" -->
+            <!--
+            <button 
+              class="partner__load button__primary"
+              @click="loadMorePartners"
+              v-if="partnersPerPage < partnersData.length"
+            >
               <span>Загрузить еще</span>
             </button>
+            -->
           </div>
         </div>
         <div class="partner__right">
@@ -410,8 +490,6 @@ import MoreSVG from "@/uikit/icon/MoreSVG.vue";
   .partner__conditions {
     justify-content: space-between;
   }
-}
-@media (max-width: 1023px) {
 }
 @media (max-width: 767px) {
   .partner__table {
