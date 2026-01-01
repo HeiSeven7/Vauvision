@@ -25,6 +25,7 @@
   --safe-area-inset-bottom: env(safe-area-inset-bottom);
   --safe-area-inset-left: env(safe-area-inset-left);
   --el-input-hover-border-color: #AB1115;
+  --el-color-primary: #AB1115;
   --scroll: 0;
 }
 

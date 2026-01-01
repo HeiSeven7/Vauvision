@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import { ref, computed, onMounted } from "vue";
-import { useRouter } from "vue-router";
 import Header from "@/components/layout/Header.vue";
 // import Footer from "@/components/layout/Footer.vue";
 import Menu from "@/components/layout/Menu.vue";
@@ -12,9 +11,7 @@ import PaySVG from "@/uikit/icon/PaySVG.vue";
 import ReportsSVG from "@/uikit/icon/ReportsSVG.vue";
 import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
 import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
-import Tr from "@/i18n/translation";
-
-const router = useRouter();
+import Tr from "@/i18n/translation"
 
 // Интерфейсы для объектов списков
 interface Release {

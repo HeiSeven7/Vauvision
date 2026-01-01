@@ -270,6 +270,10 @@ textarea,
   pointer-events: none;
   background: transparent;
 }
+.el-input__wrapper {
+  box-shadow: none !important;
+  border: 1px solid var(--border);
+}
 .el-input__wrapper,
 .el-textarea__inner,
 .el-textarea__inner:hover {
@@ -345,6 +349,28 @@ textarea,
 .el-input__suffix {
   cursor: pointer;
 }
+.el-input-number {
+  width: 120px;
+}
+.el-input-number__decrease,
+.el-input-number__increase {
+  border-radius: 0;
+  background-color: transparent;
+  transition: background-color 0.3s linear;
+}
+.el-input-number__decrease:hover,
+.el-input-number__increase:hover {
+  background-color: var(--color);
+}
+.el-input-number__decrease .el-icon,
+.el-input-number__increase .el-icon {
+  transition: color 0.3s linear;
+}
+.el-input-number__decrease:hover .el-icon,
+.el-input-number__increase:hover .el-icon {
+  color: var(--white);
+}
+
 
 @media (max-width: 580px) {
   .el-popper.is-pure,
