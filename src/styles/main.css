@@ -542,6 +542,15 @@ section {
   gap: 5px;
 }
 
+.button__primary:disabled,
+.button__red:disabled,
+.button__black:disabled,
+.button__second:disabled,
+.button__pagination:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
 .button__primary span,
 .button__red span,
 .button__black span,

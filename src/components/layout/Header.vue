@@ -150,7 +150,7 @@ const closeMenu = () => {
                   @click="closeMenu"
                 >
                   <SettingSVG class="burger__nav_icon" />
-                  <span>Профиль</span>
+                  <p>Профиль</p>
                 </RouterLink>
               </li>
               <li class="burger__nav_item">
@@ -160,7 +160,7 @@ const closeMenu = () => {
                   @click="closeMenu"
                 >
                   <HomeSVG class="burger__nav_icon" />
-                  <span>Главная</span>
+                  <p>Главная</p>
                 </RouterLink>
               </li>
               <li class="burger__nav_item">
@@ -170,7 +170,7 @@ const closeMenu = () => {
                   @click="closeMenu"
                 >
                   <UploadSVG class="burger__nav_icon" />
-                  <span>Выложить релиз</span>
+                  <p>Выложить релиз</p>
                 </RouterLink>
               </li>
               <li class="burger__nav_item">
@@ -180,7 +180,7 @@ const closeMenu = () => {
                   @click="closeMenu"
                 >
                   <PartnerSVG class="burger__nav_icon" />
-                  <span>Стать партнером</span>
+                  <p>Стать партнером</p>
                 </RouterLink>
               </li>
               <li class="burger__nav_item">
@@ -190,7 +190,7 @@ const closeMenu = () => {
                   @click="closeMenu"
                 >
                   <FaqSVG class="burger__nav_icon" />
-                  <span>FAQ</span>
+                  <p>FAQ</p>
                 </RouterLink>
               </li>
               <li class="burger__nav_item">
@@ -200,7 +200,7 @@ const closeMenu = () => {
                   @click="closeMenu"
                 >
                   <ArticlesSVG class="burger__nav_icon" />
-                  <span>Статьи</span>
+                  <p>Статьи</p>
                 </RouterLink>
               </li>
               <li class="burger__nav_item">
@@ -210,13 +210,13 @@ const closeMenu = () => {
                   @click="closeMenu"
                 >
                   <FaqSVG class="burger__nav_icon" />
-                  <span>Связь с поддержкой</span>
+                  <p>Связь с поддержкой</p>
                 </RouterLink>
               </li>
               <li class="burger__nav_item burger__logout">
                 <button class="burger__nav_link" @click="closeMenu">
                   <LogoutSVG class="burger__nav_icon" />
-                  <span>Выйти из аккаунта</span>
+                  <p>Выйти из аккаунта</p>
                 </button>
               </li>
             </ul>
@@ -534,10 +534,12 @@ const closeMenu = () => {
   transition: color 0.15s linear;
   cursor: pointer;
 }
-.burger__nav_link:hover {
+.burger__nav_link:hover,
+.burger__nav_link:hover p {
   color: var(--color);
 }
-.burger__nav_link.router-link-active {
+.burger__nav_link.router-link-active,
+.burger__nav_link.router-link-active p {
   color: var(--color);
 }
 .burger__nav_icon {
