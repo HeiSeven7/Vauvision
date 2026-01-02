@@ -1,64 +1,3 @@
-<template>
-  <div class="quiz__menu">
-    <button 
-      class="quiz__menu_button button" 
-      :class="{ active: currentStep === 1 }" 
-      @click="goToStep(1)"
-    >
-      <span>Шаг 1. Оформление заказа</span>
-    </button>
-    <button 
-      class="quiz__menu_button button" 
-      :class="{ active: currentStep === 2 }" 
-      @click="goToStep(2)"
-    >
-      <span>Шаг 2. Загрузить трек</span>
-    </button>
-    <button 
-      class="quiz__menu_button button" 
-      :class="{ active: currentStep === 3 }" 
-      @click="goToStep(3)"
-    >
-      <span>Шаг 3. Информация о треке</span>
-    </button>
-    <button 
-      class="quiz__menu_button button" 
-      :class="{ active: currentStep === 4 }" 
-      @click="goToStep(4)"
-    >
-      <span>Шаг 4. Данные паспорта</span>
-    </button>
-    <button 
-      class="quiz__menu_button button" 
-      :class="{ active: currentStep === 5 }" 
-      @click="goToStep(5)"
-    >
-      <span>Шаг 5. Жанр и текст</span>
-    </button>
-    <button 
-      class="quiz__menu_button button" 
-      :class="{ active: currentStep === 6 }" 
-      @click="goToStep(6)"
-    >
-      <span>Шаг 6. Дополнительная информация</span>
-    </button>
-    <button 
-      class="quiz__menu_button button" 
-      :class="{ active: currentStep === 7 }" 
-      @click="goToStep(7)"
-    >
-      <span>Шаг 7. Договор</span>
-    </button>
-    <button 
-      class="quiz__menu_button button" 
-      :class="{ active: currentStep === 8 }" 
-      @click="goToStep(8)"
-    >
-      <span>Шаг 8. Финал</span>
-    </button>
-  </div>
-</template>
-
 <script lang="ts" setup>
 defineProps<{
   currentStep: number;
@@ -72,6 +11,67 @@ const goToStep = (step: number) => {
   emit('go-to-step', step);
 };
 </script>
+
+<template>
+<div class="quiz__menu">
+  <button 
+    class="quiz__menu_button button" 
+    :class="{ active: currentStep === 1 }" 
+    @click="goToStep(1)"
+  >
+    <span>Шаг 1. Оформление заказа</span>
+  </button>
+  <button 
+    class="quiz__menu_button button" 
+    :class="{ active: currentStep === 2 }" 
+    @click="goToStep(2)"
+  >
+    <span>Шаг 2. Загрузить трек</span>
+  </button>
+  <button 
+    class="quiz__menu_button button" 
+    :class="{ active: currentStep === 3 }" 
+    @click="goToStep(3)"
+  >
+    <span>Шаг 3. Информация о треке</span>
+  </button>
+  <button 
+    class="quiz__menu_button button" 
+    :class="{ active: currentStep === 4 }" 
+    @click="goToStep(4)"
+  >
+    <span>Шаг 4. Данные паспорта</span>
+  </button>
+  <button 
+    class="quiz__menu_button button" 
+    :class="{ active: currentStep === 5 }" 
+    @click="goToStep(5)"
+  >
+    <span>Шаг 5. Жанр и текст</span>
+  </button>
+  <button 
+    class="quiz__menu_button button" 
+    :class="{ active: currentStep === 6 }" 
+    @click="goToStep(6)"
+  >
+    <span>Шаг 6. Дополнительная информация</span>
+  </button>
+  <button 
+    class="quiz__menu_button button" 
+    :class="{ active: currentStep === 7 }" 
+    @click="goToStep(7)"
+  >
+    <span>Шаг 7. Договор</span>
+  </button>
+  <button 
+    class="quiz__menu_button button" 
+    :class="{ active: currentStep === 8 }" 
+    @click="goToStep(8)"
+  >
+    <span>Шаг 8. Финал</span>
+  </button>
+</div>
+</template>
 
 <style lang="css" scoped>
 .quiz__menu {

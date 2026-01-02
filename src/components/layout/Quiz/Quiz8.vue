@@ -1,27 +1,3 @@
-<template>
-  <div class="quiz__form quiz__form_eight">
-    <h4 class="quiz__form_head">Шаг 8. Финал</h4>
-    <p class="quiz__form_description">Здесь будет форма для шага 8</p>
-    <div class="quiz__form_bottom">
-      <div class="quiz__form_buttons">
-        <button 
-          class="form__back button__second button" 
-          @click="goBack"
-        >
-          <span><BackSVG /></span>
-          <span>Назад</span>
-        </button>
-        <button 
-          class="quiz__form_button button__black button"
-          @click="handleFinish"
-        >
-          <span>Завершить</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script lang="ts" setup>
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import { ElMessage } from 'element-plus';
@@ -40,6 +16,30 @@ const handleFinish = () => {
   emit('finish');
 };
 </script>
+
+<template>
+<div class="quiz__form quiz__form_eight">
+  <h4 class="quiz__form_head">Шаг 8. Финал</h4>
+  <p class="quiz__form_description">Здесь будет форма для шага 8</p>
+  <div class="quiz__form_bottom">
+    <div class="quiz__form_buttons">
+      <button 
+        class="form__back button__second button" 
+        @click="goBack"
+      >
+        <span><BackSVG /></span>
+        <span>Назад</span>
+      </button>
+      <button 
+        class="quiz__form_button button__black button"
+        @click="handleFinish"
+      >
+        <span>Завершить</span>
+      </button>
+    </div>
+  </div>
+</div>
+</template>
 
 <style lang="css" scoped>
 .quiz__form {

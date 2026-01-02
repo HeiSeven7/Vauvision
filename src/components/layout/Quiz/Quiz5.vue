@@ -1,27 +1,3 @@
-<template>
-  <div class="quiz__form quiz__form_five">
-    <h4 class="quiz__form_head">Шаг 5. Жанр и текст</h4>
-    <p class="quiz__form_description">Здесь будет форма для шага 5</p>
-    <div class="quiz__form_bottom">
-      <div class="quiz__form_buttons">
-        <button 
-          class="form__back button__second button" 
-          @click="goBack"
-        >
-          <span><BackSVG /></span>
-          <span>Назад</span>
-        </button>
-        <button 
-          class="quiz__form_button button__black button"
-          @click="goNext"
-        >
-          <span>Продолжить</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script lang="ts" setup>
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 
@@ -38,6 +14,30 @@ const goNext = () => {
   emit('go-next');
 };
 </script>
+
+<template>
+<div class="quiz__form quiz__form_five">
+  <h4 class="quiz__form_head">Шаг 5. Жанр и текст</h4>
+  <p class="quiz__form_description">Здесь будет форма для шага 5</p>
+  <div class="quiz__form_bottom">
+    <div class="quiz__form_buttons">
+      <button 
+        class="form__back button__second button" 
+        @click="goBack"
+      >
+        <span><BackSVG /></span>
+        <span>Назад</span>
+      </button>
+      <button 
+        class="quiz__form_button button__black button"
+        @click="goNext"
+      >
+        <span>Продолжить</span>
+      </button>
+    </div>
+  </div>
+</div>
+</template>
 
 <style lang="css" scoped>
 .quiz__form {
