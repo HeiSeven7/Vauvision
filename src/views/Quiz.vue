@@ -121,11 +121,6 @@ const goToStep = (step: number) => {
   top: 2.3px;
 }
 
-@media (max-width: 1919px) {
-  .quiz__forms {
-    padding: 40px 20px;
-  }
-}
 @media (max-width: 1439px) {
   .personal__container {
     padding: 0;

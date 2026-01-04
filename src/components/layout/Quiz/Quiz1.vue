@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { ref, computed, getCurrentInstance, onMounted } from 'vue';
 import { ElInputNumber, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 
@@ -8,28 +8,46 @@ const emit = defineEmits<{
   'go-next': [];
 }>();
 
-// Состояния для счетчиков
-const singleCount = ref(0);
-const albumCount = ref(0);
-const clipCount = ref(0);
-const cardCount = ref(0);
+// Получаем экземпляр компонента для доступа к родителю
+const instance = getCurrentInstance();
+const parent = instance?.parent;
 
-// Цены для каждого типа
-const prices = {
-  single: 2590,
-  album: 2590,
-  clip: 2590,
-  card: 2590
-};
+// Локальные состояния
+const singleCountLocal = ref(0);
+const albumCountLocal = ref(0);
+const clipCountLocal = ref(0);
+const cardCountLocal = ref(0);
 
-// Вычисляемая общая сумма
+// Попытка получить состояние из родительского компонента
+const hasParentState = computed(() => {
+  return parent && parent.exposed;
+});
+
+// Общая сумма
 const totalSum = computed(() => {
+  const prices = {
+    single: 2590,
+    album: 2590,
+    clip: 2590,
+    card: 2590
+  };
+  
   return (
-    singleCount.value * prices.single +
-    albumCount.value * prices.album +
-    clipCount.value * prices.clip +
-    cardCount.value * prices.card
+    singleCountLocal.value * prices.single +
+    albumCountLocal.value * prices.album +
+    clipCountLocal.value * prices.clip +
+    cardCountLocal.value * prices.card
   );
+});
+
+// При монтировании пытаемся получить состояние из родителя
+onMounted(() => {
+  if (hasParentState.value && parent?.exposed?.quizState) {
+    singleCountLocal.value = parent.exposed.quizState.singleCount || 0;
+    albumCountLocal.value = parent.exposed.quizState.albumCount || 0;
+    clipCountLocal.value = parent.exposed.quizState.clipCount || 0;
+    cardCountLocal.value = parent.exposed.quizState.cardCount || 0;
+  }
 });
 
 const goBack = () => {
@@ -41,6 +59,19 @@ const handleContinue = () => {
     ElMessage.warning('Выберите хотя бы один тип загрузки');
     return;
   }
+  
+  // Сохраняем состояние в родительском компоненте, если доступен
+  if (hasParentState.value && parent?.exposed?.updateCounts) {
+    parent.exposed.updateCounts('single', singleCountLocal.value);
+    parent.exposed.updateCounts('album', albumCountLocal.value);
+    parent.exposed.updateCounts('clip', clipCountLocal.value);
+    parent.exposed.updateCounts('card', cardCountLocal.value);
+    
+    if (parent.exposed.calculateTotalSum) {
+      parent.exposed.calculateTotalSum();
+    }
+  }
+  
   emit('go-next');
 };
 </script>
@@ -60,7 +91,7 @@ const handleContinue = () => {
         <p class="quiz__form_one_price">2590 ₽</p>
         <div class="quiz__form_one_count">
           <el-input-number 
-            v-model="singleCount" 
+            v-model="singleCountLocal" 
             :min="0" 
             :max="99" 
             :controls="true"
@@ -75,7 +106,7 @@ const handleContinue = () => {
         <p class="quiz__form_one_price">2590 ₽</p>
         <div class="quiz__form_one_count">
           <el-input-number 
-            v-model="albumCount" 
+            v-model="albumCountLocal" 
             :min="0" 
             :max="99" 
             :controls="true"
@@ -90,7 +121,7 @@ const handleContinue = () => {
         <p class="quiz__form_one_price">2590 ₽</p>
         <div class="quiz__form_one_count">
           <el-input-number 
-            v-model="clipCount" 
+            v-model="clipCountLocal" 
             :min="0" 
             :max="99" 
             :controls="true"
@@ -105,7 +136,7 @@ const handleContinue = () => {
         <p class="quiz__form_one_price">2590 ₽</p>
         <div class="quiz__form_one_count">
           <el-input-number 
-            v-model="cardCount" 
+            v-model="cardCountLocal" 
             :min="0" 
             :max="99" 
             :controls="true"

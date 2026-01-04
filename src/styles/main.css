@@ -1061,6 +1061,16 @@ section {
   height: 100%;
   object-fit: contain;
 }
+.quiz__form_description {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.quiz__form_description svg {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
 
 /* end quiz */
 

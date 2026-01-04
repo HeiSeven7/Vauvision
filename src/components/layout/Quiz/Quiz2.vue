@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, getCurrentInstance, onMounted, watch } from 'vue';
 import { ElInput, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import CloseSVG from "@/uikit/icon/CloseSVG.vue";
@@ -9,20 +9,20 @@ const emit = defineEmits<{
   'go-next': [];
 }>();
 
-// Состояния для загрузки аудио
-const showAudioForm = ref(false);
-const isLoadingTwo = ref(false);
-const uploadedAudio = ref<File | null>(null);
-const audioFileName = ref('');
-const audioFileSize = ref(0);
+// Получаем экземпляр компонента для доступа к родителю
+const instance = getCurrentInstance();
+const parent = instance?.parent;
 
-// Данные формы для сингла
-const formData = reactive({
-  performerName: '',
-  musicAuthor: '',
-  textAuthor: '',
-  trackName: '',
-  referralCode: ''
+// Локальные состояния
+const isLoadingTwo = ref(false);
+
+// Получаем количество из родительского компонента
+const singleCount = computed(() => {
+  return parent?.exposed?.quizState?.singleCount || 0;
+});
+
+const albumCount = computed(() => {
+  return parent?.exposed?.quizState?.albumCount || 0;
 });
 
 // Ошибки валидации
@@ -35,63 +35,142 @@ const errors = reactive({
   audioFile: ''
 });
 
-// Вычисляемое свойство для проверки готовности к продолжению
+// Тип для трека альбома
+interface AlbumTrack {
+  id: string;
+  trackNumber: number;
+  trackName: string;
+  audioFile: File | null;
+  audioFileName: string;
+  audioFileSize: number;
+  uploaded: boolean;
+}
+
+// Данные для синглов
+const singleTracks = ref<Array<{
+  performerName: string;
+  musicAuthor: string;
+  textAuthor: string;
+  trackName: string;
+  referralCode: string;
+  audioFile: File | null;
+  audioFileName: string;
+  audioFileSize: number;
+  uploaded: boolean;
+  hasAudioUploaded: boolean;
+}>>([]);
+
+// Данные для альбомов
+const albums = ref<Array<{
+  albumName: string;
+  performerName: string;
+  musicAuthor: string;
+  textAuthor: string;
+  referralCode: string;
+  tracks: AlbumTrack[];
+}>>([]);
+
+// Инициализация данных на основе количества
+const initializeData = () => {
+  // Инициализация синглов
+  singleTracks.value = [];
+  for (let i = 0; i < singleCount.value; i++) {
+    singleTracks.value.push({
+      performerName: '',
+      musicAuthor: '',
+      textAuthor: '',
+      trackName: '',
+      referralCode: '',
+      audioFile: null,
+      audioFileName: '',
+      audioFileSize: 0,
+      uploaded: false,
+      hasAudioUploaded: false
+    });
+  }
+
+  // Инициализация альбомов
+  albums.value = [];
+  for (let i = 0; i < albumCount.value; i++) {
+    albums.value.push({
+      albumName: '',
+      performerName: '',
+      musicAuthor: '',
+      textAuthor: '',
+      referralCode: '',
+      tracks: []
+    });
+  }
+};
+
+// Проверка готовности к продолжению
 const isReadyForNextStep = computed(() => {
-  // Проверяем, что форма показана и все обязательные поля заполнены
-  if (!showAudioForm.value || !uploadedAudio.value) return false;
-  
-  return (
-    formData.performerName.trim().length >= 2 &&
-    formData.musicAuthor.trim().length >= 2 &&
-    formData.textAuthor.trim().length >= 2 &&
-    formData.trackName.trim().length >= 2
+  // Проверяем все синглы
+  const allSinglesComplete = singleTracks.value.every(track => 
+    track.performerName.trim().length >= 2 &&
+    track.musicAuthor.trim().length >= 2 &&
+    track.textAuthor.trim().length >= 2 &&
+    track.trackName.trim().length >= 2 &&
+    track.audioFile !== null &&
+    track.uploaded
   );
+
+  // Проверяем все альбомы
+  const allAlbumsComplete = albums.value.every(album =>
+    album.albumName.trim().length >= 2 &&
+    album.performerName.trim().length >= 2 &&
+    album.musicAuthor.trim().length >= 2 &&
+    album.textAuthor.trim().length >= 2 &&
+    album.tracks.length > 0 &&
+    album.tracks.every(track =>
+      track.trackName.trim().length >= 2 &&
+      track.audioFile !== null &&
+      track.uploaded
+    )
+  );
+
+  return (singleCount.value === 0 || allSinglesComplete) && 
+         (albumCount.value === 0 || allAlbumsComplete);
 });
 
-// Валидация формы
-const validateForm = () => {
+// Валидация формы сингла
+const validateSingleForm = (trackIndex: number) => {
+  const track = singleTracks.value[trackIndex];
   let isValid = true;
   
-  // Сброс ошибок
-  Object.keys(errors).forEach(key => {
-    errors[key as keyof typeof errors] = '';
-  });
-  
-  // Валидация обязательных полей
-  if (!formData.performerName.trim()) {
+  if (!track.performerName.trim()) {
     errors.performerName = 'ФИО исполнителя обязательно для заполнения';
     isValid = false;
-  } else if (formData.performerName.trim().length < 2) {
+  } else if (track.performerName.trim().length < 2) {
     errors.performerName = 'ФИО исполнителя должно содержать минимум 2 символа';
     isValid = false;
   }
   
-  if (!formData.musicAuthor.trim()) {
+  if (!track.musicAuthor.trim()) {
     errors.musicAuthor = 'ФИО автора музыки обязательно для заполнения';
     isValid = false;
-  } else if (formData.musicAuthor.trim().length < 2) {
+  } else if (track.musicAuthor.trim().length < 2) {
     errors.musicAuthor = 'ФИО автора музыки должно содержать минимум 2 символа';
     isValid = false;
   }
   
-  if (!formData.textAuthor.trim()) {
+  if (!track.textAuthor.trim()) {
     errors.textAuthor = 'ФИО автора текста обязательно для заполнения';
     isValid = false;
-  } else if (formData.textAuthor.trim().length < 2) {
+  } else if (track.textAuthor.trim().length < 2) {
     errors.textAuthor = 'ФИО автора текста должно содержать минимум 2 символа';
     isValid = false;
   }
   
-  if (!formData.trackName.trim()) {
+  if (!track.trackName.trim()) {
     errors.trackName = 'Название трека обязательно для заполнения';
     isValid = false;
-  } else if (formData.trackName.trim().length < 2) {
+  } else if (track.trackName.trim().length < 2) {
     errors.trackName = 'Название трека должно содержать минимум 2 символа';
     isValid = false;
   }
   
-  // Валидация аудио файла
-  if (!uploadedAudio.value) {
+  if (!track.audioFile) {
     errors.audioFile = 'Аудио файл обязателен для загрузки';
     isValid = false;
   }
@@ -99,8 +178,53 @@ const validateForm = () => {
   return isValid;
 };
 
-// Обработка загрузки аудио файла
-const handleAudioUpload = (event: Event) => {
+// Валидация формы альбома
+const validateAlbumForm = (albumIndex: number) => {
+  const album = albums.value[albumIndex];
+  let isValid = true;
+  
+  if (!album.albumName.trim()) {
+    errors.trackName = 'Название альбома обязательно для заполнения';
+    isValid = false;
+  } else if (album.albumName.trim().length < 2) {
+    errors.trackName = 'Название альбома должно содержать минимум 2 символа';
+    isValid = false;
+  }
+  
+  if (!album.performerName.trim()) {
+    errors.performerName = 'ФИО исполнителя обязательно для заполнения';
+    isValid = false;
+  } else if (album.performerName.trim().length < 2) {
+    errors.performerName = 'ФИО исполнителя должно содержать минимум 2 символа';
+    isValid = false;
+  }
+  
+  if (!album.musicAuthor.trim()) {
+    errors.musicAuthor = 'ФИО автора музыки обязательно для заполнения';
+    isValid = false;
+  } else if (album.musicAuthor.trim().length < 2) {
+    errors.musicAuthor = 'ФИО автора музыки должно содержать минимум 2 символа';
+    isValid = false;
+  }
+  
+  if (!album.textAuthor.trim()) {
+    errors.textAuthor = 'ФИО автора текста обязательно для заполнения';
+    isValid = false;
+  } else if (album.textAuthor.trim().length < 2) {
+    errors.textAuthor = 'ФИО автора текста должно содержать минимум 2 символа';
+    isValid = false;
+  }
+  
+  if (album.tracks.length === 0) {
+    errors.audioFile = 'Добавьте хотя бы один трек в альбом';
+    isValid = false;
+  }
+  
+  return isValid;
+};
+
+// Обработка загрузки аудио файла для сингла
+const handleSingleAudioUpload = (trackIndex: number, event: Event) => {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
   
@@ -115,53 +239,134 @@ const handleAudioUpload = (event: Event) => {
   }
   
   // Валидация размера файла (макс 50MB)
-  const maxSize = 50 * 1024 * 1024; // 50MB в байтах
+  const maxSize = 50 * 1024 * 1024;
   if (file.size > maxSize) {
     errors.audioFile = 'Файл слишком большой. Максимальный размер: 50MB';
     ElMessage.error('Файл превышает максимальный допустимый размер');
     return;
   }
   
-  // Очистка ошибок и установка файла
-  errors.audioFile = '';
-  uploadedAudio.value = file;
-  audioFileName.value = file.name;
-  audioFileSize.value = file.size;
-  
-  // Показ формы и скрытие кнопки
-  showAudioForm.value = true;
+  // Сохраняем данные файла
+  singleTracks.value[trackIndex].audioFile = file;
+  singleTracks.value[trackIndex].audioFileName = file.name;
+  singleTracks.value[trackIndex].audioFileSize = file.size;
+  singleTracks.value[trackIndex].uploaded = true;
+  singleTracks.value[trackIndex].hasAudioUploaded = true;
   
   ElMessage.success('Аудио файл успешно загружен');
 };
 
-// Обработка клика по кнопке загрузки
-const handleUploadButtonClick = () => {
-  if (!showAudioForm.value) {
-    // Если форма еще не показана, создаем скрытый input для выбора файла
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'audio/*';
-    input.style.display = 'none';
-    input.onchange = handleAudioUpload;
-    document.body.appendChild(input);
-    input.click();
-    document.body.removeChild(input);
+// Обработка загрузки аудио файла для трека альбома
+const handleAlbumTrackUpload = (albumIndex: number, trackIndex: number, event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  
+  if (!file) return;
+  
+  // Валидация типа файла
+  const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg'];
+  if (!allowedTypes.includes(file.type)) {
+    ElMessage.error('Недопустимый формат аудио файла');
+    return;
+  }
+  
+  // Валидация размера файла (макс 50MB)
+  const maxSize = 50 * 1024 * 1024;
+  if (file.size > maxSize) {
+    ElMessage.error('Файл превышает максимальный допустимый размер');
+    return;
+  }
+  
+  // Обновляем данные трека
+  if (albumIndex >= 0 && albumIndex < albums.value.length) {
+    const album = albums.value[albumIndex];
+    if (trackIndex >= 0 && trackIndex < album.tracks.length) {
+      album.tracks[trackIndex].audioFile = file;
+      album.tracks[trackIndex].audioFileName = file.name;
+      album.tracks[trackIndex].audioFileSize = file.size;
+      album.tracks[trackIndex].uploaded = true;
+      
+      ElMessage.success(`Трек ${trackIndex + 1} успешно загружен`);
+    }
   }
 };
 
-// Удаление загруженного аудио
-const removeUploadedAudio = () => {
-  uploadedAudio.value = null;
-  audioFileName.value = '';
-  audioFileSize.value = 0;
-  showAudioForm.value = false;
-  errors.audioFile = '';
-  // Сброс полей формы
-  formData.performerName = '';
-  formData.musicAuthor = '';
-  formData.textAuthor = '';
-  formData.trackName = '';
+// Обработка клика по кнопке загрузки для сингла
+const handleSingleUploadButtonClick = (trackIndex: number) => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'audio/*';
+  input.style.display = 'none';
+  input.onchange = (event) => handleSingleAudioUpload(trackIndex, event);
+  document.body.appendChild(input);
+  input.click();
+  document.body.removeChild(input);
+};
+
+// Обработка клика по кнопке загрузки для трека альбома
+const handleAlbumTrackButtonClick = (albumIndex: number, trackIndex: number) => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'audio/*';
+  input.style.display = 'none';
+  input.onchange = (event) => handleAlbumTrackUpload(albumIndex, trackIndex, event);
+  document.body.appendChild(input);
+  input.click();
+  document.body.removeChild(input);
+};
+
+// Добавить новый трек в альбом
+const addAlbumTrack = (albumIndex: number) => {
+  if (albumIndex >= 0 && albumIndex < albums.value.length) {
+    albums.value[albumIndex].tracks.push({
+      id: `album-track-${Date.now()}-${Math.random()}`,
+      trackNumber: albums.value[albumIndex].tracks.length + 1,
+      trackName: '',
+      audioFile: null,
+      audioFileName: '',
+      audioFileSize: 0,
+      uploaded: false
+    });
+  }
+};
+
+// Удалить трек из альбома
+const removeAlbumTrack = (albumIndex: number, trackIndex: number) => {
+  if (albumIndex >= 0 && albumIndex < albums.value.length) {
+    const album = albums.value[albumIndex];
+    if (trackIndex >= 0 && trackIndex < album.tracks.length) {
+      album.tracks.splice(trackIndex, 1);
+      // Обновляем номера треков
+      album.tracks.forEach((track, index) => {
+        track.trackNumber = index + 1;
+      });
+      ElMessage.info('Трек удален из альбома');
+    }
+  }
+};
+
+// Удаление загруженного аудио для сингла
+const removeSingleUploadedAudio = (trackIndex: number) => {
+  singleTracks.value[trackIndex].audioFile = null;
+  singleTracks.value[trackIndex].audioFileName = '';
+  singleTracks.value[trackIndex].audioFileSize = 0;
+  singleTracks.value[trackIndex].uploaded = false;
+  singleTracks.value[trackIndex].hasAudioUploaded = false;
   ElMessage.info('Аудио файл удален');
+};
+
+// Удаление загруженного аудио для трека альбома
+const removeAlbumTrackAudio = (albumIndex: number, trackIndex: number) => {
+  if (albumIndex >= 0 && albumIndex < albums.value.length) {
+    const album = albums.value[albumIndex];
+    if (trackIndex >= 0 && trackIndex < album.tracks.length) {
+      album.tracks[trackIndex].audioFile = null;
+      album.tracks[trackIndex].audioFileName = '';
+      album.tracks[trackIndex].audioFileSize = 0;
+      album.tracks[trackIndex].uploaded = false;
+      ElMessage.info('Аудио файл трека удален');
+    }
+  }
 };
 
 // Форматирование размера файла
@@ -173,20 +378,150 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
+// Сохранить данные в родительский компонент
+const saveDataToParent = () => {
+  if (!parent?.exposed) return;
+  
+  // Сохраняем синглы
+  singleTracks.value.forEach((track, index) => {
+    if (parent.exposed?.updateSingleTrack) {
+      parent.exposed.updateSingleTrack(index, {
+        performerName: track.performerName,
+        musicAuthor: track.musicAuthor,
+        textAuthor: track.textAuthor,
+        trackName: track.trackName,
+        referralCode: track.referralCode,
+        audioFile: track.audioFile,
+        audioFileName: track.audioFileName,
+        audioFileSize: track.audioFileSize,
+        uploaded: track.uploaded
+      });
+    }
+  });
+  
+  // Сохраняем альбомы
+  albums.value.forEach((album, albumIndex) => {
+    if (parent.exposed?.updateAlbum) {
+      parent.exposed.updateAlbum(albumIndex, {
+        albumName: album.albumName,
+        performerName: album.performerName,
+        musicAuthor: album.musicAuthor,
+        textAuthor: album.textAuthor,
+        referralCode: album.referralCode
+      });
+      
+      // Сохраняем треки альбома
+      album.tracks.forEach((track) => {
+        if (parent.exposed?.addAlbumTrack) {
+          parent.exposed.addAlbumTrack(albumIndex, {
+            ...track
+          });
+        }
+      });
+    }
+  });
+};
+
+// Загрузить данные из родительского компонента
+const loadDataFromParent = () => {
+  if (!parent?.exposed?.quizState) return;
+  
+  // Загружаем синглы
+  if (parent.exposed.quizState.singleTracks) {
+    parent.exposed.quizState.singleTracks.forEach((track: any, index: number) => {
+      if (index < singleTracks.value.length) {
+        singleTracks.value[index] = {
+          performerName: track.performerName || '',
+          musicAuthor: track.musicAuthor || '',
+          textAuthor: track.textAuthor || '',
+          trackName: track.trackName || '',
+          referralCode: track.referralCode || '',
+          audioFile: track.audioFile || null,
+          audioFileName: track.audioFileName || '',
+          audioFileSize: track.audioFileSize || 0,
+          uploaded: track.uploaded || false,
+          hasAudioUploaded: !!track.audioFile
+        };
+      }
+    });
+  }
+  
+  // Загружаем альбомы
+  if (parent.exposed.quizState.albumTracks) {
+    parent.exposed.quizState.albumTracks.forEach((album: any, albumIndex: number) => {
+      if (albumIndex < albums.value.length) {
+        albums.value[albumIndex] = {
+          albumName: album.albumName || '',
+          performerName: album.performerName || '',
+          musicAuthor: album.musicAuthor || '',
+          textAuthor: album.textAuthor || '',
+          referralCode: album.referralCode || '',
+          tracks: album.tracks?.map((track: any) => ({
+            id: track.id || `album-track-${Date.now()}-${Math.random()}`,
+            trackNumber: track.trackNumber || 1,
+            trackName: track.trackName || '',
+            audioFile: track.audioFile || null,
+            audioFileName: track.audioFileName || '',
+            audioFileSize: track.audioFileSize || 0,
+            uploaded: track.uploaded || false
+          })) || []
+        };
+      }
+    });
+  }
+};
+
 const goBack = () => {
+  saveDataToParent();
   emit('go-back');
 };
 
 const goNext = () => {
-  if (validateForm()) {
+  // Проверяем все формы
+  let allValid = true;
+  
+  // Проверяем синглы
+  singleTracks.value.forEach((_, index) => {
+    if (!validateSingleForm(index)) {
+      allValid = false;
+    }
+  });
+  
+  // Проверяем альбомы
+  albums.value.forEach((_, index) => {
+    if (!validateAlbumForm(index)) {
+      allValid = false;
+    }
+  });
+  
+  if (allValid) {
+    saveDataToParent();
     emit('go-next');
   }
 };
+
+// Инициализация при монтировании
+onMounted(() => {
+  initializeData();
+  loadDataFromParent();
+});
+
+// Следим за изменением количеств
+watch([singleCount, albumCount], () => {
+  initializeData();
+  loadDataFromParent();
+});
 </script>
 
 <template>
 <div class="quiz__form quiz__form_two">
-  <h4 class="quiz__form_head">Выделите и выберите все нужные синглы</h4>
+  <div class="quiz__form_top">
+    <h4 class="quiz__form_head">Загрузка синглов и альбомов</h4>
+    <button class="quiz__additional button__second button">
+      <span>Дополнительная информация</span>
+    </button>
+  </div>
+  
   <div class="quiz__form_two_empty">
     <div class="quiz__form_two_lists">
       <p class="quiz__form_two_description">Отметить артистов можно 3 способами:</p>
@@ -206,124 +541,258 @@ const goNext = () => {
     </div>
   </div>
   
-  <!-- Форма для загрузки сингла -->
-  <div class="quiz__form_single" v-if="showAudioForm">
-    <div class="quiz__form_single_audio_info" v-if="uploadedAudio">
-      <h5 class="quiz__form_single_head">сингл</h5>
-      <div class="quiz__form_single_name">
-        <div class="quiz__form_single_name_left">
-          <p class="quiz__form_single_name_text">{{ audioFileName }}</p>
-          <p class="quiz__form_single_name_size text_small">{{ formatFileSize(audioFileSize) }}</p>
+  <!-- СИНГЛЫ -->
+  <div class="quiz__section" v-if="singleCount > 0">
+    <h4 class="quiz__section_title">Синглы</h4>
+    
+    <div class="quiz__singles_list">
+      <div 
+        v-for="(track, trackIndex) in singleTracks" 
+        :key="trackIndex"
+        class="quiz__single_item"
+      >
+        <h5 class="quiz__single_item_title">Сингл {{ trackIndex + 1 }}</h5>
+        
+        <!-- Информация о загруженном аудио -->
+        <div class="quiz__form_single_audio_info" v-if="track.hasAudioUploaded">
+          <div class="quiz__form_single_name">
+            <div class="quiz__form_single_name_left">
+              <p class="quiz__form_single_name_text">{{ track.audioFileName }}</p>
+              <p class="quiz__form_single_name_size text_small">{{ formatFileSize(track.audioFileSize) }}</p>
+            </div>
+            <div class="quiz__form_single_name_svg" @click="removeSingleUploadedAudio(trackIndex)">
+              <CloseSVG />
+            </div>
+          </div>
         </div>
-        <div class="quiz__form_single_name_svg" @click="removeUploadedAudio">
-          <CloseSVG />
+        
+        <!-- Форма с полями для сингла -->
+        <div class="form__flex" v-if="track.hasAudioUploaded">
+          <div class="form__group">
+            <label class="form__label button">ФИО исполнителей*</label>
+            <el-input
+              v-model="track.performerName"
+              type="text"
+              placeholder="Введите ФИО исполнителя"
+              :disabled="isLoadingTwo"
+              size="large"
+            />
+          </div>
+          
+          <div class="form__group">
+            <label class="form__label button">ФИО авторов музыки*</label>
+            <el-input
+              v-model="track.musicAuthor"
+              type="text"
+              placeholder="Введите ФИО автора музыки"
+              :disabled="isLoadingTwo"
+              size="large"
+            />
+          </div>
+          
+          <div class="form__group">
+            <label class="form__label button">ФИО авторов текста*</label>
+            <el-input
+              v-model="track.textAuthor"
+              type="text"
+              placeholder="Введите ФИО автора текста"
+              :disabled="isLoadingTwo"
+              size="large"
+            />
+          </div>
+          
+          <div class="form__group">
+            <label class="form__label button">полное название трека*</label>
+            <el-input
+              v-model="track.trackName"
+              type="text"
+              placeholder="Введите название трека"
+              :disabled="isLoadingTwo"
+              size="large"
+            />
+          </div>
+          
+          <div class="form__group">
+            <label class="form__label button">Реферальный код (если есть)</label>
+            <el-input
+              v-model="track.referralCode"
+              type="text"
+              placeholder="Введите реферальный код"
+              :disabled="isLoadingTwo"
+              size="large"
+            />
+          </div>
         </div>
-      </div>
-      <div v-if="errors.audioFile" class="error text_very quiz__form_single_error">
-        {{ errors.audioFile }}
-      </div>
-    </div>
-    <div class="form__flex">
-      <div class="form__group">
-        <label for="performerName" class="form__label button">ФИО исполнителей*</label>
-        <el-input
-          id="performerName"
-          v-model="formData.performerName"
-          type="text"
-          :class="{ 'error': errors.performerName }"
-          placeholder="Введите ФИО исполнителя"
-          :disabled="isLoadingTwo"
-          @blur="validateForm"
-          @input="errors.performerName = ''"
-          size="large"
-        />
-        <div v-if="errors.performerName" class="error text_very">
-          {{ errors.performerName }}
-        </div>
-      </div>
-      
-      <div class="form__group">
-        <label for="musicAuthor" class="form__label button">ФИО авторов музыки*</label>
-        <el-input
-          id="musicAuthor"
-          v-model="formData.musicAuthor"
-          type="text"
-          :class="{ 'error': errors.musicAuthor }"
-          placeholder="Введите ФИО автора музыки"
-          :disabled="isLoadingTwo"
-          @blur="validateForm"
-          @input="errors.musicAuthor = ''"
-          size="large"
-        />
-        <div v-if="errors.musicAuthor" class="error text_very">
-          {{ errors.musicAuthor }}
-        </div>
-      </div>
-      
-      <div class="form__group">
-        <label for="textAuthor" class="form__label button">ФИО авторов текста*</label>
-        <el-input
-          id="textAuthor"
-          v-model="formData.textAuthor"
-          type="text"
-          :class="{ 'error': errors.textAuthor }"
-          placeholder="Введите ФИО автора текста"
-          :disabled="isLoadingTwo"
-          @blur="validateForm"
-          @input="errors.textAuthor = ''"
-          size="large"
-        />
-        <div v-if="errors.textAuthor" class="error text_very">
-          {{ errors.textAuthor }}
-        </div>
-      </div>
-      
-      <div class="form__group">
-        <label for="trackName" class="form__label button">полное название трека*</label>
-        <ul class="form__hint_list">
-          <li class="form__hint_item">
-            <p class="form__hint text_small">Укажите полное название трека, включая псевдонимы и версии. Если загружаете альбом, то напишите номер каждого трека.</p>
-          </li>
-          <li class="form__hint_item">
-            <p class="form__hint text_small">Например: «1. Artist 1, Artist 2 – Best Song (Prod. by Beatmaker)»</p>
-          </li>
-          <li class="form__hint_item">
-            <p class="form__hint text_small">Если название на русском языке, не допускается писать «Каждое Слово С Большой Буквы». (название может быть написано «полностью маленькими буквами»).</p>
-          </li>
-          <li class="form__hint_item">
-            <p class="form__hint text_small">Писать названия транслитом нельзя (например, нельзя писать «privet». Либо «Привет», либо «Hello»).</p>
-          </li>
-          <li class="form__hint_item">
-            <p class="form__hint text_small">Использовать в названии треков 2+ языков нельзя (например, нельзя «Дорога to Success»)</p>
-          </li>
-        </ul>
-        <el-input
-          id="trackName"
-          v-model="formData.trackName"
-          type="text"
-          :class="{ 'error': errors.trackName }"
-          placeholder="Введите название трека"
-          :disabled="isLoadingTwo"
-          @blur="validateForm"
-          @input="errors.trackName = ''"
-          size="large"
-        />
-        <div v-if="errors.trackName" class="error text_very">
-          {{ errors.trackName }}
+        
+        <!-- Кнопка загрузки аудио для сингла -->
+        <div class="quiz__form_single_buttons" v-if="!track.hasAudioUploaded">
+          <button 
+            class="quiz__form_single_button button__red button" 
+            @click="() => handleSingleUploadButtonClick(trackIndex)"
+            :disabled="isLoadingTwo"
+          >
+            <span v-if="!isLoadingTwo">добавить трек</span>
+            <span v-else>Загрузка...</span>
+          </button>
         </div>
       </div>
     </div>
   </div>
   
-  <div class="quiz__form_single_buttons">
+  <!-- АЛЬБОМЫ -->
+  <div class="quiz__section" v-if="albumCount > 0">
+    <h4 class="quiz__section_title">Альбомы</h4>
+    
+    <div class="quiz__albums_list">
+      <div 
+        v-for="(album, albumIndex) in albums" 
+        :key="albumIndex"
+        class="quiz__album_item"
+      >
+        <h5 class="quiz__album_item_title">Альбом {{ albumIndex + 1 }}</h5>
+        
+        <!-- Основная информация об альбоме -->
+        <div class="form__flex">
+          <div class="form__group">
+            <label class="form__label button">Название альбома*</label>
+            <el-input
+              v-model="album.albumName"
+              type="text"
+              placeholder="Введите название альбома"
+              :disabled="isLoadingTwo"
+              size="large"
+            />
+          </div>
+          
+          <div class="form__group">
+            <label class="form__label button">ФИО исполнителей*</label>
+            <el-input
+              v-model="album.performerName"
+              type="text"
+              placeholder="Введите ФИО исполнителя"
+              :disabled="isLoadingTwo"
+              size="large"
+            />
+          </div>
+          
+          <div class="form__group">
+            <label class="form__label button">ФИО авторов музыки*</label>
+            <el-input
+              v-model="album.musicAuthor"
+              type="text"
+              placeholder="Введите ФИО автора музыки"
+              :disabled="isLoadingTwo"
+              size="large"
+            />
+          </div>
+          
+          <div class="form__group">
+            <label class="form__label button">ФИО авторов текста*</label>
+            <el-input
+              v-model="album.textAuthor"
+              type="text"
+              placeholder="Введите ФИО автора текста"
+              :disabled="isLoadingTwo"
+              size="large"
+            />
+          </div>
+          
+          <div class="form__group">
+            <label class="form__label button">Реферальный код (если есть)</label>
+            <el-input
+              v-model="album.referralCode"
+              type="text"
+              placeholder="Введите реферальный код"
+              :disabled="isLoadingTwo"
+              size="large"
+            />
+          </div>
+        </div>
+        
+        <!-- Треки альбома -->
+        <div class="quiz__album_tracks">
+          <h6 class="quiz__album_tracks_head">Треки альбома</h6>
+          
+          <div class="quiz__album_tracks_list">
+            <div 
+              v-for="(track, trackIndex) in album.tracks" 
+              :key="track.id"
+              class="quiz__album_track_item"
+            >
+              <div class="quiz__album_track_header">
+                <h6 class="quiz__album_track_number">Трек {{ track.trackNumber }}</h6>
+                <button 
+                  v-if="album.tracks.length > 1"
+                  class="quiz__album_track_remove button__second button"
+                  @click="removeAlbumTrack(albumIndex, trackIndex)"
+                >
+                  Удалить
+                </button>
+              </div>
+              
+              <!-- Информация о загруженном аудио трека -->
+              <div class="quiz__album_track_audio_info" v-if="track.audioFile">
+                <div class="quiz__form_single_name">
+                  <div class="quiz__form_single_name_left">
+                    <p class="quiz__form_single_name_text">{{ track.audioFileName }}</p>
+                    <p class="quiz__form_single_name_size text_small">{{ formatFileSize(track.audioFileSize) }}</p>
+                  </div>
+                  <div class="quiz__form_single_name_svg" @click="removeAlbumTrackAudio(albumIndex, trackIndex)">
+                    <CloseSVG />
+                  </div>
+                </div>
+              </div>
+              
+              <div class="form__flex">
+                <div class="form__group">
+                  <label class="form__label button">Название трека*</label>
+                  <el-input
+                    v-model="track.trackName"
+                    type="text"
+                    placeholder="Введите название трека"
+                    :disabled="isLoadingTwo"
+                    size="large"
+                  />
+                </div>
+              </div>
+              
+              <!-- Кнопка загрузки аудио для трека -->
+              <div class="quiz__album_track_buttons" v-if="!track.audioFile">
+                <button 
+                  class="quiz__form_single_button button__red button" 
+                  @click="() => handleAlbumTrackButtonClick(albumIndex, trackIndex)"
+                  :disabled="isLoadingTwo"
+                >
+                  <span v-if="!isLoadingTwo">загрузить трек {{ track.trackNumber }}</span>
+                  <span v-else>Загрузка...</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Кнопка добавления нового трека -->
+          <div class="quiz__album_add_track">
+            <button 
+              class="quiz__form_single_button button__red button" 
+              @click="() => addAlbumTrack(albumIndex)"
+              :disabled="isLoadingTwo"
+            >
+              <span>+ Добавить трек в альбом</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Если нет элементов для загрузки -->
+  <div class="quiz__no_items" v-if="singleCount === 0 && albumCount === 0">
+    <p class="quiz__no_items_text">Вы не выбрали синглы или альбомы на первом шаге</p>
     <button 
-      class="quiz__form_single_button button__red button" 
-      @click="handleUploadButtonClick"
-      :disabled="isLoadingTwo"
-      v-if="!showAudioForm"
+      class="button__second button"
+      @click="goBack"
     >
-      <span v-if="!isLoadingTwo">добавить трек</span>
-      <span v-else>Загрузка...</span>
+      Вернуться к выбору
     </button>
   </div>
   
@@ -349,6 +818,22 @@ const goNext = () => {
 </template>
 
 <style lang="css" scoped>
+.quiz__form_top {
+  display: flex;
+  width: 100%;
+  padding: 0 0 40px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 20px;
+}
+.quiz__no_items {
+  text-align: center;
+  padding: 50px 0;
+}
+.quiz__no_items_text {
+  margin-bottom: 20px;
+  color: var(--text-gray);
+}
 .quiz__form_two_lists {
   display: flex;
   padding: 20px 0 0;
@@ -378,20 +863,65 @@ const goNext = () => {
 .quiz__form_two_description {
   color: var(--text-gray);
 }
-.quiz__form_single {
-  display: flex;
-  padding: 50px 0 0;
-  flex-direction: column;
-  gap: 30px;
+
+/* Стили для секций */
+.quiz__section {
+  margin-top: 40px;
+  padding-top: 40px;
+  border-top: 1px solid var(--border);
 }
-.quiz__form_single_buttons {
-  padding: 50px 0 0;
+.quiz__section:first-child {
+  margin-top: 20px;
+  padding-top: 0;
+  border-top: none;
+}
+.quiz__section_title {
+  margin-bottom: 30px;
+  text-transform: uppercase;
+}
+
+/* Стили для синглов */
+.quiz__singles_list {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+.quiz__single_item {
+  padding: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: #f8f9fa;
+}
+.quiz__single_item_title {
+  margin-bottom: 20px;
+  text-transform: uppercase;
+}
+
+/* Стили для альбомов */
+.quiz__albums_list {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+.quiz__album_item {
+  padding: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: #f8f9fa;
+}
+.quiz__album_item_title {
+  margin-bottom: 20px;
+  text-transform: uppercase;
+}
+
+/* Общие стили для загрузки аудио */
+.quiz__form_single_audio_info {
+  margin: 20px 0;
 }
 .quiz__form_single_name {
   display: flex;
   width: 100%;
   padding: 20px;
-  margin: 30px 0 0;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -429,15 +959,62 @@ const goNext = () => {
   border: 1px solid #fde2e2;
   border-radius: 4px;
 }
-.quiz__form_single_submit {
-  margin-top: 20px;
-}
-.quiz__form_single_button:disabled,
-.quiz__form_single_submit:disabled {
+.quiz__form_single_button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
+/* Стили для треков альбома */
+.quiz__album_tracks {
+  margin-top: 30px;
+  padding: 30px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background-color: white;
+}
+.quiz__album_tracks_head {
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  font-size: 16px;
+}
+.quiz__album_tracks_list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.quiz__album_track_item {
+  padding: 20px;
+  border: 1px solid var(--border-lighter);
+  border-radius: 6px;
+  background-color: #f8f9fa;
+}
+.quiz__album_track_header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.quiz__album_track_number {
+  text-transform: uppercase;
+  font-size: 14px;
+  margin: 0;
+}
+.quiz__album_track_remove {
+  padding: 5px 15px;
+  font-size: 12px;
+}
+.quiz__album_track_buttons {
+  margin-top: 20px;
+}
+.quiz__album_add_track {
+  margin-top: 30px;
+  text-align: center;
+}
+
+/* Формы */
+.quiz__form_single_buttons {
+  padding: 20px 0 0;
+}
 .form__flex {
   display: flex;
   flex-direction: column;

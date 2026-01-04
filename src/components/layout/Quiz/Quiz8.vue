@@ -1,6 +1,8 @@
 <script lang="ts" setup>
-import BackSVG from "@/uikit/icon/BackSVG.vue";
 import { ElMessage } from 'element-plus';
+import BackSVG from "@/uikit/icon/BackSVG.vue";
+import SuccessSVG from "@/uikit/icon/SuccessSVG.vue";
+import ErrorSVG from "@/uikit/icon/ErrorSVG.vue";
 
 const emit = defineEmits<{
   'go-back': [];
@@ -19,8 +21,10 @@ const handleFinish = () => {
 
 <template>
 <div class="quiz__form quiz__form_eight">
-  <h4 class="quiz__form_head">Шаг 8. Финал</h4>
-  <p class="quiz__form_description">Здесь будет форма для шага 8</p>
+  <h4 class="quiz__form_head">Финал</h4>
+  <p class="quiz__form_description"><SuccessSVG /> Оплата прошла. Финансовые транзакции отражены на главной странице личного кабинета.</p>
+  <p class="quiz__form_description"><ErrorSVG /> Оплата не прошла. Повторите платёж через полчаса или попробуйте оплатить другим способом.</p>
+  <p class="quiz__form_description">Напишите нам, если проблему не удалось решить.</p>
   <div class="quiz__form_bottom">
     <div class="quiz__form_buttons">
       <button 
