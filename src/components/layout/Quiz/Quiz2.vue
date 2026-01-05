@@ -31,7 +31,6 @@ const errors = reactive({
   musicAuthor: '',
   textAuthor: '',
   trackName: '',
-  referralCode: '',
   audioFile: ''
 });
 
@@ -40,6 +39,9 @@ interface AlbumTrack {
   id: string;
   trackNumber: number;
   trackName: string;
+  performerName: string;
+  musicAuthor: string;
+  textAuthor: string;
   audioFile: File | null;
   audioFileName: string;
   audioFileSize: number;
@@ -52,7 +54,6 @@ const singleTracks = ref<Array<{
   musicAuthor: string;
   textAuthor: string;
   trackName: string;
-  referralCode: string;
   audioFile: File | null;
   audioFileName: string;
   audioFileSize: number;
@@ -66,7 +67,6 @@ const albums = ref<Array<{
   performerName: string;
   musicAuthor: string;
   textAuthor: string;
-  referralCode: string;
   tracks: AlbumTrack[];
 }>>([]);
 
@@ -80,7 +80,6 @@ const initializeData = () => {
       musicAuthor: '',
       textAuthor: '',
       trackName: '',
-      referralCode: '',
       audioFile: null,
       audioFileName: '',
       audioFileSize: 0,
@@ -97,7 +96,6 @@ const initializeData = () => {
       performerName: '',
       musicAuthor: '',
       textAuthor: '',
-      referralCode: '',
       tracks: []
     });
   }
@@ -118,12 +116,12 @@ const isReadyForNextStep = computed(() => {
   // Проверяем все альбомы
   const allAlbumsComplete = albums.value.every(album =>
     album.albumName.trim().length >= 2 &&
-    album.performerName.trim().length >= 2 &&
-    album.musicAuthor.trim().length >= 2 &&
-    album.textAuthor.trim().length >= 2 &&
     album.tracks.length > 0 &&
     album.tracks.every(track =>
       track.trackName.trim().length >= 2 &&
+      track.performerName.trim().length >= 2 &&
+      track.musicAuthor.trim().length >= 2 &&
+      track.textAuthor.trim().length >= 2 &&
       track.audioFile !== null &&
       track.uploaded
     )
@@ -191,32 +189,53 @@ const validateAlbumForm = (albumIndex: number) => {
     isValid = false;
   }
   
-  if (!album.performerName.trim()) {
+  if (album.tracks.length === 0) {
+    errors.audioFile = 'Добавьте хотя бы один трек в альбом';
+    isValid = false;
+  }
+  
+  return isValid;
+};
+
+// Валидация формы трека альбома
+const validateAlbumTrackForm = (albumIndex: number, trackIndex: number) => {
+  const track = albums.value[albumIndex].tracks[trackIndex];
+  let isValid = true;
+  
+  if (!track.performerName.trim()) {
     errors.performerName = 'ФИО исполнителя обязательно для заполнения';
     isValid = false;
-  } else if (album.performerName.trim().length < 2) {
+  } else if (track.performerName.trim().length < 2) {
     errors.performerName = 'ФИО исполнителя должно содержать минимум 2 символа';
     isValid = false;
   }
   
-  if (!album.musicAuthor.trim()) {
+  if (!track.musicAuthor.trim()) {
     errors.musicAuthor = 'ФИО автора музыки обязательно для заполнения';
     isValid = false;
-  } else if (album.musicAuthor.trim().length < 2) {
+  } else if (track.musicAuthor.trim().length < 2) {
     errors.musicAuthor = 'ФИО автора музыки должно содержать минимум 2 символа';
     isValid = false;
   }
   
-  if (!album.textAuthor.trim()) {
+  if (!track.textAuthor.trim()) {
     errors.textAuthor = 'ФИО автора текста обязательно для заполнения';
     isValid = false;
-  } else if (album.textAuthor.trim().length < 2) {
+  } else if (track.textAuthor.trim().length < 2) {
     errors.textAuthor = 'ФИО автора текста должно содержать минимум 2 символа';
     isValid = false;
   }
   
-  if (album.tracks.length === 0) {
-    errors.audioFile = 'Добавьте хотя бы один трек в альбом';
+  if (!track.trackName.trim()) {
+    errors.trackName = 'Название трека обязательно для заполнения';
+    isValid = false;
+  } else if (track.trackName.trim().length < 2) {
+    errors.trackName = 'Название трека должно содержать минимум 2 символа';
+    isValid = false;
+  }
+  
+  if (!track.audioFile) {
+    errors.audioFile = 'Аудио файл обязателен для загрузки';
     isValid = false;
   }
   
@@ -286,6 +305,9 @@ const handleAlbumTrackUpload = (albumIndex: number, trackIndex: number, event: E
       album.tracks[trackIndex].audioFileSize = file.size;
       album.tracks[trackIndex].uploaded = true;
       
+      // Проверяем валидацию трека после загрузки
+      validateAlbumTrackForm(albumIndex, trackIndex);
+      
       ElMessage.success(`Трек ${trackIndex + 1} успешно загружен`);
     }
   }
@@ -322,6 +344,9 @@ const addAlbumTrack = (albumIndex: number) => {
       id: `album-track-${Date.now()}-${Math.random()}`,
       trackNumber: albums.value[albumIndex].tracks.length + 1,
       trackName: '',
+      performerName: '',
+      musicAuthor: '',
+      textAuthor: '',
       audioFile: null,
       audioFileName: '',
       audioFileSize: 0,
@@ -390,7 +415,6 @@ const saveDataToParent = () => {
         musicAuthor: track.musicAuthor,
         textAuthor: track.textAuthor,
         trackName: track.trackName,
-        referralCode: track.referralCode,
         audioFile: track.audioFile,
         audioFileName: track.audioFileName,
         audioFileSize: track.audioFileSize,
@@ -407,7 +431,6 @@ const saveDataToParent = () => {
         performerName: album.performerName,
         musicAuthor: album.musicAuthor,
         textAuthor: album.textAuthor,
-        referralCode: album.referralCode
       });
       
       // Сохраняем треки альбома
@@ -435,7 +458,6 @@ const loadDataFromParent = () => {
           musicAuthor: track.musicAuthor || '',
           textAuthor: track.textAuthor || '',
           trackName: track.trackName || '',
-          referralCode: track.referralCode || '',
           audioFile: track.audioFile || null,
           audioFileName: track.audioFileName || '',
           audioFileSize: track.audioFileSize || 0,
@@ -455,11 +477,13 @@ const loadDataFromParent = () => {
           performerName: album.performerName || '',
           musicAuthor: album.musicAuthor || '',
           textAuthor: album.textAuthor || '',
-          referralCode: album.referralCode || '',
           tracks: album.tracks?.map((track: any) => ({
             id: track.id || `album-track-${Date.now()}-${Math.random()}`,
             trackNumber: track.trackNumber || 1,
             trackName: track.trackName || '',
+            performerName: track.performerName || album.performerName || '',
+            musicAuthor: track.musicAuthor || album.musicAuthor || '',
+            textAuthor: track.textAuthor || album.textAuthor || '',
             audioFile: track.audioFile || null,
             audioFileName: track.audioFileName || '',
             audioFileSize: track.audioFileSize || 0,
@@ -488,15 +512,24 @@ const goNext = () => {
   });
   
   // Проверяем альбомы
-  albums.value.forEach((_, index) => {
-    if (!validateAlbumForm(index)) {
+  albums.value.forEach((album, albumIndex) => {
+    if (!validateAlbumForm(albumIndex)) {
       allValid = false;
     }
+    
+    // Проверяем треки альбома
+    album.tracks.forEach((_, trackIndex) => {
+      if (!validateAlbumTrackForm(albumIndex, trackIndex)) {
+        allValid = false;
+      }
+    });
   });
   
   if (allValid) {
     saveDataToParent();
     emit('go-next');
+  } else {
+    ElMessage.error('Пожалуйста, заполните все обязательные поля и загрузите аудио файлы');
   }
 };
 
@@ -603,21 +636,30 @@ watch([singleCount, albumCount], () => {
           
           <div class="form__group">
             <label class="form__label button">полное название трека*</label>
+            <ul class="form__hint_list">
+              <li class="form__hint_item">
+                <p class="form__hint text_small">Укажите полное название трека, включая псевдонимы и версии. Если загружаете альбом, то напишите номер каждого трека.</p>
+              </li>
+              <li class="form__hint_item">
+                <p class="form__hint text_small">Например: «1. Artist 1, Artist 2 – Best Song (Prod. by Beatmaker)»</p>
+              </li>
+              <li class="form__hint_item">
+                <p class="form__hint text_small">Не должно быть изображений/фотографий популярных людей или персонажей, если на это нет документального подтверждения правообладателя.</p>
+              </li>
+              <li class="form__hint_item">
+                <p class="form__hint text_small">Если название на русском языке, не допускается писать «Каждое Слово С Большой Буквы». (название может быть написано «полностью маленькими буквами»).</p>
+              </li>
+              <li class="form__hint_item">
+                <p class="form__hint text_small">Писать названия транслитом нельзя (например, нельзя писать «privet». Либо «Привет», либо «Hello»).</p>
+              </li>
+              <li class="form__hint_item">
+                <p class="form__hint text_small">Использовать в названии треков 2+ языков нельзя (например, нельзя «Дорога to Success»)</p>
+              </li>
+            </ul>
             <el-input
               v-model="track.trackName"
               type="text"
               placeholder="Введите название трека"
-              :disabled="isLoadingTwo"
-              size="large"
-            />
-          </div>
-          
-          <div class="form__group">
-            <label class="form__label button">Реферальный код (если есть)</label>
-            <el-input
-              v-model="track.referralCode"
-              type="text"
-              placeholder="Введите реферальный код"
               :disabled="isLoadingTwo"
               size="large"
             />
@@ -663,50 +705,6 @@ watch([singleCount, albumCount], () => {
               size="large"
             />
           </div>
-          
-          <div class="form__group">
-            <label class="form__label button">ФИО исполнителей*</label>
-            <el-input
-              v-model="album.performerName"
-              type="text"
-              placeholder="Введите ФИО исполнителя"
-              :disabled="isLoadingTwo"
-              size="large"
-            />
-          </div>
-          
-          <div class="form__group">
-            <label class="form__label button">ФИО авторов музыки*</label>
-            <el-input
-              v-model="album.musicAuthor"
-              type="text"
-              placeholder="Введите ФИО автора музыки"
-              :disabled="isLoadingTwo"
-              size="large"
-            />
-          </div>
-          
-          <div class="form__group">
-            <label class="form__label button">ФИО авторов текста*</label>
-            <el-input
-              v-model="album.textAuthor"
-              type="text"
-              placeholder="Введите ФИО автора текста"
-              :disabled="isLoadingTwo"
-              size="large"
-            />
-          </div>
-          
-          <div class="form__group">
-            <label class="form__label button">Реферальный код (если есть)</label>
-            <el-input
-              v-model="album.referralCode"
-              type="text"
-              placeholder="Введите реферальный код"
-              :disabled="isLoadingTwo"
-              size="large"
-            />
-          </div>
         </div>
         
         <!-- Треки альбома -->
@@ -745,7 +743,60 @@ watch([singleCount, albumCount], () => {
               
               <div class="form__flex">
                 <div class="form__group">
-                  <label class="form__label button">Название трека*</label>
+                  <label class="form__label button">ФИО исполнителей*</label>
+                  <el-input
+                    v-model="track.performerName"
+                    type="text"
+                    placeholder="Введите ФИО исполнителя"
+                    :disabled="isLoadingTwo"
+                    size="large"
+                  />
+                </div>
+                
+                <div class="form__group">
+                  <label class="form__label button">ФИО авторов музыки*</label>
+                  <el-input
+                    v-model="track.musicAuthor"
+                    type="text"
+                    placeholder="Введите ФИО автора музыки"
+                    :disabled="isLoadingTwo"
+                    size="large"
+                  />
+                </div>
+                
+                <div class="form__group">
+                  <label class="form__label button">ФИО авторов текста*</label>
+                  <el-input
+                    v-model="track.textAuthor"
+                    type="text"
+                    placeholder="Введите ФИО автора текста"
+                    :disabled="isLoadingTwo"
+                    size="large"
+                  />
+                </div>
+                
+                <div class="form__group">
+                  <label class="form__label button">полное название трека*</label>
+                  <ul class="form__hint_list">
+                    <li class="form__hint_item">
+                      <p class="form__hint text_small">Укажите полное название трека, включая псевдонимы и версии. Если загружаете альбом, то напишите номер каждого трека.</p>
+                    </li>
+                    <li class="form__hint_item">
+                      <p class="form__hint text_small">Например: «1. Artist 1, Artist 2 – Best Song (Prod. by Beatmaker)»</p>
+                    </li>
+                    <li class="form__hint_item">
+                      <p class="form__hint text_small">Не должно быть изображений/фотографий популярных людей или персонажей, если на это нет документального подтверждения правообладателя.</p>
+                    </li>
+                    <li class="form__hint_item">
+                      <p class="form__hint text_small">Если название на русском языке, не допускается писать «Каждое Слово С Большой Буквы». (название может быть написано «полностью маленькими буквами»).</p>
+                    </li>
+                    <li class="form__hint_item">
+                      <p class="form__hint text_small">Писать названия транслитом нельзя (например, нельзя писать «privet». Либо «Привет», либо «Hello»).</p>
+                    </li>
+                    <li class="form__hint_item">
+                      <p class="form__hint text_small">Использовать в названии треков 2+ языков нельзя (например, нельзя «Дорога to Success»)</p>
+                    </li>
+                  </ul>
                   <el-input
                     v-model="track.trackName"
                     type="text"
@@ -1043,16 +1094,5 @@ watch([singleCount, albumCount], () => {
   position: absolute;
   left: -15px;
   color: var(--text-gray);
-}
-.error {
-  color: #f56c6c;
-  font-size: 12px;
-  margin-top: 5px;
-}
-.text_small {
-  font-size: 14px;
-}
-.text_very {
-  font-size: 12px;
 }
 </style>
