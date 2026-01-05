@@ -15,6 +15,7 @@ const parent = instance?.parent;
 
 // Локальные состояния
 const isLoadingTwo = ref(false);
+const showImportantBlock = ref(false); // <-- Добавлено: состояние для отображения важной информации
 
 // Получаем количество из родительского компонента
 const singleCount = computed(() => {
@@ -105,23 +106,23 @@ const initializeData = () => {
 const isReadyForNextStep = computed(() => {
   // Проверяем все синглы
   const allSinglesComplete = singleTracks.value.every(track => 
-    track.performerName.trim().length >= 2 &&
-    track.musicAuthor.trim().length >= 2 &&
-    track.textAuthor.trim().length >= 2 &&
-    track.trackName.trim().length >= 2 &&
+    track.performerName.trim().split(/\s+/).length >= 3 && // Изменено
+    track.musicAuthor.trim().split(/\s+/).length >= 3 &&   // Изменено
+    track.textAuthor.trim().split(/\s+/).length >= 3 &&    // Изменено
+    track.trackName.trim().split(/\s+/).length >= 3 &&     // Изменено
     track.audioFile !== null &&
     track.uploaded
   );
 
   // Проверяем все альбомы
   const allAlbumsComplete = albums.value.every(album =>
-    album.albumName.trim().length >= 2 &&
+    album.albumName.trim().split(/\s+/).length >= 3 &&     // Изменено
     album.tracks.length > 0 &&
     album.tracks.every(track =>
-      track.trackName.trim().length >= 2 &&
-      track.performerName.trim().length >= 2 &&
-      track.musicAuthor.trim().length >= 2 &&
-      track.textAuthor.trim().length >= 2 &&
+      track.trackName.trim().split(/\s+/).length >= 3 &&   // Изменено
+      track.performerName.trim().split(/\s+/).length >= 3 && // Изменено
+      track.musicAuthor.trim().split(/\s+/).length >= 3 &&  // Изменено
+      track.textAuthor.trim().split(/\s+/).length >= 3 &&   // Изменено
       track.audioFile !== null &&
       track.uploaded
     )
@@ -139,32 +140,32 @@ const validateSingleForm = (trackIndex: number) => {
   if (!track.performerName.trim()) {
     errors.performerName = 'ФИО исполнителя обязательно для заполнения';
     isValid = false;
-  } else if (track.performerName.trim().length < 2) {
-    errors.performerName = 'ФИО исполнителя должно содержать минимум 2 символа';
+  } else if (track.performerName.trim().split(/\s+/).length < 3) { // Изменено
+    errors.performerName = 'ФИО исполнителя должно содержать минимум 3 слова';
     isValid = false;
   }
   
   if (!track.musicAuthor.trim()) {
     errors.musicAuthor = 'ФИО автора музыки обязательно для заполнения';
     isValid = false;
-  } else if (track.musicAuthor.trim().length < 2) {
-    errors.musicAuthor = 'ФИО автора музыки должно содержать минимум 2 символа';
+  } else if (track.musicAuthor.trim().split(/\s+/).length < 3) { // Изменено
+    errors.musicAuthor = 'ФИО автора музыки должно содержать минимум 3 слова';
     isValid = false;
   }
   
   if (!track.textAuthor.trim()) {
     errors.textAuthor = 'ФИО автора текста обязательно для заполнения';
     isValid = false;
-  } else if (track.textAuthor.trim().length < 2) {
-    errors.textAuthor = 'ФИО автора текста должно содержать минимум 2 символа';
+  } else if (track.textAuthor.trim().split(/\s+/).length < 3) { // Изменено
+    errors.textAuthor = 'ФИО автора текста должно содержать минимум 3 слова';
     isValid = false;
   }
   
   if (!track.trackName.trim()) {
     errors.trackName = 'Название трека обязательно для заполнения';
     isValid = false;
-  } else if (track.trackName.trim().length < 2) {
-    errors.trackName = 'Название трека должно содержать минимум 2 символа';
+  } else if (track.trackName.trim().split(/\s+/).length < 3) { // Изменено
+    errors.trackName = 'Название трека должно содержать минимум 3 слова';
     isValid = false;
   }
   
@@ -184,8 +185,8 @@ const validateAlbumForm = (albumIndex: number) => {
   if (!album.albumName.trim()) {
     errors.trackName = 'Название альбома обязательно для заполнения';
     isValid = false;
-  } else if (album.albumName.trim().length < 2) {
-    errors.trackName = 'Название альбома должно содержать минимум 2 символа';
+  } else if (album.albumName.trim().split(/\s+/).length < 3) { // Изменено
+    errors.trackName = 'Название альбома должно содержать минимум 3 слова';
     isValid = false;
   }
   
@@ -205,32 +206,32 @@ const validateAlbumTrackForm = (albumIndex: number, trackIndex: number) => {
   if (!track.performerName.trim()) {
     errors.performerName = 'ФИО исполнителя обязательно для заполнения';
     isValid = false;
-  } else if (track.performerName.trim().length < 2) {
-    errors.performerName = 'ФИО исполнителя должно содержать минимум 2 символа';
+  } else if (track.performerName.trim().split(/\s+/).length < 3) { // Изменено
+    errors.performerName = 'ФИО исполнителя должно содержать минимум 3 слова';
     isValid = false;
   }
   
   if (!track.musicAuthor.trim()) {
     errors.musicAuthor = 'ФИО автора музыки обязательно для заполнения';
     isValid = false;
-  } else if (track.musicAuthor.trim().length < 2) {
-    errors.musicAuthor = 'ФИО автора музыки должно содержать минимум 2 символа';
+  } else if (track.musicAuthor.trim().split(/\s+/).length < 3) { // Изменено
+    errors.musicAuthor = 'ФИО автора музыки должно содержать минимум 3 слова';
     isValid = false;
   }
   
   if (!track.textAuthor.trim()) {
     errors.textAuthor = 'ФИО автора текста обязательно для заполнения';
     isValid = false;
-  } else if (track.textAuthor.trim().length < 2) {
-    errors.textAuthor = 'ФИО автора текста должно содержать минимум 2 символа';
+  } else if (track.textAuthor.trim().split(/\s+/).length < 3) { // Изменено
+    errors.textAuthor = 'ФИО автора текста должно содержать минимум 3 слова';
     isValid = false;
   }
   
   if (!track.trackName.trim()) {
     errors.trackName = 'Название трека обязательно для заполнения';
     isValid = false;
-  } else if (track.trackName.trim().length < 2) {
-    errors.trackName = 'Название трека должно содержать минимум 2 символа';
+  } else if (track.trackName.trim().split(/\s+/).length < 3) { // Изменено
+    errors.trackName = 'Название трека должно содержать минимум 3 слова';
     isValid = false;
   }
   
@@ -496,11 +497,17 @@ const loadDataFromParent = () => {
 };
 
 const goBack = () => {
-  saveDataToParent();
-  emit('go-back');
+  if (showImportantBlock.value) {
+    // Если показываем блок important, возвращаемся к форме
+    showImportantBlock.value = false;
+  } else {
+    // Если показываем форму, возвращаемся к первому шагу
+    saveDataToParent();
+    emit('go-back');
+  }
 };
 
-const goNext = () => {
+const handleContinue = () => {
   // Проверяем все формы
   let allValid = true;
   
@@ -527,10 +534,16 @@ const goNext = () => {
   
   if (allValid) {
     saveDataToParent();
-    emit('go-next');
+    // Показываем блок с важной информацией
+    showImportantBlock.value = true;
   } else {
     ElMessage.error('Пожалуйста, заполните все обязательные поля и загрузите аудио файлы');
   }
+};
+
+const handleAccept = () => {
+  // Принимаем условия и переходим к третьему шагу
+  emit('go-next');
 };
 
 // Инициализация при монтировании
@@ -547,7 +560,7 @@ watch([singleCount, albumCount], () => {
 </script>
 
 <template>
-<div class="quiz__form quiz__form_two">
+<div class="quiz__form quiz__form_two" v-if="!showImportantBlock">
   <div class="quiz__form_top">
     <h4 class="quiz__form_head">Загрузка синглов и альбомов</h4>
     <button class="quiz__additional button__second button">
@@ -836,17 +849,6 @@ watch([singleCount, albumCount], () => {
     </div>
   </div>
   
-  <!-- Если нет элементов для загрузки -->
-  <div class="quiz__no_items" v-if="singleCount === 0 && albumCount === 0">
-    <p class="quiz__no_items_text">Вы не выбрали синглы или альбомы на первом шаге</p>
-    <button 
-      class="button__second button"
-      @click="goBack"
-    >
-      Вернуться к выбору
-    </button>
-  </div>
-  
   <div class="quiz__form_bottom">
     <div class="quiz__form_buttons">
       <button 
@@ -858,10 +860,46 @@ watch([singleCount, albumCount], () => {
       </button>
       <button 
         class="quiz__form_button button__black button"
-        @click="goNext"
-        :disabled="!isReadyForNextStep || isLoadingTwo"
+        @click="handleContinue"
+        :disabled="true"
       >
         <span>Продолжить</span>
+      </button>
+    </div>
+  </div>
+</div>
+<!-- Блок с важной информацией -->
+<div class="quiz__form quiz__important" v-if="showImportantBlock">
+  <h4 class="quiz__important_head">важно!</h4>
+  <ul class="quiz__important_list">
+    <li class="quiz__important_item">
+      <p class="quiz__important_description">В ваших треках не должно быть пиратского контента, т.е. сэмплов и иных кусков чужих популярных треков, на которые у вас нет документального разрешения от авторов (скрин переписки не подойдёт, только договор передачи прав)!</p>
+    </li>
+    <li class="quiz__important_item">
+      <p class="quiz__important_description">Отрывки и сэмплы даже длительностью 1, 3, 5 и т.д. секунд НЕ ДОПУСКАЮТСЯ и НЕ ПРОЙДУТ модерацию.</p>
+    </li>
+    <li class="quiz__important_item">
+      <p class="quiz__important_description">Если в ваших треках использованы элементы чужих авторов без их разрешения, то нужно либо убрать эти элементы, либо не загружать такой трек. Приписка «Кавер»,«Cover» или любая другая не даёт права использовать материалы чужих авторов без их письменного согласия.</p>
+    </li>
+    <li class="quiz__important_item">
+      <p class="quiz__important_description">Если вы грузите подобный контент, то соглашаетесь с тем, что делаете это на свой страх и риск. В случае не выхода трека по причине использования пиратского контента, оплата за загрузку НЕ ВОЗВРАЩАЕТСЯ.</p>
+    </li>
+  </ul>
+  <div class="quiz__form_bottom">
+    <div class="quiz__form_buttons">
+      <button 
+        class="form__back button__second button" 
+        @click="goBack"
+      >
+        <span><BackSVG /></span>
+        <span>Назад</span>
+      </button>
+      <button 
+        class="quiz__form_button button__black button"
+        @click="handleAccept"
+        :disabled="!isReadyForNextStep || isLoadingTwo"
+      >
+        <span>принимаю</span>
       </button>
     </div>
   </div>
@@ -872,7 +910,7 @@ watch([singleCount, albumCount], () => {
 .quiz__form_top {
   display: flex;
   width: 100%;
-  padding: 0 0 40px;
+  padding: 0 0 20px;
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 20px;

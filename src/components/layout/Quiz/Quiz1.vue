@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed, getCurrentInstance, onMounted } from 'vue';
+import { ref, computed, getCurrentInstance, onMounted, watch } from 'vue';
 import { ElInputNumber, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 
@@ -21,6 +21,11 @@ const cardCountLocal = ref(0);
 // Попытка получить состояние из родительского компонента
 const hasParentState = computed(() => {
   return parent && parent.exposed;
+});
+
+// Проверка, выбран ли хотя бы один сингл или альбом
+const isContinueDisabled = computed(() => {
+  return singleCountLocal.value === 0 && albumCountLocal.value === 0;
 });
 
 // Общая сумма
@@ -55,8 +60,8 @@ const goBack = () => {
 };
 
 const handleContinue = () => {
-  if (totalSum.value === 0) {
-    ElMessage.warning('Выберите хотя бы один тип загрузки');
+  if (isContinueDisabled.value) {
+    ElMessage.warning('Для продолжения выберите хотя бы один сингл или альбом');
     return;
   }
   
@@ -74,6 +79,12 @@ const handleContinue = () => {
   
   emit('go-next');
 };
+
+// Следим за изменениями счетчиков
+watch([singleCountLocal, albumCountLocal], () => {
+  // Логика при изменении счетчиков синглов или альбомов
+  // Можно добавить дополнительную логику при необходимости
+}, { immediate: false });
 </script>
 
 <template>
@@ -157,6 +168,7 @@ const handleContinue = () => {
       </button>
       <button 
         class="quiz__form_button button__black button"
+        :disabled="isContinueDisabled"
         @click="handleContinue"
       >
         <span>Продолжить</span>

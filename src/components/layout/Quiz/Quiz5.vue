@@ -94,6 +94,91 @@ const karaokeFileSize = computed(() => {
   return formData.value.karaokeFile?.size || 0;
 });
 
+// Проверка всех обязательных полей
+const isContinueButtonEnabled = computed(() => {
+  // 1. Жанр (обязательное поле)
+  if (!formData.value.genre.trim()) return false;
+  if (formData.value.genre.length > 100) return false;
+  
+  // 2. Упоминание наркотических средств (обязательное поле)
+  if (!formData.value.hasDrugsMention) return false;
+  
+  // 3. Если есть упоминание наркотиков, то должны быть указаны номера треков
+  if (formData.value.hasDrugsMention === 'yes') {
+    if (!formData.value.drugsTracks.trim()) return false;
+    
+    const tracksArray = formData.value.drugsTracks.split(',').map(s => s.trim());
+    const isValidTracks = tracksArray.every(s => {
+      const num = Number(s);
+      return !isNaN(num) && num > 0 && num <= 100 && Number.isInteger(num);
+    });
+    if (!isValidTracks) return false;
+  }
+  
+  // 4. Ссылки на соцсети (обязательное поле)
+  if (!formData.value.socialLinks.trim()) return false;
+  
+  const socialLinks = formData.value.socialLinks.split(',').map(s => s.trim());
+  const urlPattern = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/;
+  const hasInvalidSocialLink = socialLinks.some(link => !urlPattern.test(link));
+  if (hasInvalidSocialLink) return false;
+  
+  // 5. Проверка секунд для TikTok (если заполнено)
+  if (formData.value.tiktokStartSeconds.trim()) {
+    const secondsArray = formData.value.tiktokStartSeconds.split(',').map(s => s.trim());
+    const isValidSeconds = secondsArray.every(s => {
+      const num = Number(s);
+      return !isNaN(num) && num >= 0 && num <= 5999 && Number.isInteger(num);
+    });
+    if (!isValidSeconds) return false;
+  }
+  
+  // 6. Проверка файлов (если загружены)
+  if (formData.value.appleMusicTextFile) {
+    const allowedExtensions = ['.docx'];
+    const fileName = formData.value.appleMusicTextFile.name.toLowerCase();
+    const isValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
+    if (!isValidExtension) return false;
+    if (formData.value.appleMusicTextFile.size > 10 * 1024 * 1024) return false;
+  }
+  
+  if (formData.value.karaokeFile) {
+    const allowedExtensions = ['.ttml'];
+    const fileName = formData.value.karaokeFile.name.toLowerCase();
+    const isValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
+    if (!isValidExtension) return false;
+    if (formData.value.karaokeFile.size > 10 * 1024 * 1024) return false;
+  }
+  
+  // 7. Проверка консистентности файлов
+  const hasAppleMusicFile = !!formData.value.appleMusicTextFile;
+  const hasKaraokeFile = !!formData.value.karaokeFile;
+  if ((hasAppleMusicFile && !hasKaraokeFile) || (!hasAppleMusicFile && hasKaraokeFile)) {
+    return false;
+  }
+  
+  // 8. Проверка ссылок на карточки (если заполнены)
+  const validateLinks = (links: string) => {
+    if (links.trim()) {
+      const linkArray = links.split(',').map(s => s.trim());
+      const urlPattern = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/;
+      const hasInvalidLink = linkArray.some(link => {
+        if (link.toLowerCase() === 'нужны новые карточки') return false;
+        return !urlPattern.test(link);
+      });
+      return !hasInvalidLink;
+    }
+    return true;
+  };
+  
+  if (!validateLinks(formData.value.appleMusicLinks)) return false;
+  if (!validateLinks(formData.value.spotifyLinks)) return false;
+  if (!validateLinks(formData.value.vkLinks)) return false;
+  if (!validateLinks(formData.value.yandexMusicLinks)) return false;
+  
+  return true;
+});
+
 const validateField = (fieldName: keyof FormData) => {
   switch (fieldName) {
     case 'genre':
@@ -178,7 +263,9 @@ const validateField = (fieldName: keyof FormData) => {
       break;
 
     case 'socialLinks':
-      if (formData.value.socialLinks.trim()) {
+      if (!formData.value.socialLinks.trim()) {
+        errors.value.socialLinks = 'Укажите ссылки на соцсети';
+      } else {
         const links = formData.value.socialLinks.split(',').map(s => s.trim());
         const urlPattern = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/;
         const hasInvalidLink = links.some(link => !urlPattern.test(link));
@@ -188,8 +275,6 @@ const validateField = (fieldName: keyof FormData) => {
         } else {
           errors.value.socialLinks = '';
         }
-      } else {
-        errors.value.socialLinks = '';
       }
       break;
   }
@@ -399,6 +484,23 @@ watch(() => formData.value.hasDrugsMention, (newValue) => {
   validateField('hasDrugsMention');
   validateField('drugsTracks');
 });
+
+// Наблюдаем за изменениями в обязательных полях для обновления состояния кнопки
+watch([
+  () => formData.value.genre,
+  () => formData.value.hasDrugsMention,
+  () => formData.value.drugsTracks,
+  () => formData.value.socialLinks,
+  () => formData.value.appleMusicTextFile,
+  () => formData.value.karaokeFile,
+  () => formData.value.tiktokStartSeconds,
+  () => formData.value.appleMusicLinks,
+  () => formData.value.spotifyLinks,
+  () => formData.value.vkLinks,
+  () => formData.value.yandexMusicLinks,
+], () => {
+  // computed свойство isContinueButtonEnabled автоматически обновится
+});
 </script>
 
 <template>
@@ -407,7 +509,7 @@ watch(() => formData.value.hasDrugsMention, (newValue) => {
   <div class="quiz__form_single">
     <div class="form__flex">
       <div class="form__group">
-        <label for="genre" class="form__label button">Какой жанр указать?</label>
+        <label for="genre" class="form__label button">Какой жанр указать?*</label>
         <el-input
           id="genre"
           v-model="formData.genre"
@@ -449,7 +551,7 @@ watch(() => formData.value.hasDrugsMention, (newValue) => {
       </div>
       
       <div class="form__group">
-        <label class="form__label button">Текст для Apple Music*</label>
+        <label class="form__label button">Текст для Apple Music</label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
             <p class="form__hint text_small">Куплеты и припевы должны быть разделены пробелом, каждая строчка с большой буквы, в конце строчек без знаков препинания. В тексте должно быть только то, что произносится в песне.</p>
@@ -530,7 +632,7 @@ watch(() => formData.value.hasDrugsMention, (newValue) => {
         </div>
         
         <div v-if="formData.hasDrugsMention === 'yes'" class="form__group_inner">
-          <p class="form__hint text_small">Укажите номера треков</p>
+          <p class="form__hint text_small">Укажите номера треков*</p>
           <el-input
             v-model="formData.drugsTracks"
             type="text"
@@ -703,6 +805,7 @@ watch(() => formData.value.hasDrugsMention, (newValue) => {
       <button 
         class="quiz__form_button button__black button"
         @click="goNext"
+        :disabled="!isContinueButtonEnabled"
       >
         <span>Продолжить</span>
       </button>
@@ -714,33 +817,5 @@ watch(() => formData.value.hasDrugsMention, (newValue) => {
 <style lang="css" scoped>
 .quiz__form_single {
   padding: 20px 0 0;
-}
-
-@media (max-width: 1439px) {
-  .quiz__form {
-    width: 100%;
-    padding: 0;
-  }
-}
-@media (max-width: 767px) {
-  .quiz__form_bottom {
-    padding: 40px 0 0;
-    align-items: flex-start;
-    flex-direction: column-reverse;
-    gap: 40px;
-  }
-  .quiz__form {
-    padding: 0;
-  }
-  .quiz__form_buttons {
-    width: 100%;
-    flex-direction: column;
-    gap: 15px;
-  }
-  .form__back,
-  .quiz__form_button {
-    width: 100%;
-    justify-content: center;
-  }
 }
 </style>

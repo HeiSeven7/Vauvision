@@ -1071,6 +1071,29 @@ section {
   height: 24px;
   object-fit: contain;
 }
+.quiz__important_list {
+  display: flex;
+  padding: 20px 0 0;
+  flex-direction: column;
+  gap: 5px;
+  counter-reset: quiz-counter;
+  list-style: none;
+  padding-left: 0;
+}
+.quiz__important_list li {
+  position: relative;
+  padding-left: 30px;
+  counter-increment: quiz-counter;
+}
+.quiz__important_list li::before {
+  content: counter(quiz-counter) ".";
+  position: absolute;
+  left: 0;
+  top: 2.3px;
+}
+.quiz__important_head {
+  color: var(--color);
+}
 
 /* end quiz */
 

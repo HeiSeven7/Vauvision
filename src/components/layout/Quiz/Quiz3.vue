@@ -11,6 +11,9 @@ const emit = defineEmits<{
   'go-next': [];
 }>();
 
+// Добавлено: состояние для отображения важной информации
+const showImportantBlock = ref(false);
+
 // Данные формы
 const formData = reactive({
   performerName: '',
@@ -324,13 +327,25 @@ const disabledDate = (time: Date) => {
 };
 
 const goBack = () => {
-  emit('go-back');
+  if (showImportantBlock.value) {
+    // Если показываем блок important, возвращаемся к форме
+    showImportantBlock.value = false;
+  } else {
+    // Если показываем форму, возвращаемся ко второму шагу
+    emit('go-back');
+  }
 };
 
-const goNext = () => {
+const handleContinue = () => {
   if (validateForm()) {
-    emit('go-next');
+    // Если форма валидна, показываем блок с важной информацией
+    showImportantBlock.value = true;
   }
+};
+
+const handleAccept = () => {
+  // Принимаем условия и переходим к следующему шагу (четвертому)
+  emit('go-next');
 };
 
 // Следим за изменением поля с матом
@@ -349,7 +364,7 @@ watch(() => formData.platforms, (newValue) => {
 </script>
 
 <template>
-<div class="quiz__form quiz__form_three">
+<div class="quiz__form quiz__form_three" v-if="!showImportantBlock">
   <h4 class="quiz__form_head">Информация о треке</h4>
   
   <div class="quiz__form_single">
@@ -629,11 +644,53 @@ watch(() => formData.platforms, (newValue) => {
       </button>
       <button 
         class="quiz__form_button button__black button"
-        @click="goNext"
+        @click="handleContinue"
         :disabled="!isReadyForNextStep || isLoading"
       >
         <span v-if="!isLoading">Продолжить</span>
         <span v-else>Загрузка...</span>
+      </button>
+    </div>
+  </div>
+</div>
+<!-- Блок с важной информацией -->
+<div class="quiz__form quiz__important" v-if="showImportantBlock">
+  <h4 class="quiz__important_head">Игнорирование требований приведёт к увеличению сроков отгрузки релиза.</h4>
+  <ul class="quiz__important_list">
+    <li class="quiz__important_item">
+      <p class="quiz__important_description">Обложка должна быть квадратная, размером от 1500х1500 до 4000х4000 пикселей, в формате JPG, размером не больше 10-12 мегабайт.</p>
+    </li>
+    <li class="quiz__important_item">
+      <p class="quiz__important_description">Не должно быть изображений/фотографий популярных людей или персонажей, если на это нет документального подтверждения правообладателя.</p>
+    </li>
+    <li class="quiz__important_item">
+      <p class="quiz__important_description">Не должно быть изображений наготы, запрещённых веществ и символов.</p>
+    </li>
+    <li class="quiz__important_item">
+      <p class="quiz__important_description">На обложке не должно быть никаких надписей, кроме названия релиза и псевдоним(-ов) артиста. Названия на обложке должны на 100% совпадать с названием релиза/псевдонимом, до каждой буквы, запятой и пробела, иначе модерация отклонит такую обложку.</p>
+    </li>
+    <li class="quiz__important_item">
+      <p class="quiz__important_description">Разрешаются обложки без надписей вообще.</p>
+    </li>
+    <li class="quiz__important_item">
+      <p class="quiz__important_description">Также приглашаем изучить рекомендации (носящие обязательный характер) от Apple Music</p>
+    </li>
+  </ul>
+  <div class="quiz__form_bottom">
+    <div class="quiz__form_buttons">
+      <button 
+        class="form__back button__second button" 
+        @click="goBack"
+      >
+        <span><BackSVG /></span>
+        <span>Назад</span>
+      </button>
+      <button 
+        class="quiz__form_button button__black button"
+        @click="handleAccept"
+        :disabled="!isReadyForNextStep || isLoading"
+      >
+        <span>принимаю</span>
       </button>
     </div>
   </div>
