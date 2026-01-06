@@ -89,7 +89,8 @@ input::-webkit-inner-spin-button {
   background: var(--color);
 }
 
-html, body {
+html,
+body {
   touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;

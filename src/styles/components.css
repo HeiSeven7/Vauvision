@@ -238,9 +238,7 @@ textarea,
 }
 .el-select__wrapper {
   background-color: transparent;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  border-radius: 5px;
+  border: 1px solid var(--border);
   box-shadow: none;
 }
 .el-select__wrapper.is-hovering:not(.is-focused),
@@ -328,9 +326,9 @@ textarea,
   color: var(--text);
 }
 .el-checkbox__inner:after {
-  height: 10px;
-  top: 3px;
-  left: 7.1px;
+  height: 7px;
+  top: 1px;
+  left: 4px;
 }
 .el-checkbox.el-checkbox--large {
   display: flex;

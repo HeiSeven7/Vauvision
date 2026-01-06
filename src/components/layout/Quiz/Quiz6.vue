@@ -41,18 +41,16 @@
 
       <!-- Права на инструменты -->
       <div class="form__group">
-        <label for="rightsInfo" class="form__label button">Правила на инструменты*</label>
+        <label for="rightsInfo" class="form__label button">Правила на инструменты</label>
         <p class="form__hint text_small">В поле ниже, пожалуйста, укажите в столбик «Название трека – тип прав». Эта информация поможет загрузить релиз на площадки и соблюсти сроки. Если у вас только один трек, то напишите для одного трека. Если у вас несколько треков, то напишите для каждого трека. По желанию, вы можете прикрепить ссылку на сам договор на Яндекс Диске – это не обязательно.</p>
         <el-input
           v-model="formData.rightsInfo"
           type="textarea"
           :rows="6"
-          :class="{ 'error': errors.rightsInfo }"
           placeholder="1. Название первого трека - исключительная лицензия
 2. Название второго трека - wav лицензия
 3. Название третьего трека - полное отчуждение прав
 4. Название четвертого трека - я автор 100% музыки"
-          @blur="validateField('rightsInfo')"
           @input="errors.rightsInfo = ''"
           size="large"
         />
@@ -70,9 +68,6 @@
             {{ errors.rightsContractLink }}
           </div>
         </div>
-        <div v-if="errors.rightsInfo" class="error text_very">
-          {{ errors.rightsInfo }}
-        </div>
       </div>
 
       <!-- Дополнительные комментарии -->
@@ -83,15 +78,10 @@
           v-model="formData.additionalComments"
           type="textarea"
           :rows="4"
-          :class="{ 'error': errors.additionalComments }"
           placeholder="Ваши комментарии и пожелания..."
-          @blur="validateField('additionalComments')"
           @input="errors.additionalComments = ''"
           size="large"
         />
-        <div v-if="errors.additionalComments" class="error text_very">
-          {{ errors.additionalComments }}
-        </div>
       </div>
 
       <!-- Промо-план релиза -->
@@ -102,15 +92,10 @@
           v-model="formData.promoPlan"
           type="textarea"
           :rows="4"
-          :class="{ 'error': errors.promoPlan }"
           placeholder="Информация об артисте, релизе, планах по рекламе..."
-          @blur="validateField('promoPlan')"
           @input="errors.promoPlan = ''"
           size="large"
         />
-        <div v-if="errors.promoPlan" class="error text_very">
-          {{ errors.promoPlan }}
-        </div>
       </div>
 
       <!-- Ссылка на Bandlink -->
@@ -138,30 +123,22 @@
         <el-input
           v-model="formData.promoCode"
           type="text"
-          :class="{ 'error': errors.promoCode }"
           placeholder="Введите промокод"
-          @blur="validateField('promoCode')"
           @input="errors.promoCode = ''"
           size="large"
         />
-        <div v-if="errors.promoCode" class="error text_very">
-          {{ errors.promoCode }}
-        </div>
       </div>
 
       <!-- Бонусы партнера -->
       <div class="form__group">
+        <h5 class="form__label">бонусы партнера</h5>
         <div class="form__checkbox_group">
           <el-checkbox
             v-model="formData.usePartnerBonuses"
-            :class="{ 'error': errors.usePartnerBonuses }"
-            @change="validateField('usePartnerBonuses')"
+            @change="errors.usePartnerBonuses = ''"
           >
             Использовать бонусы партнера
           </el-checkbox>
-        </div>
-        <div v-if="errors.usePartnerBonuses" class="error text_very">
-          {{ errors.usePartnerBonuses }}
         </div>
       </div>
 
@@ -203,10 +180,17 @@
           @click="handleContinue"
           :disabled="!isReadyForNextStep"
         >
-          <span>Продолжить</span>
+          <span>подписать договор и оплатить</span>
         </button>
       </div>
     </div>
+
+    <!-- Кастомный попап для подписи -->
+    <SignaturePopup
+      v-if="showSignaturePopup"
+      @close="closeSignaturePopup"
+      @submit="handleSignatureSubmit"
+    />
   </div>
 </template>
 
@@ -214,6 +198,7 @@
 import { ref, reactive, computed, watch } from 'vue';
 import { ElSelect, ElOption, ElInput, ElCheckbox, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
+import SignaturePopup from '@/components/layout/Signature.vue';
 
 const emit = defineEmits<{
   'go-back': [];
@@ -238,15 +223,18 @@ const formData = reactive({
 const errors = reactive({
   platforms: '',
   otherPlatform: '',
-  rightsInfo: '',
+  rightsInfo: '', // Убрали из валидации
   rightsContractLink: '',
-  additionalComments: '',
-  promoPlan: '',
+  additionalComments: '', // Убрали из валидации
+  promoPlan: '', // Убрали из валидации
   bandlinkUrl: '',
-  promoCode: '',
-  usePartnerBonuses: '',
+  promoCode: '', // Убрали из валидации
+  usePartnerBonuses: '', // Убрали из валидации
   confirmNoRightsViolation: ''
 });
+
+// Состояние попапа
+const showSignaturePopup = ref(false);
 
 // Опции для выбора площадок
 const platformOptions = [
@@ -273,7 +261,7 @@ const isValidUrl = (url: string): boolean => {
   }
 };
 
-// Валидация конкретного поля
+// Валидация конкретного поля (ТОЛЬКО ОБЯЗАТЕЛЬНЫЕ)
 const validateField = (fieldName: keyof typeof errors): boolean => {
   let errorMessage = '';
   
@@ -292,43 +280,19 @@ const validateField = (fieldName: keyof typeof errors): boolean => {
       }
       break;
       
-    case 'rightsInfo':
-      if (!formData.rightsInfo.trim()) {
-        errorMessage = 'Информация о правах обязательна';
-      } else if (formData.rightsInfo.trim().length < 10) {
-        errorMessage = 'Информация о правах слишком короткая';
-      }
-      break;
-      
     case 'rightsContractLink':
+      // Не обязательное поле, проверяем только если есть текст
       if (formData.rightsContractLink.trim() && !isValidUrl(formData.rightsContractLink)) {
         errorMessage = 'Введите корректную ссылку (начинается с https://)';
       }
       break;
       
-    case 'additionalComments':
-      if (formData.additionalComments.trim().length > 0 && formData.additionalComments.trim().length < 5) {
-        errorMessage = 'Минимум 5 символов для комментария';
-      }
-      break;
-      
-    case 'promoPlan':
-      if (formData.promoPlan.trim().length > 0 && formData.promoPlan.trim().length < 10) {
-        errorMessage = 'Минимум 10 символов для промо-плана';
-      }
-      break;
-      
     case 'bandlinkUrl':
+      // Не обязательное поле, проверяем только если есть текст
       if (formData.bandlinkUrl.trim() && !isValidUrl(formData.bandlinkUrl)) {
         errorMessage = 'Введите корректную ссылку на Band.link';
       } else if (formData.bandlinkUrl.trim() && !formData.bandlinkUrl.includes('band.link')) {
         errorMessage = 'Ссылка должна вести на Band.link';
-      }
-      break;
-      
-    case 'promoCode':
-      if (formData.promoCode.trim() && formData.promoCode.trim().length < 3) {
-        errorMessage = 'Промокод должен содержать минимум 3 символа';
       }
       break;
       
@@ -337,6 +301,8 @@ const validateField = (fieldName: keyof typeof errors): boolean => {
         errorMessage = 'Необходимо подтвердить отсутствие нарушений прав';
       }
       break;
+      
+    // Поля rightsInfo, additionalComments, promoPlan, promoCode, usePartnerBonuses - НЕ ПРОВЕРЯЕМ!
   }
   
   errors[fieldName] = errorMessage;
@@ -348,9 +314,14 @@ const validateUrlField = (fieldName: keyof typeof errors): boolean => {
   let isValid = true;
   
   if (fieldName === 'rightsContractLink') {
-    if (formData.rightsContractLink.trim() && !isValidUrl(formData.rightsContractLink)) {
-      errors.rightsContractLink = 'Введите корректную ссылку (начинается с https://)';
-      isValid = false;
+    if (formData.rightsContractLink.trim()) {
+      if (!isValidUrl(formData.rightsContractLink)) {
+        errors.rightsContractLink = 'Введите корректную ссылку (начинается с https://)';
+        isValid = false;
+      } else {
+        errors.rightsContractLink = '';
+        isValid = true;
+      }
     } else {
       errors.rightsContractLink = '';
       isValid = true;
@@ -376,14 +347,13 @@ const validateUrlField = (fieldName: keyof typeof errors): boolean => {
   return isValid;
 };
 
-// Валидация всей формы
+// Валидация всей формы (ТОЛЬКО ОБЯЗАТЕЛЬНЫЕ ПОЛЯ)
 const validateForm = (): boolean => {
   let isValid = true;
   
-  // Проверяем все обязательные поля
+  // Проверяем только обязательные поля
   const requiredFields: (keyof typeof errors)[] = [
     'platforms',
-    'rightsInfo',
     'confirmNoRightsViolation'
   ];
   
@@ -401,7 +371,7 @@ const validateForm = (): boolean => {
     }
   }
   
-  // Проверяем URL поля
+  // Проверяем URL поля только если они заполнены (не обязательные)
   if (formData.rightsContractLink.trim()) {
     const rightsContractValid = validateUrlField('rightsContractLink');
     if (!rightsContractValid) {
@@ -421,10 +391,9 @@ const validateForm = (): boolean => {
 
 // Вычисляемое свойство для проверки готовности к продолжению
 const isReadyForNextStep = computed(() => {
-  // Проверяем обязательные поля
+  // Проверяем только обязательные поля
   const requiredFieldsValid = 
     formData.platforms.length > 0 &&
-    formData.rightsInfo.trim().length >= 10 &&
     formData.confirmNoRightsViolation;
   
   // Если выбрано "other", проверяем поле otherPlatform
@@ -433,7 +402,7 @@ const isReadyForNextStep = computed(() => {
     otherPlatformValid = formData.otherPlatform.trim().length >= 2;
   }
   
-  // Проверяем URL если они заполнены
+  // URL поля - не обязательные, проверяем только если заполнены
   let rightsContractUrlValid = true;
   if (formData.rightsContractLink.trim()) {
     rightsContractUrlValid = isValidUrl(formData.rightsContractLink);
@@ -444,7 +413,13 @@ const isReadyForNextStep = computed(() => {
     bandlinkUrlValid = isValidUrl(formData.bandlinkUrl) && formData.bandlinkUrl.includes('band.link');
   }
   
-  return requiredFieldsValid && otherPlatformValid && rightsContractUrlValid && bandlinkUrlValid;
+  // ВСЕ ОСТАЛЬНЫЕ ПОЛЯ (rightsInfo, additionalComments, promoPlan, promoCode, usePartnerBonuses) - НЕ ПРОВЕРЯЕМ!
+  // Они полностью необязательные
+  
+  return requiredFieldsValid && 
+         otherPlatformValid && 
+         rightsContractUrlValid && 
+         bandlinkUrlValid;
 });
 
 const goBack = () => {
@@ -454,12 +429,27 @@ const goBack = () => {
 const handleContinue = () => {
   const formValid = validateForm();
   if (formValid) {
-    // Сохраняем данные (можно добавить отправку на сервер)
-    console.log('Данные формы сохранены:', formData);
-    emit('go-next');
+    // Показываем попап для подписи
+    showSignaturePopup.value = true;
+    document.documentElement.classList.add('noscroll');
   } else {
     ElMessage.warning('Пожалуйста, заполните все обязательные поля корректно');
   }
+};
+
+const closeSignaturePopup = () => {
+  showSignaturePopup.value = false;
+  document.documentElement.classList.remove('noscroll');
+};
+
+const handleSignatureSubmit = (signatureData: string) => {
+  // Здесь можно обработать подпись (например, отправить на сервер)
+  console.log('Подпись получена:', signatureData);
+  closeSignaturePopup();
+  
+  // Сохраняем данные формы и переходим дальше
+  console.log('Данные формы сохранены:', formData);
+  emit('go-next');
 };
 
 // Следим за изменением platforms чтобы очистить otherPlatform если нужно
@@ -467,15 +457,6 @@ watch(() => formData.platforms, (newPlatforms) => {
   if (!newPlatforms.includes('other')) {
     formData.otherPlatform = '';
     errors.otherPlatform = '';
-  }
-});
-
-// Следим за изменением promoCode для валидации
-watch(() => formData.promoCode, (newCode) => {
-  if (newCode.trim()) {
-    validateField('promoCode');
-  } else {
-    errors.promoCode = '';
   }
 });
 </script>
@@ -505,8 +486,11 @@ watch(() => formData.promoCode, (newCode) => {
   align-items: center;
   gap: 30px;
 }
-.form__checkbox_group {
-  margin: 20px 0;
+.form__checkbox_group .el-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-gray);
 }
 .quiz__form_sum {
   display: flex;
