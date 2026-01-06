@@ -195,7 +195,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { ElSelect, ElOption, ElInput, ElCheckbox, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import SignaturePopup from '@/components/layout/Signature.vue';
@@ -204,6 +204,9 @@ const emit = defineEmits<{
   'go-back': [];
   'go-next': [];
 }>();
+
+// Ключи для localStorage
+const STORAGE_KEY = 'quiz6_state';
 
 // Данные формы
 const formData = reactive({
@@ -249,6 +252,39 @@ const platformOptions = [
 
 // Сумма к оплате (примерная, можно подключать из store)
 const totalAmount = ref(2590);
+
+// Сохранение состояния в localStorage
+const saveStateToLocalStorage = () => {
+  try {
+    const stateToSave = {
+      formData
+    };
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+  } catch (error) {
+    console.error('Error saving state to localStorage:', error);
+  }
+};
+
+// Загрузка состояния из localStorage
+const loadStateFromLocalStorage = () => {
+  try {
+    const savedState = localStorage.getItem(STORAGE_KEY);
+    if (savedState) {
+      const parsedState = JSON.parse(savedState);
+      
+      // Восстанавливаем данные формы
+      Object.assign(formData, parsedState.formData);
+    }
+  } catch (error) {
+    console.error('Error loading state from localStorage:', error);
+  }
+};
+
+// Очистка состояния в localStorage
+const clearLocalStorage = () => {
+  localStorage.removeItem(STORAGE_KEY);
+};
 
 // Валидация URL
 const isValidUrl = (url: string): boolean => {
@@ -306,6 +342,10 @@ const validateField = (fieldName: keyof typeof errors): boolean => {
   }
   
   errors[fieldName] = errorMessage;
+  
+  // Сохраняем состояние после валидации
+  saveStateToLocalStorage();
+  
   return !errorMessage;
 };
 
@@ -343,6 +383,9 @@ const validateUrlField = (fieldName: keyof typeof errors): boolean => {
       isValid = true;
     }
   }
+  
+  // Сохраняем состояние после валидации
+  saveStateToLocalStorage();
   
   return isValid;
 };
@@ -385,6 +428,9 @@ const validateForm = (): boolean => {
       isValid = false;
     }
   }
+  
+  // Сохраняем состояние после валидации
+  saveStateToLocalStorage();
   
   return isValid;
 };
@@ -447,10 +493,18 @@ const handleSignatureSubmit = (signatureData: string) => {
   console.log('Подпись получена:', signatureData);
   closeSignaturePopup();
   
+  // Очищаем localStorage после успешного завершения
+  clearLocalStorage();
+  
   // Сохраняем данные формы и переходим дальше
   console.log('Данные формы сохранены:', formData);
   emit('go-next');
 };
+
+// Сохранение состояния при изменении данных формы
+watch(() => formData, () => {
+  saveStateToLocalStorage();
+}, { deep: true });
 
 // Следим за изменением platforms чтобы очистить otherPlatform если нужно
 watch(() => formData.platforms, (newPlatforms) => {
@@ -458,6 +512,12 @@ watch(() => formData.platforms, (newPlatforms) => {
     formData.otherPlatform = '';
     errors.otherPlatform = '';
   }
+  saveStateToLocalStorage();
+});
+
+// Загрузка состояния при монтировании компонента
+onMounted(() => {
+  loadStateFromLocalStorage();
 });
 </script>
 

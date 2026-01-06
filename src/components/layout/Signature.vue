@@ -6,12 +6,51 @@ const emit = defineEmits<{
   submit: [signatureData: string];
 }>();
 
+// Ключ для сохранения подписи в localStorage
+const SIGNATURE_STORAGE_KEY = 'signature_data';
+
 const signatureCanvas = ref<HTMLCanvasElement | null>(null);
 const isDrawing = ref(false);
 const lastX = ref(0);
 const lastY = ref(0);
 const signatureDrawn = ref(false);
 let canvasContext: CanvasRenderingContext2D | null = null;
+
+// Сохранение подписи в localStorage
+const saveSignatureToLocalStorage = () => {
+  if (!signatureCanvas.value) return;
+  
+  try {
+    // Получаем данные подписи в формате base64
+    const dataUrl = signatureCanvas.value.toDataURL('image/png');
+    localStorage.setItem(SIGNATURE_STORAGE_KEY, dataUrl);
+  } catch (error) {
+    console.error('Error saving signature to localStorage:', error);
+  }
+};
+
+// Загрузка подписи из localStorage
+const loadSignatureFromLocalStorage = () => {
+  try {
+    const savedSignature = localStorage.getItem(SIGNATURE_STORAGE_KEY);
+    if (savedSignature && canvasContext && signatureCanvas.value) {
+      const img = new Image();
+      img.onload = () => {
+        canvasContext!.clearRect(0, 0, signatureCanvas.value!.width, signatureCanvas.value!.height);
+        canvasContext!.drawImage(img, 0, 0);
+        signatureDrawn.value = true;
+      };
+      img.src = savedSignature;
+    }
+  } catch (error) {
+    console.error('Error loading signature from localStorage:', error);
+  }
+};
+
+// Очистка подписи из localStorage
+const clearSignatureFromLocalStorage = () => {
+  localStorage.removeItem(SIGNATURE_STORAGE_KEY);
+};
 
 // Инициализация канваса
 const initCanvas = () => {
@@ -43,6 +82,9 @@ const initCanvas = () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Загружаем сохраненную подпись
+  loadSignatureFromLocalStorage();
 };
 
 // Начало рисования (мышь)
@@ -71,6 +113,9 @@ const draw = (e: MouseEvent) => {
   lastX.value = currentX;
   lastY.value = currentY;
   signatureDrawn.value = true;
+  
+  // Сохраняем подпись в localStorage при рисовании
+  saveSignatureToLocalStorage();
 };
 
 // Начало рисования (тач)
@@ -103,11 +148,16 @@ const drawTouch = (e: TouchEvent) => {
   lastX.value = currentX;
   lastY.value = currentY;
   signatureDrawn.value = true;
+  
+  // Сохраняем подпись в localStorage при рисовании
+  saveSignatureToLocalStorage();
 };
 
 // Остановка рисования
 const stopDrawing = () => {
   isDrawing.value = false;
+  // Сохраняем финальную версию подписи
+  saveSignatureToLocalStorage();
 };
 
 // Очистка подписи
@@ -122,6 +172,9 @@ const clearSignature = () => {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
   signatureDrawn.value = false;
+  
+  // Удаляем подпись из localStorage
+  clearSignatureFromLocalStorage();
 };
 
 // Отправка подписи
@@ -130,11 +183,16 @@ const submitSignature = () => {
   
   // Получаем данные подписи в формате base64
   const dataUrl = signatureCanvas.value.toDataURL('image/png');
+  
+  // Очищаем localStorage после успешной отправки
+  clearSignatureFromLocalStorage();
+  
   emit('submit', dataUrl);
 };
 
 // Закрытие попапа
 const closePopup = () => {
+  // Не очищаем localStorage при закрытии, чтобы сохранить черновик подписи
   emit('close');
 };
 
@@ -143,16 +201,23 @@ const handleResize = () => {
   initCanvas();
 };
 
+// Автосохранение подписи при размонтировании компонента (на всякий случай)
+const handleBeforeUnload = () => {
+  saveSignatureToLocalStorage();
+};
+
 onMounted(() => {
   nextTick(() => {
     initCanvas();
   });
   
   window.addEventListener('resize', handleResize);
+  window.addEventListener('beforeunload', handleBeforeUnload);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
 });
 </script>
 

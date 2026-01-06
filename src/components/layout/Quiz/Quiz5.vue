@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import ClipSVG from "@/uikit/icon/ClipSVG.vue";
 import CloseSVG from "@/uikit/icon/CloseSVG.vue";
+import { ElInput, ElSelect, ElOption } from 'element-plus';
 
 const emit = defineEmits<{
   'go-back': [];
@@ -37,6 +38,9 @@ interface Errors {
   socialLinks: string;
   fileConsistency: string;
 }
+
+// Ключи для localStorage
+const STORAGE_KEY = 'quiz5_state';
 
 const formData = ref<FormData>({
   genre: '',
@@ -78,21 +82,72 @@ const drugsOptions = [
   { value: 'no', label: 'Нет' }
 ];
 
-const appleMusicFileName = computed(() => {
-  return formData.value.appleMusicTextFile?.name || '';
-});
+// Состояния для файлов (нужны для отображения)
+const appleMusicFileName = ref('');
+const appleMusicFileSize = ref(0);
+const karaokeFileName = ref('');
+const karaokeFileSize = ref(0);
 
-const appleMusicFileSize = computed(() => {
-  return formData.value.appleMusicTextFile?.size || 0;
-});
+// Сохранение состояния в localStorage
+const saveStateToLocalStorage = () => {
+  try {
+    const stateToSave = {
+      formData: {
+        ...formData.value,
+        // Файлы не сохраняем в localStorage, только информацию о них
+        appleMusicTextFile: formData.value.appleMusicTextFile ? {
+          name: formData.value.appleMusicTextFile.name,
+          size: formData.value.appleMusicTextFile.size,
+          type: formData.value.appleMusicTextFile.type
+        } : null,
+        karaokeFile: formData.value.karaokeFile ? {
+          name: formData.value.karaokeFile.name,
+          size: formData.value.karaokeFile.size,
+          type: formData.value.karaokeFile.type
+        } : null
+      },
+      appleMusicFileName: appleMusicFileName.value,
+      appleMusicFileSize: appleMusicFileSize.value,
+      karaokeFileName: karaokeFileName.value,
+      karaokeFileSize: karaokeFileSize.value
+    };
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+  } catch (error) {
+    console.error('Error saving state to localStorage:', error);
+  }
+};
 
-const karaokeFileName = computed(() => {
-  return formData.value.karaokeFile?.name || '';
-});
+// Загрузка состояния из localStorage
+const loadStateFromLocalStorage = () => {
+  try {
+    const savedState = localStorage.getItem(STORAGE_KEY);
+    if (savedState) {
+      const parsedState = JSON.parse(savedState);
+      
+      // Восстанавливаем основные данные формы
+      const { appleMusicTextFile, karaokeFile, ...otherFormData } = parsedState.formData;
+      formData.value = {
+        ...otherFormData,
+        appleMusicTextFile: null, // Нельзя восстановить File объект из localStorage
+        karaokeFile: null
+      };
+      
+      // Восстанавливаем информацию о файлах
+      appleMusicFileName.value = parsedState.appleMusicFileName || '';
+      appleMusicFileSize.value = parsedState.appleMusicFileSize || 0;
+      karaokeFileName.value = parsedState.karaokeFileName || '';
+      karaokeFileSize.value = parsedState.karaokeFileSize || 0;
+    }
+  } catch (error) {
+    console.error('Error loading state from localStorage:', error);
+  }
+};
 
-const karaokeFileSize = computed(() => {
-  return formData.value.karaokeFile?.size || 0;
-});
+// Очистка состояния в localStorage
+const clearLocalStorage = () => {
+  localStorage.removeItem(STORAGE_KEY);
+};
 
 // Проверка всех обязательных полей
 const isContinueButtonEnabled = computed(() => {
@@ -280,6 +335,8 @@ const validateField = (fieldName: keyof FormData) => {
   }
   
   validateFileConsistency();
+  // Сохраняем состояние после валидации
+  saveStateToLocalStorage();
 };
 
 const validateFileConsistency = () => {
@@ -348,6 +405,8 @@ const goBack = () => {
 
 const goNext = () => {
   if (validateForm()) {
+    // Очищаем localStorage после успешного завершения
+    clearLocalStorage();
     emit('go-next', formData.value);
   }
 };
@@ -363,18 +422,28 @@ const handleKaraokeFileClick = () => {
 const handleAppleMusicFileChange = (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files[0]) {
-    formData.value.appleMusicTextFile = input.files[0];
+    const file = input.files[0];
+    formData.value.appleMusicTextFile = file;
+    appleMusicFileName.value = file.name;
+    appleMusicFileSize.value = file.size;
+    
     validateField('appleMusicTextFile');
     validateFileConsistency();
+    saveStateToLocalStorage();
   }
 };
 
 const handleKaraokeFileChange = (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files[0]) {
-    formData.value.karaokeFile = input.files[0];
+    const file = input.files[0];
+    formData.value.karaokeFile = file;
+    karaokeFileName.value = file.name;
+    karaokeFileSize.value = file.size;
+    
     validateField('karaokeFile');
     validateFileConsistency();
+    saveStateToLocalStorage();
   }
 };
 
@@ -423,6 +492,8 @@ const handleDrop = (event: DragEvent) => {
       }
       
       formData.value.appleMusicTextFile = file;
+      appleMusicFileName.value = file.name;
+      appleMusicFileSize.value = file.size;
       errors.value.appleMusicTextFile = '';
     } else if (target.classList.contains('karaoke-upload')) {
       karaokeDragOver.value = false;
@@ -441,29 +512,38 @@ const handleDrop = (event: DragEvent) => {
       }
       
       formData.value.karaokeFile = file;
+      karaokeFileName.value = file.name;
+      karaokeFileSize.value = file.size;
       errors.value.karaokeFile = '';
     }
     
     validateFileConsistency();
+    saveStateToLocalStorage();
   }
 };
 
 const removeUploadedAppleMusicFile = () => {
   formData.value.appleMusicTextFile = null;
+  appleMusicFileName.value = '';
+  appleMusicFileSize.value = 0;
   if (appleMusicTextFileRef.value) {
     appleMusicTextFileRef.value.value = '';
   }
   errors.value.appleMusicTextFile = '';
   validateFileConsistency();
+  saveStateToLocalStorage();
 };
 
 const removeUploadedKaraokeFile = () => {
   formData.value.karaokeFile = null;
+  karaokeFileName.value = '';
+  karaokeFileSize.value = 0;
   if (karaokeFileRef.value) {
     karaokeFileRef.value.value = '';
   }
   errors.value.karaokeFile = '';
   validateFileConsistency();
+  saveStateToLocalStorage();
 };
 
 const formatFileSize = (bytes: number): string => {
@@ -476,6 +556,11 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
+// Сохранение состояния при изменении данных формы
+watch(() => formData.value, () => {
+  saveStateToLocalStorage();
+}, { deep: true });
+
 watch(() => formData.value.hasDrugsMention, (newValue) => {
   if (newValue !== 'yes') {
     formData.value.drugsTracks = '';
@@ -483,23 +568,12 @@ watch(() => formData.value.hasDrugsMention, (newValue) => {
   }
   validateField('hasDrugsMention');
   validateField('drugsTracks');
+  saveStateToLocalStorage();
 });
 
-// Наблюдаем за изменениями в обязательных полях для обновления состояния кнопки
-watch([
-  () => formData.value.genre,
-  () => formData.value.hasDrugsMention,
-  () => formData.value.drugsTracks,
-  () => formData.value.socialLinks,
-  () => formData.value.appleMusicTextFile,
-  () => formData.value.karaokeFile,
-  () => formData.value.tiktokStartSeconds,
-  () => formData.value.appleMusicLinks,
-  () => formData.value.spotifyLinks,
-  () => formData.value.vkLinks,
-  () => formData.value.yandexMusicLinks,
-], () => {
-  // computed свойство isContinueButtonEnabled автоматически обновится
+// Загрузка состояния при монтировании компонента
+onMounted(() => {
+  loadStateFromLocalStorage();
 });
 </script>
 

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
 import { ElInput, ElMessage, ElSelect, ElOption, ElDatePicker } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import CloseSVG from "@/uikit/icon/CloseSVG.vue";
@@ -11,10 +11,13 @@ const emit = defineEmits<{
   'go-next': [];
 }>();
 
-// Добавлено: состояние для отображения важной информации
+// Ключи для localStorage
+const STORAGE_KEY = 'quiz3_state';
+
+// Состояние для отображения важной информации
 const showImportantBlock = ref(false);
 
-// Данные формы
+// Данные формы с инициализацией из localStorage
 const formData = reactive({
   performerName: '',
   releaseName: '',
@@ -90,6 +93,58 @@ const isReadyForNextStep = computed(() => {
   
   return requiredFields.every(Boolean);
 });
+
+// Сохранение состояния в localStorage
+const saveStateToLocalStorage = () => {
+  try {
+    // Преобразуем File в объект для хранения (можно сохранить только имя и размер)
+    const stateToSave = {
+      formData: {
+        ...formData,
+        coverFile: formData.coverFile ? {
+          name: formData.coverFile.name,
+          size: formData.coverFile.size,
+          type: formData.coverFile.type
+        } : null
+      },
+      coverFileName: coverFileName.value,
+      coverFileSize: coverFileSize.value,
+      showImportantBlock: showImportantBlock.value
+    };
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+  } catch (error) {
+    console.error('Error saving state to localStorage:', error);
+  }
+};
+
+// Загрузка состояния из localStorage
+const loadStateFromLocalStorage = () => {
+  try {
+    const savedState = localStorage.getItem(STORAGE_KEY);
+    if (savedState) {
+      const parsedState = JSON.parse(savedState);
+      
+      // Восстанавливаем основные данные формы
+      Object.assign(formData, parsedState.formData);
+      formData.coverFile = null; // Нельзя восстановить File объект из localStorage
+      
+      // Восстанавливаем информацию о файле
+      coverFileName.value = parsedState.coverFileName || '';
+      coverFileSize.value = parsedState.coverFileSize || 0;
+      
+      // НЕ восстанавливаем showImportantBlock - всегда показываем форму
+      showImportantBlock.value = false;
+    }
+  } catch (error) {
+    console.error('Error loading state from localStorage:', error);
+  }
+};
+
+// Очистка состояния в localStorage
+const clearLocalStorage = () => {
+  localStorage.removeItem(STORAGE_KEY);
+};
 
 // Валидация URL
 const isValidUrl = (url: string) => {
@@ -247,6 +302,9 @@ const processCoverFile = (file: File) => {
     coverFileName.value = file.name;
     coverFileSize.value = file.size;
     
+    // Сохраняем состояние
+    saveStateToLocalStorage();
+    
     ElMessage.success('Обложка успешно загружена');
   };
   
@@ -309,6 +367,10 @@ const removeUploadedCover = () => {
   coverFileName.value = '';
   coverFileSize.value = 0;
   errors.coverFile = '';
+  
+  // Сохраняем состояние
+  saveStateToLocalStorage();
+  
   ElMessage.info('Обложка удалена');
 };
 
@@ -330,6 +392,7 @@ const goBack = () => {
   if (showImportantBlock.value) {
     // Если показываем блок important, возвращаемся к форме
     showImportantBlock.value = false;
+    saveStateToLocalStorage();
   } else {
     // Если показываем форму, возвращаемся ко второму шагу
     emit('go-back');
@@ -340,13 +403,22 @@ const handleContinue = () => {
   if (validateForm()) {
     // Если форма валидна, показываем блок с важной информацией
     showImportantBlock.value = true;
+    saveStateToLocalStorage();
   }
 };
 
 const handleAccept = () => {
+  // Очищаем localStorage после успешного завершения
+  clearLocalStorage();
+  
   // Принимаем условия и переходим к следующему шагу (четвертому)
   emit('go-next');
 };
+
+// Сохранение состояния при изменении данных формы
+watch(() => formData, () => {
+  saveStateToLocalStorage();
+}, { deep: true });
 
 // Следим за изменением поля с матом
 watch(() => formData.hasProfanity, (newValue) => {
@@ -360,6 +432,19 @@ watch(() => formData.platforms, (newValue) => {
   if (!newValue.includes('other')) {
     formData.otherPlatform = '';
   }
+});
+
+// Загрузка состояния при монтировании компонента
+onMounted(() => {
+  loadStateFromLocalStorage();
+  // Всегда показываем форму при загрузке компонента
+  showImportantBlock.value = false;
+});
+
+// Очистка при размонтировании (опционально, можно оставить для будущих шагов)
+onUnmounted(() => {
+  // Если нужно очищать при переходе на другие шаги
+  // clearLocalStorage();
 });
 </script>
 

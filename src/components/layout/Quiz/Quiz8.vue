@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, getCurrentInstance, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 
@@ -8,143 +8,131 @@ const emit = defineEmits<{
   'finish': [];
 }>();
 
-// Получаем экземпляр компонента для доступа к родителю
-const instance = getCurrentInstance();
-const parent = instance?.parent;
-
-// Состояние загрузки
 const isLoading = ref(false);
+
+// Интерфейсы для типизации
+interface SingleTrack {
+  trackName?: string;
+}
+
+interface Album {
+  tracks?: SingleTrack[];
+}
+
+interface AllData {
+  singleTracks?: SingleTrack[];
+  albums?: Album[];
+  singleCount?: number;
+  albumCount?: number;
+  clipCount?: number;
+  cardCount?: number;
+  releaseInfo?: {
+    performerName?: string;
+    email?: string;
+  };
+  passportInfo?: {
+    lastName?: string;
+    firstName?: string;
+  };
+  additionalInfo?: {
+    confirmNoRightsViolation?: boolean;
+  };
+  signature?: string;
+  coverFileName?: string;
+  coverFileSize?: number;
+  appleMusicFileName?: string;
+  appleMusicFileSize?: number;
+  karaokeFileName?: string;
+  karaokeFileSize?: number;
+  agreement?: any;
+}
+
+// Вычисляемые свойства для шаблона
+const allData = computed<AllData>(() => {
+  const data: AllData = {};
+  
+  // Собираем данные из каждого шага
+  const quizSteps = [1, 2, 3, 4, 5, 6, 7];
+  
+  quizSteps.forEach(step => {
+    try {
+      const stepData = localStorage.getItem(`quiz${step}_state`);
+      if (stepData) {
+        const parsedData = JSON.parse(stepData);
+        
+        switch(step) {
+          case 1:
+            Object.assign(data, parsedData);
+            break;
+          case 2:
+            data.singleTracks = parsedData.singleTracks || [];
+            data.albums = parsedData.albums || [];
+            data.singleCount = parsedData.singleCount || 0;
+            data.albumCount = parsedData.albumCount || 0;
+            break;
+          case 3:
+            data.releaseInfo = parsedData.formData || {};
+            data.coverFileName = parsedData.coverFileName || '';
+            data.coverFileSize = parsedData.coverFileSize || 0;
+            break;
+          case 4:
+            data.passportInfo = parsedData.formData || {};
+            break;
+          case 5:
+            Object.assign(data, parsedData.formData || {});
+            data.appleMusicFileName = parsedData.appleMusicFileName || '';
+            data.appleMusicFileSize = parsedData.appleMusicFileSize || 0;
+            data.karaokeFileName = parsedData.karaokeFileName || '';
+            data.karaokeFileSize = parsedData.karaokeFileSize || 0;
+            break;
+          case 6:
+            data.additionalInfo = parsedData.formData || {};
+            break;
+          case 7:
+            data.agreement = parsedData || {};
+            break;
+        }
+      }
+    } catch (error) {
+      console.error(`Error collecting data from step ${step}:`, error);
+    }
+  });
+  
+  // Получаем подпись
+  try {
+    const signatureData = localStorage.getItem('signature_data');
+    if (signatureData) {
+      data.signature = signatureData;
+    }
+  } catch (error) {
+    console.error('Error collecting signature:', error);
+  }
+  
+  return data;
+});
+
+// Для логики (отдельная функция)
+const collectAllDataForLogic = (): AllData => {
+  return allData.value;
+};
+
+// Функция для расчета общего количества треков
+const calculateTotalTracks = (data: AllData): number => {
+  const singleTracksCount = data.singleTracks?.length || 0;
+  let albumTracksCount = 0;
+  
+  if (data.albums && Array.isArray(data.albums)) {
+    albumTracksCount = data.albums.reduce((total: number, album: Album) => {
+      const tracksLength = album.tracks?.length || 0;
+      return total + tracksLength;
+    }, 0);
+  }
+  
+  return singleTracksCount + albumTracksCount;
+};
 
 const goBack = () => {
   emit('go-back');
-};
-
-// Функция для извлечения реальных данных из Proxy
-const extractData = (proxyData: any): any => {
-  if (!proxyData) return null;
-  
-  // Если это Proxy от Vue 3, извлекаем raw value
-  if (proxyData.__v_raw !== undefined) {
-    return proxyData.__v_raw;
-  }
-  
-  // Если это Ref, получаем значение
-  if (proxyData.value !== undefined && typeof proxyData === 'object' && '_value' in proxyData) {
-    return proxyData.value;
-  }
-  
-  // Если это обычный объект или массив, копируем его
-  if (Array.isArray(proxyData)) {
-    return proxyData.map(item => extractData(item));
-  }
-  
-  if (typeof proxyData === 'object' && proxyData !== null) {
-    const result: Record<string, any> = {};
-    for (const key in proxyData) {
-      result[key] = extractData(proxyData[key]);
-    }
-    return result;
-  }
-  
-  return proxyData;
-};
-
-// Функция для сбора всех данных из форм
-const collectAllData = () => {
-  const allData: Record<string, any> = {};
-  
-  // Получаем данные из родительского компонента
-  if (parent?.exposed) {
-    const quizState = parent.exposed.quizState || {};
-    
-    // Извлекаем все данные из quizState
-    Object.keys(quizState).forEach(key => {
-      allData[key] = extractData(quizState[key]);
-    });
-    
-    // Добавляем общую сумму
-    if (parent.exposed.totalSum) {
-      allData.totalSum = extractData(parent.exposed.totalSum);
-    }
-    
-    // Если есть отдельные методы для получения данных, используем их
-    if (parent.exposed.getSingleTracks) {
-      allData.singleTracks = extractData(parent.exposed.getSingleTracks());
-    }
-    
-    if (parent.exposed.getAlbumTracks) {
-      allData.albumTracks = extractData(parent.exposed.getAlbumTracks());
-    }
-    
-    if (parent.exposed.getFormData) {
-      const formData = parent.exposed.getFormData();
-      Object.assign(allData, extractData(formData));
-    }
-    
-    // Собираем данные из всех шагов напрямую
-    const stepsData: Record<string, any> = {};
-    
-    // Данные из Quiz1
-    if (quizState.singleCount !== undefined) stepsData.singleCount = extractData(quizState.singleCount);
-    if (quizState.albumCount !== undefined) stepsData.albumCount = extractData(quizState.albumCount);
-    if (quizState.clipCount !== undefined) stepsData.clipCount = extractData(quizState.clipCount);
-    if (quizState.cardCount !== undefined) stepsData.cardCount = extractData(quizState.cardCount);
-    
-    // Данные из Quiz2
-    if (quizState.singleTracks !== undefined) stepsData.singleTracks = extractData(quizState.singleTracks);
-    if (quizState.albumTracks !== undefined) stepsData.albumTracks = extractData(quizState.albumTracks);
-    
-    // Данные из Quiz3
-    if (quizState.releaseInfo !== undefined) stepsData.releaseInfo = extractData(quizState.releaseInfo);
-    if (quizState.performerName !== undefined) stepsData.performerName = extractData(quizState.performerName);
-    if (quizState.releaseName !== undefined) stepsData.releaseName = extractData(quizState.releaseName);
-    if (quizState.platforms !== undefined) stepsData.platforms = extractData(quizState.platforms);
-    if (quizState.releaseDate !== undefined) stepsData.releaseDate = extractData(quizState.releaseDate);
-    if (quizState.hasProfanity !== undefined) stepsData.hasProfanity = extractData(quizState.hasProfanity);
-    if (quizState.profanityTracks !== undefined) stepsData.profanityTracks = extractData(quizState.profanityTracks);
-    if (quizState.vkLink !== undefined) stepsData.vkLink = extractData(quizState.vkLink);
-    if (quizState.email !== undefined) stepsData.email = extractData(quizState.email);
-    if (quizState.coverFile !== undefined) stepsData.coverFile = extractData(quizState.coverFile);
-    
-    // Данные из Quiz4
-    if (quizState.userType !== undefined) stepsData.userType = extractData(quizState.userType);
-    if (quizState.citizenship !== undefined) stepsData.citizenship = extractData(quizState.citizenship);
-    if (quizState.lastName !== undefined) stepsData.lastName = extractData(quizState.lastName);
-    if (quizState.firstName !== undefined) stepsData.firstName = extractData(quizState.firstName);
-    if (quizState.middleName !== undefined) stepsData.middleName = extractData(quizState.middleName);
-    if (quizState.passportNumber !== undefined) stepsData.passportNumber = extractData(quizState.passportNumber);
-    if (quizState.passportIssuedBy !== undefined) stepsData.passportIssuedBy = extractData(quizState.passportIssuedBy);
-    if (quizState.passportIssueDate !== undefined) stepsData.passportIssueDate = extractData(quizState.passportIssueDate);
-    if (quizState.registrationAddress !== undefined) stepsData.registrationAddress = extractData(quizState.registrationAddress);
-    
-    // Данные из Quiz5
-    if (quizState.genre !== undefined) stepsData.genre = extractData(quizState.genre);
-    if (quizState.tiktokStartSeconds !== undefined) stepsData.tiktokStartSeconds = extractData(quizState.tiktokStartSeconds);
-    if (quizState.hasDrugsMention !== undefined) stepsData.hasDrugsMention = extractData(quizState.hasDrugsMention);
-    if (quizState.drugsTracks !== undefined) stepsData.drugsTracks = extractData(quizState.drugsTracks);
-    if (quizState.appleMusicLinks !== undefined) stepsData.appleMusicLinks = extractData(quizState.appleMusicLinks);
-    if (quizState.spotifyLinks !== undefined) stepsData.spotifyLinks = extractData(quizState.spotifyLinks);
-    if (quizState.vkLinks !== undefined) stepsData.vkLinks = extractData(quizState.vkLinks);
-    if (quizState.yandexMusicLinks !== undefined) stepsData.yandexMusicLinks = extractData(quizState.yandexMusicLinks);
-    if (quizState.socialLinks !== undefined) stepsData.socialLinks = extractData(quizState.socialLinks);
-    
-    // Данные из Quiz6
-    if (quizState.rightsInfo !== undefined) stepsData.rightsInfo = extractData(quizState.rightsInfo);
-    if (quizState.additionalComments !== undefined) stepsData.additionalComments = extractData(quizState.additionalComments);
-    if (quizState.promoPlan !== undefined) stepsData.promoPlan = extractData(quizState.promoPlan);
-    if (quizState.bandlinkUrl !== undefined) stepsData.bandlinkUrl = extractData(quizState.bandlinkUrl);
-    if (quizState.promoCode !== undefined) stepsData.promoCode = extractData(quizState.promoCode);
-    
-    // Данные из Quiz7
-    if (quizState.acceptTerms !== undefined) stepsData.acceptTerms = extractData(quizState.acceptTerms);
-    if (quizState.acceptPrivacy !== undefined) stepsData.acceptPrivacy = extractData(quizState.acceptPrivacy);
-    if (quizState.acceptMarketing !== undefined) stepsData.acceptMarketing = extractData(quizState.acceptMarketing);
-    
-    // Объединяем все данные
-    Object.assign(allData, stepsData);
-  }
-  
-  return allData;
 };
 
 const handleFinish = async () => {
@@ -152,58 +140,94 @@ const handleFinish = async () => {
     isLoading.value = true;
     
     // Собираем все данные
-    const allData = collectAllData();
+    const data = collectAllDataForLogic();
     
-    console.log('Данные для отправки (RAW):', allData);
+    console.log('Все собранные данные:', data);
     
-    // Проверяем, что данные есть
-    if (Object.keys(allData).length === 0) {
-      ElMessage.error('Нет данных для отправки');
+    // Проверяем обязательные поля
+    let hasErrors = false;
+    const errors: string[] = [];
+    
+    // Проверка шага 1
+    const step1Count = (data.singleCount || 0) + (data.albumCount || 0) + (data.clipCount || 0) + (data.cardCount || 0);
+    if (step1Count === 0) {
+      errors.push('Не выбраны треки для загрузки (шаг 1)');
+      hasErrors = true;
+    }
+    
+    // Проверка шага 2
+    if (data.singleCount && data.singleCount > 0 && (!data.singleTracks || data.singleTracks.length === 0)) {
+      errors.push('Не заполнены данные о синглах (шаг 2)');
+      hasErrors = true;
+    }
+    
+    if (data.albumCount && data.albumCount > 0 && (!data.albums || data.albums.length === 0)) {
+      errors.push('Не заполнены данные об альбомах (шаг 2)');
+      hasErrors = true;
+    }
+    
+    // Проверка шага 3
+    const performerName = data.releaseInfo?.performerName || '';
+    const email = data.releaseInfo?.email || '';
+    if (!performerName || !email) {
+      errors.push('Не заполнены обязательные поля информации о треке (шаг 3)');
+      hasErrors = true;
+    }
+    
+    // Проверка шага 4
+    const lastName = data.passportInfo?.lastName || '';
+    const firstName = data.passportInfo?.firstName || '';
+    if (!lastName || !firstName) {
+      errors.push('Не заполнены паспортные данные (шаг 4)');
+      hasErrors = true;
+    }
+    
+    // Проверка шага 6
+    const confirmNoRightsViolation = data.additionalInfo?.confirmNoRightsViolation || false;
+    if (!confirmNoRightsViolation) {
+      errors.push('Не подтверждено отсутствие нарушений прав (шаг 6)');
+      hasErrors = true;
+    }
+    
+    // Проверка подписи
+    if (!data.signature) {
+      errors.push('Требуется подпись договора');
+      hasErrors = true;
+    }
+    
+    if (hasErrors) {
+      errors.forEach(error => ElMessage.error(error));
+      isLoading.value = false;
       return;
     }
     
-    // Подготовка данных для отправки - используем JSON для простоты
-    const dataToSend = JSON.parse(JSON.stringify(allData, (_, value) => {
-      // Исключаем файлы из JSON (они не сериализуемы)
-      if (value instanceof File) {
-        return {
-          _type: 'File',
-          name: value.name,
-          size: value.size,
-          type: value.type,
-          lastModified: value.lastModified
-        };
-      }
-      return value;
-    }));
+    // Подготавливаем данные для отправки
+    const formData = new FormData();
+    formData.append('quizData', JSON.stringify(data));
     
-    // Добавляем метаданные
-    dataToSend.timestamp = new Date().toISOString();
-    dataToSend.submissionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Имитация отправки
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Имитация отправки данных на сервер
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Сохраняем финальные данные
+    const finalData = {
+      ...data,
+      submittedAt: new Date().toISOString(),
+      status: 'submitted',
+      totalTracks: calculateTotalTracks(data)
+    };
     
-    // В реальном приложении:
-    // const response = await fetch('/api/submit-quiz', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify(dataToSend),
-    // });
+    localStorage.setItem('quiz_final_submission', JSON.stringify(finalData));
     
-    console.log('Данные отправлены на сервер:', dataToSend);
+    // Очищаем временные данные
+    [1, 2, 3, 4, 5, 6, 7].forEach(step => {
+      localStorage.removeItem(`quiz${step}_state`);
+    });
+    localStorage.removeItem('signature_data');
     
     ElMessage.success({
       message: 'Все данные успешно отправлены!',
       duration: 3000
     });
-    
-    // Оповещаем родительский компонент о завершении
-    if (parent?.exposed?.onFinish) {
-      parent.exposed.onFinish();
-    }
     
     emit('finish');
     
@@ -218,17 +242,53 @@ const handleFinish = async () => {
   }
 };
 
+// Проверяем данные при монтировании
 onMounted(() => {
-  const allData = collectAllData();
-  console.log('Quiz8 mounted, все данные:', allData);
-  console.log('Структура данных:', Object.keys(allData));
+  console.log('Данные на последнем шаге:', allData.value);
 });
 </script>
 
 <template>
 <div class="quiz__form quiz__form_eight">
-  <h4 class="quiz__form_head">Финал</h4>
-  <p class="quiz__form_description">Все данные заполнены. Нажмите кнопку ниже для отправки.</p>
+  <h4 class="quiz__form_head">Отправка данных</h4>
+  
+  <div class="quiz__summary">
+    <h5 class="quiz__summary_title">Сводка данных</h5>
+    
+    <div class="quiz__summary_section">
+      <h6>Шаг 1: Количество треков</h6>
+      <div class="quiz__summary_content">
+        <p v-if="allData.singleCount">Синглов: {{ allData.singleCount }}</p>
+        <p v-if="allData.albumCount">Альбомов: {{ allData.albumCount }}</p>
+        <p v-if="allData.clipCount">Клипов: {{ allData.clipCount }}</p>
+        <p v-if="allData.cardCount">Оформлений карточек: {{ allData.cardCount }}</p>
+      </div>
+    </div>
+    
+    <div class="quiz__summary_section" v-if="allData.singleTracks && allData.singleTracks.length > 0">
+      <h6>Шаг 2: Синглы</h6>
+      <div class="quiz__summary_content">
+        <div v-for="(track, index) in allData.singleTracks" :key="index">
+          <p><strong>Сингл {{ index + 1 }}:</strong> {{ track.trackName || 'Без названия' }}</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="quiz__summary_section" v-if="allData.releaseInfo">
+      <h6>Шаг 3: Информация о релизе</h6>
+      <div class="quiz__summary_content">
+        <p><strong>Артист:</strong> {{ allData.releaseInfo.performerName || 'Не указано' }}</p>
+        <p><strong>Email:</strong> {{ allData.releaseInfo.email || 'Не указано' }}</p>
+      </div>
+    </div>
+    
+    <div class="quiz__summary_section" v-if="allData.signature">
+      <h6>Подпись договора</h6>
+      <div class="quiz__summary_content">
+        <p>✓ Подпись предоставлена</p>
+      </div>
+    </div>
+  </div>
   
   <div class="quiz__form_bottom">
     <div class="quiz__form_buttons">
@@ -245,9 +305,15 @@ onMounted(() => {
         @click="handleFinish"
         :disabled="isLoading"
       >
-        <span v-if="!isLoading">Отправить данные</span>
+        <span v-if="!isLoading">Отправить все данные</span>
         <span v-else>Отправка...</span>
       </button>
+    </div>
+    
+    <div class="quiz__form_hint">
+      <p class="text_small">
+        Нажмите кнопку выше для отправки всех данных из всех форм, включая файлы и подпись.
+      </p>
     </div>
   </div>
 </div>
@@ -261,9 +327,36 @@ onMounted(() => {
 .quiz__form_head {
   margin-bottom: 20px;
 }
-.quiz__form_description {
-  color: var(--text-gray);
-  margin-bottom: 40px;
+.quiz__summary {
+  margin: 30px 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--bg-color);
+}
+.quiz__summary_title {
+  margin-bottom: 20px;
+  text-transform: uppercase;
+}
+.quiz__summary_section {
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border-light);
+}
+.quiz__summary_section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+.quiz__summary_section h6 {
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.quiz__summary_content {
+  padding-left: 15px;
+}
+.quiz__summary_content p {
+  margin-bottom: 5px;
 }
 .quiz__form_bottom {
   display: flex;
@@ -277,6 +370,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 30px;
+}
+.quiz__form_hint {
+  color: var(--text-gray);
+  max-width: 500px;
 }
 
 @media (max-width: 1439px) {

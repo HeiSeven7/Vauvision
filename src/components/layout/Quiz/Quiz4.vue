@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { reactive, computed, watch, ref } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { ElInput, ElMessage, ElSelect, ElOption, ElDatePicker } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import dayjs from 'dayjs';
@@ -9,7 +9,10 @@ const emit = defineEmits<{
   'go-next': [];
 }>();
 
-// Данные формы
+// Ключи для localStorage
+const STORAGE_KEY = 'quiz4_state';
+
+// Данные формы с инициализацией из localStorage
 const formData = reactive({
   userType: 'individual',
   
@@ -67,6 +70,48 @@ const citizenshipOptions = [
 
 // Флаг показа поля для другого гражданства
 const showOtherCitizenshipInput = ref(false);
+
+// Сохранение состояния в localStorage
+const saveStateToLocalStorage = () => {
+  try {
+    const stateToSave = {
+      formData,
+      showOtherCitizenshipInput: showOtherCitizenshipInput.value
+    };
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+  } catch (error) {
+    console.error('Error saving state to localStorage:', error);
+  }
+};
+
+// Загрузка состояния из localStorage
+const loadStateFromLocalStorage = () => {
+  try {
+    const savedState = localStorage.getItem(STORAGE_KEY);
+    if (savedState) {
+      const parsedState = JSON.parse(savedState);
+      
+      // Восстанавливаем основные данные формы
+      Object.assign(formData, parsedState.formData);
+      
+      // Восстанавливаем состояние поля для другого гражданства
+      showOtherCitizenshipInput.value = parsedState.showOtherCitizenshipInput || false;
+      
+      // Если гражданство "Другое", убедимся что поле отображается
+      if (formData.citizenship === 'other' && !showOtherCitizenshipInput.value) {
+        showOtherCitizenshipInput.value = true;
+      }
+    }
+  } catch (error) {
+    console.error('Error loading state from localStorage:', error);
+  }
+};
+
+// Очистка состояния в localStorage
+const clearLocalStorage = () => {
+  localStorage.removeItem(STORAGE_KEY);
+};
 
 // Вычисляемое свойство для проверки готовности к продолжению
 const isReadyForNextStep = computed(() => {
@@ -298,6 +343,9 @@ const handleUserTypeChange = () => {
     errors.correspondentAccount = '';
     errors.bankLegalAddress = '';
   }
+  
+  // Сохраняем состояние
+  saveStateToLocalStorage();
 };
 
 // Обработчик изменения гражданства
@@ -317,6 +365,9 @@ const handleCitizenshipChange = () => {
   validateField('lastName');
   validateField('firstName');
   validateField('middleName');
+  
+  // Сохраняем состояние
+  saveStateToLocalStorage();
 };
 
 const goBack = () => {
@@ -325,11 +376,18 @@ const goBack = () => {
 
 const goNext = () => {
   if (validateForm()) {
+    // Очищаем localStorage после успешного завершения
+    clearLocalStorage();
     emit('go-next');
   } else {
     ElMessage.error('Пожалуйста, заполните все обязательные поля правильно');
   }
 };
+
+// Сохранение состояния при изменении данных формы
+watch(() => formData, () => {
+  saveStateToLocalStorage();
+}, { deep: true });
 
 // Следим за изменениями в полях для автоматической валидации
 watch(() => formData.userType, () => {
@@ -354,6 +412,11 @@ watch(() => formData.otherCitizenship, (newValue) => {
   if (newValue && formData.citizenship === 'other') {
     validateField('otherCitizenship');
   }
+});
+
+// Загрузка состояния при монтировании компонента
+onMounted(() => {
+  loadStateFromLocalStorage();
 });
 </script>
 

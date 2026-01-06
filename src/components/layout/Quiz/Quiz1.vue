@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed, getCurrentInstance, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { ElInputNumber, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 
@@ -8,9 +8,8 @@ const emit = defineEmits<{
   'go-next': [];
 }>();
 
-// Получаем экземпляр компонента для доступа к родителю
-const instance = getCurrentInstance();
-const parent = instance?.parent;
+// Ключ для localStorage
+const STORAGE_KEY = 'quiz1_state';
 
 // Локальные состояния
 const singleCountLocal = ref(0);
@@ -18,10 +17,37 @@ const albumCountLocal = ref(0);
 const clipCountLocal = ref(0);
 const cardCountLocal = ref(0);
 
-// Попытка получить состояние из родительского компонента
-const hasParentState = computed(() => {
-  return parent && parent.exposed;
-});
+// Сохранение состояния в localStorage
+const saveStateToLocalStorage = () => {
+  try {
+    const stateToSave = {
+      singleCount: singleCountLocal.value,
+      albumCount: albumCountLocal.value,
+      clipCount: clipCountLocal.value,
+      cardCount: cardCountLocal.value
+    };
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+  } catch (error) {
+    console.error('Error saving state to localStorage:', error);
+  }
+};
+
+// Загрузка состояния из localStorage
+const loadStateFromLocalStorage = () => {
+  try {
+    const savedState = localStorage.getItem(STORAGE_KEY);
+    if (savedState) {
+      const parsedState = JSON.parse(savedState);
+      singleCountLocal.value = parsedState.singleCount || 0;
+      albumCountLocal.value = parsedState.albumCount || 0;
+      clipCountLocal.value = parsedState.clipCount || 0;
+      cardCountLocal.value = parsedState.cardCount || 0;
+    }
+  } catch (error) {
+    console.error('Error loading state from localStorage:', error);
+  }
+};
 
 // Проверка, выбран ли хотя бы один сингл или альбом
 const isContinueDisabled = computed(() => {
@@ -45,14 +71,9 @@ const totalSum = computed(() => {
   );
 });
 
-// При монтировании пытаемся получить состояние из родителя
+// При монтировании загружаем состояние из localStorage
 onMounted(() => {
-  if (hasParentState.value && parent?.exposed?.quizState) {
-    singleCountLocal.value = parent.exposed.quizState.singleCount || 0;
-    albumCountLocal.value = parent.exposed.quizState.albumCount || 0;
-    clipCountLocal.value = parent.exposed.quizState.clipCount || 0;
-    cardCountLocal.value = parent.exposed.quizState.cardCount || 0;
-  }
+  loadStateFromLocalStorage();
 });
 
 const goBack = () => {
@@ -65,25 +86,15 @@ const handleContinue = () => {
     return;
   }
   
-  // Сохраняем состояние в родительском компоненте, если доступен
-  if (hasParentState.value && parent?.exposed?.updateCounts) {
-    parent.exposed.updateCounts('single', singleCountLocal.value);
-    parent.exposed.updateCounts('album', albumCountLocal.value);
-    parent.exposed.updateCounts('clip', clipCountLocal.value);
-    parent.exposed.updateCounts('card', cardCountLocal.value);
-    
-    if (parent.exposed.calculateTotalSum) {
-      parent.exposed.calculateTotalSum();
-    }
-  }
+  // Сохраняем состояние в localStorage
+  saveStateToLocalStorage();
   
   emit('go-next');
 };
 
-// Следим за изменениями счетчиков
-watch([singleCountLocal, albumCountLocal], () => {
-  // Логика при изменении счетчиков синглов или альбомов
-  // Можно добавить дополнительную логику при необходимости
+// Сохранение состояния при изменении счетчиков
+watch([singleCountLocal, albumCountLocal, clipCountLocal, cardCountLocal], () => {
+  saveStateToLocalStorage();
 }, { immediate: false });
 </script>
 
