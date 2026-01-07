@@ -836,7 +836,7 @@ document.addEventListener('visibilitychange', async () => {
               size="large"
               @blur="validateSingleForm(trackIndex)"
             />
-            <div v-if="errors.performerName" class="quiz__form_single_error">
+            <div v-if="errors.performerName" class="error text_very quiz__form_single_error">
               {{ errors.performerName }}
             </div>
           </div>
@@ -851,7 +851,7 @@ document.addEventListener('visibilitychange', async () => {
               size="large"
               @blur="validateSingleForm(trackIndex)"
             />
-            <div v-if="errors.musicAuthor" class="quiz__form_single_error">
+            <div v-if="errors.musicAuthor" class="error text_very quiz__form_single_error">
               {{ errors.musicAuthor }}
             </div>
           </div>
@@ -866,7 +866,7 @@ document.addEventListener('visibilitychange', async () => {
               size="large"
               @blur="validateSingleForm(trackIndex)"
             />
-            <div v-if="errors.textAuthor" class="quiz__form_single_error">
+            <div v-if="errors.textAuthor" class="error text_very quiz__form_single_error">
               {{ errors.textAuthor }}
             </div>
           </div>
@@ -901,7 +901,7 @@ document.addEventListener('visibilitychange', async () => {
               size="large"
               @blur="validateSingleForm(trackIndex)"
             />
-            <div v-if="errors.trackName" class="quiz__form_single_error">
+            <div v-if="errors.trackName" class="error text_very quiz__form_single_error">
               {{ errors.trackName }}
             </div>
           </div>
@@ -920,7 +920,7 @@ document.addEventListener('visibilitychange', async () => {
         </div>
         
         <!-- Сообщение об ошибке загрузки аудио -->
-        <div v-if="errors.audioFile && !track.hasAudioUploaded" class="quiz__form_single_error">
+        <div v-if="errors.audioFile && !track.hasAudioUploaded" class="error text_very quiz__form_single_error">
           {{ errors.audioFile }}
         </div>
       </div>
@@ -951,7 +951,7 @@ document.addEventListener('visibilitychange', async () => {
               size="large"
               @blur="validateAlbumForm(albumIndex)"
             />
-            <div v-if="errors.trackName" class="quiz__form_single_error">
+            <div v-if="errors.trackName" class="error text_very quiz__form_single_error">
               {{ errors.trackName }}
             </div>
           </div>
@@ -1038,7 +1038,7 @@ document.addEventListener('visibilitychange', async () => {
                     size="large"
                     @blur="validateAlbumTrackForm(albumIndex, trackIndex)"
                   />
-                  <div v-if="errors.performerName" class="quiz__form_single_error">
+                  <div v-if="errors.performerName" class="error text_very quiz__form_single_error">
                     {{ errors.performerName }}
                   </div>
                 </div>
@@ -1053,7 +1053,7 @@ document.addEventListener('visibilitychange', async () => {
                     size="large"
                     @blur="validateAlbumTrackForm(albumIndex, trackIndex)"
                   />
-                  <div v-if="errors.musicAuthor" class="quiz__form_single_error">
+                  <div v-if="errors.musicAuthor" class="error text_very quiz__form_single_error">
                     {{ errors.musicAuthor }}
                   </div>
                 </div>
@@ -1068,7 +1068,7 @@ document.addEventListener('visibilitychange', async () => {
                     size="large"
                     @blur="validateAlbumTrackForm(albumIndex, trackIndex)"
                   />
-                  <div v-if="errors.textAuthor" class="quiz__form_single_error">
+                  <div v-if="errors.textAuthor" class="error text_very quiz__form_single_error">
                     {{ errors.textAuthor }}
                   </div>
                 </div>
@@ -1103,7 +1103,7 @@ document.addEventListener('visibilitychange', async () => {
                     size="large"
                     @blur="validateAlbumTrackForm(albumIndex, trackIndex)"
                   />
-                  <div v-if="errors.trackName" class="quiz__form_single_error">
+                  <div v-if="errors.trackName" class="error text_very quiz__form_single_error">
                     {{ errors.trackName }}
                   </div>
                 </div>
@@ -1122,7 +1122,7 @@ document.addEventListener('visibilitychange', async () => {
               </div>
               
               <!-- Сообщение об ошибке загрузки аудио -->
-              <div v-if="errors.audioFile && !track.audioFile" class="quiz__form_single_error">
+              <div v-if="errors.audioFile && !track.audioFile" class="error text_very quiz__form_single_error">
                 {{ errors.audioFile }}
               </div>
             </div>
@@ -1338,15 +1338,6 @@ document.addEventListener('visibilitychange', async () => {
 .quiz__form_single_name_size {
   color: var(--text-gray);
 }
-.quiz__form_single_error {
-  margin-top: 10px;
-  color: #f56c6c;
-  padding: 8px 12px;
-  background-color: #fef0f0;
-  border: 1px solid #fde2e2;
-  border-radius: 4px;
-  font-size: 14px;
-}
 .quiz__form_single_button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -1431,31 +1422,5 @@ document.addEventListener('visibilitychange', async () => {
   position: absolute;
   left: -15px;
   color: var(--text-gray);
-}
-
-/* Стили для важного блока */
-.quiz__important {
-  padding: 40px;
-}
-.quiz__important_head {
-  text-align: center;
-  text-transform: uppercase;
-  margin-bottom: 30px;
-  font-size: 24px;
-}
-.quiz__important_list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  margin-bottom: 40px;
-}
-.quiz__important_item {
-  padding: 20px;
-  background-color: #fff8e1;
-  border-left: 4px solid #ffc107;
-}
-.quiz__important_description {
-  color: #333;
-  line-height: 1.6;
 }
 </style>
