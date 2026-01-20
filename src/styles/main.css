@@ -768,7 +768,7 @@ section {
 .form__flex {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 30px;
 }
 .form__group {
   display: flex;
@@ -837,6 +837,9 @@ section {
 }
 .form__label {
   display: flex;
+}
+.form__label span {
+  color: var(--error);
 }
 .form__label_text {
   padding: 10px 20px;
@@ -984,6 +987,7 @@ section {
 }
 .quiz__form_buttons {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 30px;
 }
@@ -995,12 +999,11 @@ section {
   justify-content: center;
   text-align: center;
   gap: 16px;
+  background-color: var(--bg-gray);
   border: 2px dashed var(--border);
-  border-radius: 8px;
   margin: 10px 0;
   transition: all 0.3s linear;
   cursor: pointer;
-  background-color: transparent;
 }
 .quiz__form_cover_upload:hover {
   border-color: var(--color);
@@ -1028,11 +1031,25 @@ section {
   max-width: 300px;
   color: var(--text-gray);
 }
+.quiz__section {
+  display: flex;
+  padding: 20px 0;
+  flex-direction: column;
+  gap: 12px;
+}
+.quiz__album_tracks_list {
+  padding: 0 0 30px;
+}
+.quiz__album_item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 .quiz__form_single_name {
   display: flex;
   width: 100%;
   padding: 20px;
-  margin: 30px 0 0;
+  margin: 20px 0;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -1095,6 +1112,28 @@ section {
 .quiz__important_head {
   color: var(--color);
 }
+.quiz__flex a {
+  color: var(--color);
+}
+.quiz__flex a:hover {
+  color: var(--hover);
+}
+.form__hint_list {
+  list-style-type: disc;
+  padding-left: 13px;
+}
+.form__hint_item::marker {
+  font-size: 14px;
+  color: var(--text-gray);
+}
+.quiz__form_top {
+  display: flex;
+  width: 100%;
+  padding: 0 0 40px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 20px;
+}
 
 /* end quiz */
 
@@ -1140,7 +1179,7 @@ section {
     padding: 0 15px;
   }
   .form__flex {
-    gap: 30px;
+    gap: 20px;
   }
   .auth__left {
     display: none;
@@ -1167,9 +1206,6 @@ section {
   .button__faq span {
     min-width: none;
   }
-  .form__flex {
-    gap: 15px;
-  }
   .quiz__form_bottom {
     padding: 40px 0 0;
     align-items: flex-start;
@@ -1185,6 +1221,9 @@ section {
   }
   .quiz__form_cover_upload {
     padding: 15px;
+  }
+  .form__flex {
+    gap: 15px;
   }
 }
 

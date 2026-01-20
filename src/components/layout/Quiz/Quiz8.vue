@@ -305,7 +305,7 @@ onMounted(() => {
         @click="handleFinish"
         :disabled="isLoading"
       >
-        <span v-if="!isLoading">Отправить все данные</span>
+        <span v-if="!isLoading">Продолжить</span>
         <span v-else>Отправка...</span>
       </button>
     </div>
@@ -320,13 +320,6 @@ onMounted(() => {
 </template>
 
 <style lang="css" scoped>
-.quiz__form {
-  width: calc(100% - 330px);
-  padding: 0 40px 0 60px;
-}
-.quiz__form_head {
-  margin-bottom: 20px;
-}
 .quiz__summary {
   margin: 30px 0;
   padding: 20px;
@@ -357,50 +350,5 @@ onMounted(() => {
 }
 .quiz__summary_content p {
   margin-bottom: 5px;
-}
-.quiz__form_bottom {
-  display: flex;
-  padding: 60px 0 0;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-}
-.quiz__form_buttons {
-  display: flex;
-  align-items: center;
-  gap: 30px;
-}
-.quiz__form_hint {
-  color: var(--text-gray);
-  max-width: 500px;
-}
-
-@media (max-width: 1439px) {
-  .quiz__form {
-    width: 100%;
-    padding: 0;
-  }
-}
-@media (max-width: 767px) {
-  .quiz__form_bottom {
-    padding: 40px 0 0;
-    align-items: flex-start;
-    flex-direction: column-reverse;
-    gap: 40px;
-  }
-  .quiz__form {
-    padding: 0;
-  }
-  .quiz__form_buttons {
-    width: 100%;
-    flex-direction: column;
-    gap: 15px;
-  }
-  .form__back,
-  .quiz__form_button {
-    width: 100%;
-    justify-content: center;
-  }
 }
 </style>

@@ -11,6 +11,11 @@ import Quiz6 from '@/components/layout/Quiz/Quiz6.vue';
 import Quiz7 from '@/components/layout/Quiz/Quiz7.vue';
 import Quiz8 from '@/components/layout/Quiz/Quiz8.vue';
 
+const emit = defineEmits<{
+  'go-back': [];
+  'update:current-step': [step: number];
+}>();
+
 // Глобальное состояние для хранения данных между шагами
 interface TrackData {
   id: string;
@@ -193,6 +198,17 @@ const areAllAlbumsComplete = (): boolean => {
 
 const goToStep = (step: number) => {
   currentStep.value = step;
+  emit('update:current-step', step);
+};
+
+const handleGoBack = () => {
+  if (currentStep.value === 1) {
+    // Если на первом шаге, возвращаемся к превью
+    emit('go-back');
+  } else {
+    // Иначе переходим на предыдущий шаг
+    goToStep(currentStep.value - 1);
+  }
 };
 
 const handleFinish = () => {
@@ -234,56 +250,56 @@ defineExpose({
     <!-- Шаг 1 -->
     <Quiz1 
       v-if="currentStep === 1"
-      @go-back="goToStep(0)"
+      @go-back="handleGoBack"
       @go-next="goToStep(2)"
     />
     
     <!-- Шаг 2 -->
     <Quiz2 
       v-if="currentStep === 2"
-      @go-back="goToStep(1)"
+      @go-back="handleGoBack"
       @go-next="goToStep(3)"
     />
     
     <!-- Шаг 3 -->
     <Quiz3 
       v-if="currentStep === 3"
-      @go-back="goToStep(2)"
+      @go-back="handleGoBack"
       @go-next="goToStep(4)"
     />
     
     <!-- Шаг 4 -->
     <Quiz4 
       v-if="currentStep === 4"
-      @go-back="goToStep(3)"
+      @go-back="handleGoBack"
       @go-next="goToStep(5)"
     />
     
     <!-- Шаг 5 -->
     <Quiz5 
       v-if="currentStep === 5"
-      @go-back="goToStep(4)"
+      @go-back="handleGoBack"
       @go-next="goToStep(6)"
     />
     
     <!-- Шаг 6 -->
     <Quiz6 
       v-if="currentStep === 6"
-      @go-back="goToStep(5)"
+      @go-back="handleGoBack"
       @go-next="goToStep(7)"
     />
     
     <!-- Шаг 7 -->
     <Quiz7 
       v-if="currentStep === 7"
-      @go-back="goToStep(6)"
+      @go-back="handleGoBack"
       @go-next="goToStep(8)"
     />
     
     <!-- Шаг 8 -->
     <Quiz8 
       v-if="currentStep === 8"
-      @go-back="goToStep(7)"
+      @go-back="handleGoBack"
       @finish="handleFinish"
     />
   </div>

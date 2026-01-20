@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, } from 'vue';
 import { ElInput, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import CloseSVG from "@/uikit/icon/CloseSVG.vue";
@@ -15,10 +15,6 @@ const STORAGE_KEY = 'quiz2_state';
 // Локальные состояния
 const isLoadingTwo = ref(false);
 const showImportantBlock = ref(false);
-
-// Количество синглов и альбомов из localStorage Quiz1
-const singleCount = ref(0);
-const albumCount = ref(0);
 
 // Ошибки валидации
 const errors = reactive({
@@ -69,6 +65,9 @@ const albums = ref<Array<{
   tracks: AlbumTrack[];
 }>>([]);
 
+// Флаг загрузки данных
+const dataLoaded = ref(false);
+
 // Функция для конвертации File в base64
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -104,8 +103,6 @@ const saveStateToLocalStorage = async () => {
   try {
     // Сохраняем текстовые данные и информацию о файлах
     const stateToSave = {
-      singleCount: singleCount.value,
-      albumCount: albumCount.value,
       singleTracks: singleTracks.value.map(track => ({
         id: track.id,
         performerName: track.performerName,
@@ -150,26 +147,10 @@ const saveStateToLocalStorage = async () => {
 // Загрузка состояния из localStorage
 const loadStateFromLocalStorage = async () => {
   try {
-    // Загружаем количество синглов и альбомов из Quiz1
-    const quiz1State = localStorage.getItem('quiz1_state');
-    if (quiz1State) {
-      const parsedQuiz1State = JSON.parse(quiz1State);
-      singleCount.value = parsedQuiz1State.singleCount || 0;
-      albumCount.value = parsedQuiz1State.albumCount || 0;
-    }
-    
     // Загружаем состояние шага 2
     const savedState = localStorage.getItem(STORAGE_KEY);
     if (savedState) {
       const parsedState = JSON.parse(savedState);
-      
-      // Обновляем счетчики из сохраненного состояния
-      if (parsedState.singleCount !== undefined) {
-        singleCount.value = parsedState.singleCount;
-      }
-      if (parsedState.albumCount !== undefined) {
-        albumCount.value = parsedState.albumCount;
-      }
       
       // Загружаем синглы
       if (parsedState.singleTracks && parsedState.singleTracks.length > 0) {
@@ -248,12 +229,32 @@ const loadStateFromLocalStorage = async () => {
   }
 };
 
-// Инициализация данных на основе количества
-const initializeData = async () => {
-  // Если нет сохраненных данных, инициализируем новые
-  if (singleTracks.value.length === 0 && singleCount.value > 0) {
-    singleTracks.value = [];
-    for (let i = 0; i < singleCount.value; i++) {
+// Получение количества синглов и альбомов из Quiz1
+const getCountsFromQuiz1 = () => {
+  try {
+    const quiz1State = localStorage.getItem('quiz1_state');
+    if (quiz1State) {
+      const parsedQuiz1State = JSON.parse(quiz1State);
+      return {
+        singleCount: parsedQuiz1State.singleCount || 0,
+        albumCount: parsedQuiz1State.albumCount || 0
+      };
+    }
+  } catch (error) {
+    console.error('Error reading quiz1 state:', error);
+  }
+  return { singleCount: 0, albumCount: 0 };
+};
+
+// Инициализация данных на основе количества из Quiz1
+const initializeDataFromQuiz1 = () => {
+  const counts = getCountsFromQuiz1();
+  console.log('Counts from Quiz1:', counts);
+  
+  // Создаем синглы
+  if (counts.singleCount > 0 && singleTracks.value.length === 0) {
+    console.log(`Creating ${counts.singleCount} single tracks`);
+    for (let i = 0; i < counts.singleCount; i++) {
       singleTracks.value.push({
         id: `single-${Date.now()}-${i}-${Math.random()}`,
         performerName: '',
@@ -269,11 +270,11 @@ const initializeData = async () => {
       });
     }
   }
-
-  // Инициализация альбомов
-  if (albums.value.length === 0 && albumCount.value > 0) {
-    albums.value = [];
-    for (let i = 0; i < albumCount.value; i++) {
+  
+  // Создаем альбомы
+  if (counts.albumCount > 0 && albums.value.length === 0) {
+    console.log(`Creating ${counts.albumCount} albums`);
+    for (let i = 0; i < counts.albumCount; i++) {
       albums.value.push({
         id: `album-${Date.now()}-${i}-${Math.random()}`,
         albumName: '',
@@ -284,18 +285,24 @@ const initializeData = async () => {
       });
     }
   }
-  
-  // Сохраняем инициализированные данные
-  await saveStateToLocalStorage();
 };
+
+// Проверка, нужно ли показывать секцию синглов
+const showSinglesSection = computed(() => {
+  const counts = getCountsFromQuiz1();
+  return counts.singleCount > 0 || singleTracks.value.length > 0;
+});
+
+// Проверка, нужно ли показывать секцию альбомов
+const showAlbumsSection = computed(() => {
+  const counts = getCountsFromQuiz1();
+  return counts.albumCount > 0 || albums.value.length > 0;
+});
 
 // Проверка готовности к продолжению
 const isReadyForNextStep = computed(() => {
   // Проверяем все синглы
   const allSinglesComplete = singleTracks.value.every(track => 
-    track.performerName.trim().split(/\s+/).length >= 3 &&
-    track.musicAuthor.trim().split(/\s+/).length >= 3 &&
-    track.textAuthor.trim().split(/\s+/).length >= 3 &&
     track.trackName.trim().split(/\s+/).length >= 3 &&
     track.audioFile !== null &&
     track.uploaded
@@ -307,16 +314,14 @@ const isReadyForNextStep = computed(() => {
     album.tracks.length > 0 &&
     album.tracks.every(track =>
       track.trackName.trim().split(/\s+/).length >= 3 &&
-      track.performerName.trim().split(/\s+/).length >= 3 &&
-      track.musicAuthor.trim().split(/\s+/).length >= 3 &&
-      track.textAuthor.trim().split(/\s+/).length >= 3 &&
       track.audioFile !== null &&
       track.uploaded
     )
   );
 
-  return (singleCount.value === 0 || allSinglesComplete) && 
-         (albumCount.value === 0 || allAlbumsComplete);
+  const counts = getCountsFromQuiz1();
+  return (counts.singleCount === 0 || allSinglesComplete) && 
+         (counts.albumCount === 0 || allAlbumsComplete);
 });
 
 // Валидация формы сингла
@@ -325,36 +330,10 @@ const validateSingleForm = async (trackIndex: number) => {
   let isValid = true;
   
   // Очищаем ошибки
-  errors.performerName = '';
-  errors.musicAuthor = '';
-  errors.textAuthor = '';
   errors.trackName = '';
   errors.audioFile = '';
   
-  if (!track.performerName.trim()) {
-    errors.performerName = 'ФИО исполнителя обязательно для заполнения';
-    isValid = false;
-  } else if (track.performerName.trim().split(/\s+/).length < 3) {
-    errors.performerName = 'ФИО исполнителя должно содержать минимум 3 слова';
-    isValid = false;
-  }
-  
-  if (!track.musicAuthor.trim()) {
-    errors.musicAuthor = 'ФИО автора музыки обязательно для заполнения';
-    isValid = false;
-  } else if (track.musicAuthor.trim().split(/\s+/).length < 3) {
-    errors.musicAuthor = 'ФИО автора музыки должно содержать минимум 3 слова';
-    isValid = false;
-  }
-  
-  if (!track.textAuthor.trim()) {
-    errors.textAuthor = 'ФИО автора текста обязательно для заполнения';
-    isValid = false;
-  } else if (track.textAuthor.trim().split(/\s+/).length < 3) {
-    errors.textAuthor = 'ФИО автора текста должно содержать минимум 3 слова';
-    isValid = false;
-  }
-  
+  // Валидация названия трека (минимум 3 слова)
   if (!track.trackName.trim()) {
     errors.trackName = 'Название трека обязательно для заполнения';
     isValid = false;
@@ -363,6 +342,7 @@ const validateSingleForm = async (trackIndex: number) => {
     isValid = false;
   }
   
+  // Валидация аудио файла
   if (!track.audioFile) {
     errors.audioFile = 'Аудио файл обязателен для загрузки';
     isValid = false;
@@ -381,6 +361,11 @@ const validateAlbumForm = async (albumIndex: number) => {
   const album = albums.value[albumIndex];
   let isValid = true;
   
+  // Очищаем ошибки
+  errors.trackName = '';
+  errors.audioFile = '';
+  
+  // Валидация названия альбома
   if (!album.albumName.trim()) {
     errors.trackName = 'Название альбома обязательно для заполнения';
     isValid = false;
@@ -389,6 +374,7 @@ const validateAlbumForm = async (albumIndex: number) => {
     isValid = false;
   }
   
+  // Валидация наличия треков
   if (album.tracks.length === 0) {
     errors.audioFile = 'Добавьте хотя бы один трек в альбом';
     isValid = false;
@@ -407,30 +393,11 @@ const validateAlbumTrackForm = async (albumIndex: number, trackIndex: number) =>
   const track = albums.value[albumIndex].tracks[trackIndex];
   let isValid = true;
   
-  if (!track.performerName.trim()) {
-    errors.performerName = 'ФИО исполнителя обязательно для заполнения';
-    isValid = false;
-  } else if (track.performerName.trim().split(/\s+/).length < 3) {
-    errors.performerName = 'ФИО исполнителя должно содержать минимум 3 слова';
-    isValid = false;
-  }
+  // Очищаем ошибки
+  errors.trackName = '';
+  errors.audioFile = '';
   
-  if (!track.musicAuthor.trim()) {
-    errors.musicAuthor = 'ФИО автора музыки обязательно для заполнения';
-    isValid = false;
-  } else if (track.musicAuthor.trim().split(/\s+/).length < 3) {
-    errors.musicAuthor = 'ФИО автора музыки должно содержать минимум 3 слова';
-    isValid = false;
-  }
-  
-  if (!track.textAuthor.trim()) {
-    errors.textAuthor = 'ФИО автора текста обязательно для заполнения';
-    isValid = false;
-  } else if (track.textAuthor.trim().split(/\s+/).length < 3) {
-    errors.textAuthor = 'ФИО автора текста должно содержать минимум 3 слова';
-    isValid = false;
-  }
-  
+  // Валидация названия трека
   if (!track.trackName.trim()) {
     errors.trackName = 'Название трека обязательно для заполнения';
     isValid = false;
@@ -439,6 +406,7 @@ const validateAlbumTrackForm = async (albumIndex: number, trackIndex: number) =>
     isValid = false;
   }
   
+  // Валидация аудио файла
   if (!track.audioFile) {
     errors.audioFile = 'Аудио файл обязателен для загрузки';
     isValid = false;
@@ -731,24 +699,18 @@ const handleAccept = async () => {
   }
 };
 
-// Автосохранение при изменении полей ввода
-watch(() => singleTracks.value, () => {
-  saveStateToLocalStorage();
-}, { deep: true });
-
-watch(() => albums.value, () => {
-  saveStateToLocalStorage();
-}, { deep: true });
-
 // При монтировании загружаем состояние и инициализируем данные
 onMounted(async () => {
   try {
     isLoadingTwo.value = true;
     await loadStateFromLocalStorage();
-    await initializeData();
+    initializeDataFromQuiz1();
+    dataLoaded.value = true;
     console.log('Component mounted, data loaded:', {
       singles: singleTracks.value.length,
-      albums: albums.value.length
+      albums: albums.value.length,
+      showSingles: showSinglesSection.value,
+      showAlbums: showAlbumsSection.value
     });
   } catch (error) {
     console.error('Error in onMounted:', error);
@@ -782,10 +744,10 @@ document.addEventListener('visibilitychange', async () => {
   
   <div class="quiz__form_two_empty">
     <div class="quiz__form_two_lists">
-      <p class="quiz__form_two_description">Отметить артистов можно 3 способами:</p>
+      <p class="quiz__form_two_description text_small">Отметить артистов можно 3 способами:</p>
       <ul class="quiz__form_two_list">
         <li class="quiz__form_two_item">
-          <p class="quiz__form_two_description">Артист 1, Артист 2 (через запятую). Тогда оба артиста будут считаться основными, у всех появится своя карточка артиста, в которые попадёт релиз (либо попадёт в существующие, если карточки уже есть).</p>
+          <p class="quiz__form_two_description text_small">Артист 1, Артист 2 (через запятую). Тогда оба артиста будут считаться основными, у всех появится своя карточка артиста, в которые попадёт релиз (либо попадёт в существующие, если карточки уже есть).</p>
         </li>
         <li class="form__hint_item">
           <p class="form__hint text_small">Артист 1 feat Артист 2. Тут второй артист будет считаться второстепенным, релиз не отобразится у него в карточке. Если у Артист 2 нет карточки, то новая ему не создастся.</p>
@@ -794,16 +756,16 @@ document.addEventListener('visibilitychange', async () => {
           <p class="form__hint text_small">Артист 1 & Артист 2. В таком случае оба артиста будут считаться коллективом, для которого создастся отдельная карточка. У каждого артиста по отдельности карточки не будет, а релиз в них не попадёт.</p>
         </li>
       </ul>
-      <p class="quiz__form_two_description">Это все возможные варианты, отмечать артистов через "х" или другие знаки нельзя - площадки не принимают подобные релизы.</p>
-      <p class="quiz__form_two_description">Если вы хотите, чтобы рядом с названием трека серым цветом отображался Prod. by, то укажите это в скобках названия трека.</p>
+      <p class="quiz__form_two_description text_small">Это все возможные варианты, отмечать артистов через "х" или другие знаки нельзя - площадки не принимают подобные релизы.</p>
+      <p class="quiz__form_two_description text_small">Если вы хотите, чтобы рядом с названием трека серым цветом отображался Prod. by, то укажите это в скобках названия трека.</p>
     </div>
   </div>
   
   <!-- СИНГЛЫ -->
-  <div class="quiz__section" v-if="singleCount > 0">
+  <div class="quiz__section" v-if="showSinglesSection && dataLoaded">
     <h4 class="quiz__section_title">Синглы</h4>
     
-    <div class="quiz__singles_list">
+    <div class="quiz__singles_list" v-if="singleTracks.length > 0">
       <div 
         v-for="(track, trackIndex) in singleTracks" 
         :key="track.id"
@@ -827,7 +789,7 @@ document.addEventListener('visibilitychange', async () => {
         <!-- Форма с полями для сингла -->
         <div class="form__flex" v-if="track.hasAudioUploaded">
           <div class="form__group">
-            <label class="form__label button">ФИО исполнителей*</label>
+            <label class="form__label button">ФИО исполнителей<span>*</span></label>
             <el-input
               v-model="track.performerName"
               type="text"
@@ -842,7 +804,7 @@ document.addEventListener('visibilitychange', async () => {
           </div>
           
           <div class="form__group">
-            <label class="form__label button">ФИО авторов музыки*</label>
+            <label class="form__label button">ФИО авторов музыки<span>*</span></label>
             <el-input
               v-model="track.musicAuthor"
               type="text"
@@ -857,7 +819,7 @@ document.addEventListener('visibilitychange', async () => {
           </div>
           
           <div class="form__group">
-            <label class="form__label button">ФИО авторов текста*</label>
+            <label class="form__label button">ФИО авторов текста<span>*</span></label>
             <el-input
               v-model="track.textAuthor"
               type="text"
@@ -872,7 +834,7 @@ document.addEventListener('visibilitychange', async () => {
           </div>
           
           <div class="form__group">
-            <label class="form__label button">полное название трека*</label>
+            <label class="form__label button">полное название трека<span>*</span></label>
             <ul class="form__hint_list">
               <li class="form__hint_item">
                 <p class="form__hint text_small">Укажите полное название трека, включая псевдонимы и версии. Если загружаете альбом, то напишите номер каждого трека.</p>
@@ -928,10 +890,8 @@ document.addEventListener('visibilitychange', async () => {
   </div>
   
   <!-- АЛЬБОМЫ -->
-  <div class="quiz__section" v-if="albumCount > 0">
-    <h4 class="quiz__section_title">Альбомы</h4>
-    
-    <div class="quiz__albums_list">
+  <div class="quiz__section" v-if="showAlbumsSection && dataLoaded">
+    <div class="quiz__albums_list" v-if="albums.length > 0">
       <div 
         v-for="(album, albumIndex) in albums" 
         :key="album.id"
@@ -942,7 +902,7 @@ document.addEventListener('visibilitychange', async () => {
         <!-- Основная информация об альбоме -->
         <div class="form__flex">
           <div class="form__group">
-            <label class="form__label button">Название альбома*</label>
+            <label class="form__label button">Название альбома<span>*</span></label>
             <el-input
               v-model="album.albumName"
               type="text"
@@ -955,48 +915,10 @@ document.addEventListener('visibilitychange', async () => {
               {{ errors.trackName }}
             </div>
           </div>
-          
-          <div class="form__group">
-            <label class="form__label button">ФИО исполнителей*</label>
-            <el-input
-              v-model="album.performerName"
-              type="text"
-              placeholder="Введите ФИО исполнителя"
-              :disabled="isLoadingTwo"
-              size="large"
-              @blur="validateAlbumForm(albumIndex)"
-            />
-          </div>
-          
-          <div class="form__group">
-            <label class="form__label button">ФИО авторов музыки*</label>
-            <el-input
-              v-model="album.musicAuthor"
-              type="text"
-              placeholder="Введите ФИО автора музыки"
-              :disabled="isLoadingTwo"
-              size="large"
-              @blur="validateAlbumForm(albumIndex)"
-            />
-          </div>
-          
-          <div class="form__group">
-            <label class="form__label button">ФИО авторов текста*</label>
-            <el-input
-              v-model="album.textAuthor"
-              type="text"
-              placeholder="Введите ФИО автора текста"
-              :disabled="isLoadingTwo"
-              size="large"
-              @blur="validateAlbumForm(albumIndex)"
-            />
-          </div>
         </div>
         
         <!-- Треки альбома -->
         <div class="quiz__album_tracks">
-          <h6 class="quiz__album_tracks_head">Треки альбома</h6>
-          
           <div class="quiz__album_tracks_list">
             <div 
               v-for="(track, trackIndex) in album.tracks" 
@@ -1004,7 +926,6 @@ document.addEventListener('visibilitychange', async () => {
               class="quiz__album_track_item"
             >
               <div class="quiz__album_track_header">
-                <h6 class="quiz__album_track_number">Трек {{ track.trackNumber }}</h6>
                 <button 
                   v-if="album.tracks.length > 1"
                   class="quiz__album_track_remove button__second button"
@@ -1029,7 +950,7 @@ document.addEventListener('visibilitychange', async () => {
               
               <div class="form__flex">
                 <div class="form__group">
-                  <label class="form__label button">ФИО исполнителей*</label>
+                  <label class="form__label button">ФИО исполнителей<span>*</span></label>
                   <el-input
                     v-model="track.performerName"
                     type="text"
@@ -1044,7 +965,7 @@ document.addEventListener('visibilitychange', async () => {
                 </div>
                 
                 <div class="form__group">
-                  <label class="form__label button">ФИО авторов музыки*</label>
+                  <label class="form__label button">ФИО авторов музыки<span>*</span></label>
                   <el-input
                     v-model="track.musicAuthor"
                     type="text"
@@ -1059,7 +980,7 @@ document.addEventListener('visibilitychange', async () => {
                 </div>
                 
                 <div class="form__group">
-                  <label class="form__label button">ФИО авторов текста*</label>
+                  <label class="form__label button">ФИО авторов текста<span>*</span></label>
                   <el-input
                     v-model="track.textAuthor"
                     type="text"
@@ -1074,10 +995,10 @@ document.addEventListener('visibilitychange', async () => {
                 </div>
                 
                 <div class="form__group">
-                  <label class="form__label button">полное название трека*</label>
+                  <label class="form__label button">полное название трека<span>*</span></label>
                   <ul class="form__hint_list">
                     <li class="form__hint_item">
-                      <p class="form__hint text_small">Укажите полное название трека, включаing псевдонимы и версии. Если загружаете альбом, то напишите номер каждого трека.</p>
+                      <p class="form__hint text_small">Укажите полное название трека, включая псевдонимы и версии. Если загружаете альбом, то напишите номер каждого трека.</p>
                     </li>
                     <li class="form__hint_item">
                       <p class="form__hint text_small">Например: «1. Artist 1, Artist 2 – Best Song (Prod. by Beatmaker)»</p>
@@ -1143,7 +1064,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
   </div>
   
-  <div class="quiz__form_bottom">
+  <div class="quiz__form_bottom" v-if="(showSinglesSection || showAlbumsSection) && dataLoaded">
     <div class="quiz__form_buttons">
       <button 
         class="form__back button__second button" 
@@ -1161,6 +1082,21 @@ document.addEventListener('visibilitychange', async () => {
         <span v-if="!isLoadingTwo">Продолжить</span>
         <span v-else>Сохранение...</span>
       </button>
+    </div>
+  </div>
+  <div v-else-if="dataLoaded" class="quiz__no_items">
+    <p class="quiz__no_items_text">Не выбрано ни одного сингла или альбома. Вернитесь на предыдущий шаг.</p>
+    <div class="quiz__form_bottom">
+      <div class="quiz__form_buttons">
+        <button 
+          class="form__back button__second button" 
+          @click="goBack"
+          :disabled="isLoadingTwo"
+        >
+          <span><BackSVG /></span>
+          <span>Назад</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -1205,222 +1141,16 @@ document.addEventListener('visibilitychange', async () => {
 </template>
 
 <style lang="css" scoped>
-.quiz__form_top {
-  display: flex;
-  width: 100%;
-  padding: 0 0 20px;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 20px;
-}
-.quiz__no_items {
-  text-align: center;
-  padding: 50px 0;
-}
-.quiz__no_items_text {
-  margin-bottom: 20px;
-  color: var(--text-gray);
+.quiz__section_title,
+.quiz__album_item_title {
+  padding: 20px 0 10px;
 }
 .quiz__form_two_lists {
   display: flex;
-  padding: 20px 0 0;
   flex-direction: column;
   gap: 10px;
-}
-.quiz__form_two_list {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  counter-reset: quiz-counter;
-  list-style: none;
-  padding-left: 0;
-}
-.quiz__form_two_list li {
-  position: relative;
-  padding-left: 30px;
-  counter-increment: quiz-counter;
-}
-.quiz__form_two_list li::before {
-  content: counter(quiz-counter) ".";
-  position: absolute;
-  left: 0;
-  top: 2.3px;
-  color: var(--text-gray);
 }
 .quiz__form_two_description {
-  color: var(--text-gray);
-}
-
-/* Стили для секций */
-.quiz__section {
-  margin-top: 40px;
-  padding-top: 40px;
-  border-top: 1px solid var(--border);
-}
-.quiz__section:first-child {
-  margin-top: 20px;
-  padding-top: 0;
-  border-top: none;
-}
-.quiz__section_title {
-  margin-bottom: 30px;
-  text-transform: uppercase;
-}
-
-/* Стили для синглов */
-.quiz__singles_list {
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-}
-.quiz__single_item {
-  padding: 30px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background-color: #f8f9fa;
-}
-.quiz__single_item_title {
-  margin-bottom: 20px;
-  text-transform: uppercase;
-}
-
-/* Стили для альбомов */
-.quiz__albums_list {
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-}
-.quiz__album_item {
-  padding: 30px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background-color: #f8f9fa;
-}
-.quiz__album_item_title {
-  margin-bottom: 20px;
-  text-transform: uppercase;
-}
-
-/* Общие стили для загрузки аудио */
-.quiz__form_single_audio_info {
-  margin: 20px 0;
-}
-.quiz__form_single_name {
-  display: flex;
-  width: 100%;
-  padding: 20px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  background-color: #EDFBE2;
-}
-.quiz__form_single_name_svg {
-  display: flex;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  transform: rotate(0deg);
-  transition: transform 0.15s linear;
-}
-.quiz__form_single_name_svg:hover {
-  transform: rotate(90deg);
-}
-.quiz__form_single_name_svg svg {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.quiz__form_single_name_left {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.quiz__form_single_name_size {
-  color: var(--text-gray);
-}
-.quiz__form_single_button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Стили для треков альбома */
-.quiz__album_tracks {
-  margin-top: 30px;
-  padding: 30px;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  background-color: white;
-}
-.quiz__album_tracks_head {
-  margin-bottom: 20px;
-  text-transform: uppercase;
-  font-size: 16px;
-}
-.quiz__album_tracks_list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.quiz__album_track_item {
-  padding: 20px;
-  border: 1px solid var(--border-lighter);
-  border-radius: 6px;
-  background-color: #f8f9fa;
-}
-.quiz__album_track_header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-.quiz__album_track_number {
-  text-transform: uppercase;
-  font-size: 14px;
-  margin: 0;
-}
-.quiz__album_track_remove {
-  padding: 5px 15px;
-  font-size: 12px;
-}
-.quiz__album_track_buttons {
-  margin-top: 20px;
-}
-.quiz__album_add_track {
-  margin-top: 30px;
-  text-align: center;
-}
-
-/* Формы */
-.quiz__form_single_buttons {
-  padding: 20px 0 0;
-}
-.form__flex {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.form__group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.form__label {
-  text-transform: uppercase;
-}
-.form__hint_list {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin: 0;
-  padding-left: 20px;
-}
-.form__hint_item {
-  position: relative;
-}
-.form__hint_item::before {
-  content: "•";
-  position: absolute;
-  left: -15px;
   color: var(--text-gray);
 }
 </style>

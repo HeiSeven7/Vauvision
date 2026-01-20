@@ -325,10 +325,14 @@ textarea,
 .el-checkbox__input.is-checked+.el-checkbox__label {
   color: var(--text);
 }
+.el-checkbox__inner {
+  width: 16px;
+  height: 16px;
+}
 .el-checkbox__inner:after {
-  height: 7px;
+  height: 9px;
   top: 1px;
-  left: 4px;
+  left: 5.5px;
 }
 .el-checkbox.el-checkbox--large {
   display: flex;
@@ -364,9 +368,16 @@ textarea,
 .el-input-number__increase .el-icon {
   transition: color 0.3s linear;
 }
+.el-input-number__decrease .el-icon,
+.el-input-number__increase .el-icon {
+  color: var(--text-gray);
+}
 .el-input-number__decrease:hover .el-icon,
 .el-input-number__increase:hover .el-icon {
   color: var(--white);
+}
+.el-input .el-input__icon {
+  color: var(--text-gray);
 }
 
 

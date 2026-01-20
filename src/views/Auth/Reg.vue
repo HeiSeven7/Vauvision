@@ -300,7 +300,7 @@ const handleFinalSubmit = async () => {
             <div class="form__flex">
               <!-- Поле имени -->
               <div class="form__group">
-                <label for="firstName" class="form__label button">Ваше имя*</label>
+                <label for="firstName" class="form__label button">Ваше имя<span>*</span></label>
                 <el-input
                   id="firstName"
                   v-model="formData.firstName"
@@ -378,7 +378,7 @@ const handleFinalSubmit = async () => {
             <div class="form__flex">
               <!-- Чекбоксы выбора типа -->
               <div class="form__group">
-                <label class="form__label button">Тип учетной записи*</label>
+                <label class="form__label button">Тип учетной записи<span>*</span></label>
                 <p class="form__desc text_small">
                   Выбирайте «Исполнитель», если вы один артист с одним псевдонимом. 
                   Выбирайте «Лейбл», если собираетесь загружать много релизов от разных артистов.
@@ -418,7 +418,7 @@ const handleFinalSubmit = async () => {
 
               <!-- Поле для исполнителя -->
               <div v-if="secondFormData.userType === 'executor'" class="form__group">
-                <label class="form__label button">Имя исполнителя*</label>
+                <label class="form__label button">Имя исполнителя<span>*</span></label>
                 <el-input
                   v-model="secondFormData.executorName"
                   type="text"
@@ -436,7 +436,7 @@ const handleFinalSubmit = async () => {
 
               <!-- Поле для лейбла -->
               <div v-if="secondFormData.userType === 'label'" class="form__group">
-                <label class="form__label button">Имя лейбла*</label>
+                <label class="form__label button">Имя лейбла<span>*</span></label>
                 <el-input
                   v-model="secondFormData.labelName"
                   type="text"
@@ -481,7 +481,7 @@ const handleFinalSubmit = async () => {
             <div class="form__flex">
               <!-- Поле email -->
               <div class="form__group">
-                <label for="email" class="form__label button">Электронная почта*</label>
+                <label for="email" class="form__label button">Электронная почта<span>*</span></label>
                 <el-input
                   id="email"
                   v-model="thirdFormData.email"
@@ -500,7 +500,7 @@ const handleFinalSubmit = async () => {
 
               <!-- Поле телефона -->
               <div class="form__group">
-                <label for="phone" class="form__label button">Номер телефона*</label>
+                <label for="phone" class="form__label button">Номер телефона<span>*</span></label>
                 <el-input
                   id="phone"
                   v-model="thirdFormData.phone"
@@ -519,7 +519,7 @@ const handleFinalSubmit = async () => {
 
               <!-- Поле пароля с глазком -->
               <div class="form__group">
-                <label for="password" class="form__label button">Пароль*</label>
+                <label for="password" class="form__label button">Пароль<span>*</span></label>
                 <el-input
                   id="password"
                   v-model="thirdFormData.password"
@@ -548,7 +548,7 @@ const handleFinalSubmit = async () => {
 
               <!-- Поле подтверждения пароля с глазком -->
               <div class="form__group">
-                <label for="confirmPassword" class="form__label button">Повторите пароль*</label>
+                <label for="confirmPassword" class="form__label button">Повторите пароль<span>*</span></label>
                 <el-input
                   id="confirmPassword"
                   v-model="thirdFormData.confirmPassword"

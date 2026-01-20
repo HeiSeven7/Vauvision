@@ -427,7 +427,7 @@ onMounted(() => {
   <div class="form__flex">
     <!-- Тип лица -->
     <div class="form__group">
-      <label class="form__label button">Выберите тип лица*</label>
+      <label class="form__label button">Выберите тип лица<span>*</span></label>
       <p class="form__hint text_small">Данные паспорта нужны нам для составления договора. Эти данные остаются конфиденциальными и не пересылаются третьим лицам.</p>
       <div class="form__labels">
         <label class="form__label">
@@ -460,7 +460,7 @@ onMounted(() => {
     <template v-if="formData.userType === 'entrepreneur'">
       <!-- Юридический адрес организации -->
       <div class="form__group">
-        <label for="legalAddress" class="form__label button">Юридический адрес организации*</label>
+        <label for="legalAddress" class="form__label button">Юридический адрес организации<span>*</span></label>
         <el-input
           id="legalAddress"
           v-model="formData.legalAddress"
@@ -478,7 +478,7 @@ onMounted(() => {
 
       <!-- ИНН -->
       <div class="form__group">
-        <label for="inn" class="form__label button">ИНН*</label>
+        <label for="inn" class="form__label button">ИНН<span>*</span></label>
         <el-input
           id="inn"
           v-model="formData.inn"
@@ -497,7 +497,7 @@ onMounted(() => {
 
       <!-- ОГРН -->
       <div class="form__group">
-        <label for="ogrn" class="form__label button">ОГРН*</label>
+        <label for="ogrn" class="form__label button">ОГРН<span>*</span></label>
         <el-input
           id="ogrn"
           v-model="formData.ogrn"
@@ -516,7 +516,7 @@ onMounted(() => {
 
       <!-- Расчетный счет -->
       <div class="form__group">
-        <label for="accountNumber" class="form__label button">Расчетный счет*</label>
+        <label for="accountNumber" class="form__label button">Расчетный счет<span>*</span></label>
         <el-input
           id="accountNumber"
           v-model="formData.accountNumber"
@@ -535,7 +535,7 @@ onMounted(() => {
 
       <!-- Банк -->
       <div class="form__group">
-        <label for="bankName" class="form__label button">Банк*</label>
+        <label for="bankName" class="form__label button">Банк<span>*</span></label>
         <el-input
           id="bankName"
           v-model="formData.bankName"
@@ -553,7 +553,7 @@ onMounted(() => {
 
       <!-- ИНН банка -->
       <div class="form__group">
-        <label for="bankInn" class="form__label button">ИНН банка*</label>
+        <label for="bankInn" class="form__label button">ИНН банка<span>*</span></label>
         <el-input
           id="bankInn"
           v-model="formData.bankInn"
@@ -572,7 +572,7 @@ onMounted(() => {
 
       <!-- БИК банка -->
       <div class="form__group">
-        <label for="bankBik" class="form__label button">БИК банка*</label>
+        <label for="bankBik" class="form__label button">БИК банка<span>*</span></label>
         <el-input
           id="bankBik"
           v-model="formData.bankBik"
@@ -591,7 +591,7 @@ onMounted(() => {
 
       <!-- Корреспондентский счет банка -->
       <div class="form__group">
-        <label for="correspondentAccount" class="form__label button">Корреспондентский счет банка*</label>
+        <label for="correspondentAccount" class="form__label button">Корреспондентский счет банка<span>*</span></label>
         <el-input
           id="correspondentAccount"
           v-model="formData.correspondentAccount"
@@ -610,7 +610,7 @@ onMounted(() => {
 
       <!-- Юридический адрес банка -->
       <div class="form__group">
-        <label for="bankLegalAddress" class="form__label button">Юридический адрес банка*</label>
+        <label for="bankLegalAddress" class="form__label button">Юридический адрес банка<span>*</span></label>
         <el-input
           id="bankLegalAddress"
           v-model="formData.bankLegalAddress"
@@ -630,7 +630,7 @@ onMounted(() => {
     <!-- Общие поля для всех типов -->
     <!-- Гражданство -->
     <div class="form__group">
-      <label for="citizenship" class="form__label button">Гражданство*</label>
+      <label for="citizenship" class="form__label button">Гражданство<span>*</span></label>
       <el-select
         id="citizenship"
         v-model="formData.citizenship"
@@ -652,7 +652,7 @@ onMounted(() => {
       
       <!-- Поле для ввода другого гражданства -->
       <div v-if="showOtherCitizenshipInput" class="form__group" style="margin-top: 10px;">
-        <label for="otherCitizenship" class="form__label button">Укажите ваше гражданство*</label>
+        <label for="otherCitizenship" class="form__label button">Укажите ваше гражданство<span>*</span></label>
         <el-input
           id="otherCitizenship"
           v-model="formData.otherCitizenship"
@@ -671,7 +671,7 @@ onMounted(() => {
 
     <!-- Фамилия -->
     <div class="form__group">
-      <label for="lastName" class="form__label button">Фамилия*</label>
+      <label for="lastName" class="form__label button">Фамилия<span>*</span></label>
       <el-input
         id="lastName"
         v-model="formData.lastName"
@@ -689,7 +689,7 @@ onMounted(() => {
 
     <!-- Имя -->
     <div class="form__group">
-      <label for="firstName" class="form__label button">Имя*</label>
+      <label for="firstName" class="form__label button">Имя<span>*</span></label>
       <el-input
         id="firstName"
         v-model="formData.firstName"
@@ -707,7 +707,7 @@ onMounted(() => {
 
     <!-- Отчество -->
     <div class="form__group">
-      <label for="middleName" class="form__label button">Отчество*</label>
+      <label for="middleName" class="form__label button">Отчество<span>*</span></label>
       <el-input
         id="middleName"
         v-model="formData.middleName"
@@ -725,7 +725,7 @@ onMounted(() => {
 
     <!-- Серия и номер паспорта -->
     <div class="form__group">
-      <label for="passportNumber" class="form__label button">Серия и номер паспорта (или удостоверения)*</label>
+      <label for="passportNumber" class="form__label button">Серия и номер паспорта (или удостоверения)<span>*</span></label>
       <p class="form__hint text_small">Если у вас биометрический паспорт, посмотрите данные в приложении к паспорту</p>
       <el-input
         id="passportNumber"
@@ -744,7 +744,7 @@ onMounted(() => {
 
     <!-- Кем выдан -->
     <div class="form__group">
-      <label for="passportIssuedBy" class="form__label button">Кем выдан*</label>
+      <label for="passportIssuedBy" class="form__label button">Кем выдан<span>*</span></label>
       <el-input
         id="passportIssuedBy"
         v-model="formData.passportIssuedBy"
@@ -762,7 +762,7 @@ onMounted(() => {
 
     <!-- Дата выдачи -->
     <div class="form__group">
-      <label for="passportIssueDate" class="form__label button">Дата выдачи*</label>
+      <label for="passportIssueDate" class="form__label button">Дата выдачи<span>*</span></label>
       <el-date-picker
         id="passportIssueDate"
         v-model="formData.passportIssueDate"
@@ -782,7 +782,7 @@ onMounted(() => {
 
     <!-- Адрес регистрации -->
     <div class="form__group">
-      <label for="registrationAddress" class="form__label button">Адрес регистрации / вашей прописки полностью, как в документе*</label>
+      <label for="registrationAddress" class="form__label button">Адрес регистрации / вашей прописки полностью, как в документе<span>*</span></label>
       <el-input
         id="registrationAddress"
         v-model="formData.registrationAddress"

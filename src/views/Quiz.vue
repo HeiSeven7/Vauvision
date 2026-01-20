@@ -17,6 +17,12 @@ const showQuizForm = () => {
 const goToStep = (step: number) => {
   currentStep.value = step;
 };
+
+// Функция для возврата к превью
+const handleGoBack = () => {
+  showForm.value = false;
+  currentStep.value = 1;
+};
 </script>
 
 <template>
@@ -25,10 +31,6 @@ const goToStep = (step: number) => {
   <div class="container personal__container">
     <Menu />
     <div class="personal__block">
-      <div class="quiz__top">
-        <h3 class="quiz__head">Выложить релиз</h3>
-        <p class="quiz__desc">Пожалуйста, заполните все пункты максимально подробно – это позволит нам сделать нашу работу качественно.</p>
-      </div>
       <div class="quiz__flex">
         <div class="quiz__content">
           <div class="quiz__preview" v-if="!showForm">
@@ -43,13 +45,13 @@ const goToStep = (step: number) => {
                 <p class="quiz__preview_desc">Треки выходят на площадках в 00:00 выбранной даты (по Москве).</p>
               </li>
               <li>
-                <p class="quiz__preview_desc">Для редактирования размера обложек используйте сайт pixlr.com</p>
+                <p class="quiz__preview_desc">Для редактирования размера обложек используйте сайт <a href="https://pixlr.com" target="`_blank">pixlr.com</a></p>
               </li>
               <li>
-                <p class="quiz__preview_desc">Для редактирования формата треков используйте конвертер online-audio-converter.com</p>
+                <p class="quiz__preview_desc">Для редактирования формата треков используйте конвертер <a href="https://online-audio-converter.com" target="`_blank">online-audio-converter.com</a></p>
               </li>
               <li>
-                <p class="quiz__preview_desc">После заполнения этой формы, пожалуйста, напишите сообщение в формате "Ваш псевдоним - Название релиза - ДИСТРИБУЦИЯ" в сообщения паблика vk.com/vauvisionlabel, либо телеграмм.</p>
+                <p class="quiz__preview_desc">После заполнения этой формы, пожалуйста, напишите сообщение в формате "Ваш псевдоним - Название релиза - ДИСТРИБУЦИЯ" в сообщения паблика <a href="https://vk.com/vauvisionlabel" target="`_blank">vk.com/vauvisionlabel</a>, либо телеграмм.</p>
               </li>
               <li>
                 <p class="quiz__preview_desc">Перед загрузкой клипа прочтите инструкцию.</p>
@@ -64,6 +66,7 @@ const goToStep = (step: number) => {
             v-if="showForm" 
             :current-step="currentStep" 
             @update:current-step="goToStep"
+            @go-back="handleGoBack"
           />
         </div>
       </div>
@@ -75,11 +78,6 @@ const goToStep = (step: number) => {
 <style lang="css" scoped>
 .personal {
   margin: 0 0 auto;
-}
-.quiz__top {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
 }
 .quiz__preview {
   display: flex;
@@ -120,13 +118,17 @@ const goToStep = (step: number) => {
   left: 0;
   top: 2.3px;
 }
+.quiz__preview_heading,
+.quiz__preview_description,
+.quiz__preview_attention,
+.quiz__preview_list,
+.quiz__preview_buttons {
+  max-width: 860px;
+}
 
 @media (max-width: 1439px) {
   .personal__container {
     padding: 0;
-  }
-  .quiz__top {
-    padding: 0 30px;
   }
   .quiz__preview {
     padding: 30px;
@@ -139,17 +141,11 @@ const goToStep = (step: number) => {
   }
 }
 @media (max-width: 1023px) {
-  .quiz__top {
-    padding: 0 20px;
-  }
   .quiz__preview {
     padding: 30px 20px;
   }
 }
 @media (max-width: 767px) {
-  .quiz__top {
-    padding: 0 15px;
-  }
   .quiz__preview {
     padding: 30px 15px;
   }

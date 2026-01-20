@@ -54,11 +54,6 @@ const dragOver = ref(false); // Состояние для drag-and-drop
 // Опции для выбора
 const platformOptions = [
   { label: 'Все площадки', value: 'all' },
-  { label: 'Apple Music', value: 'apple' },
-  { label: 'Spotify', value: 'spotify' },
-  { label: 'YouTube Music', value: 'youtube' },
-  { label: 'VK Музыка', value: 'vk' },
-  { label: 'Яндекс Музыка', value: 'yandex' },
   { label: 'Другое', value: 'other' }
 ];
 
@@ -197,7 +192,7 @@ const validateForm = () => {
   
   // Валидация других платформ
   if (formData.platforms.includes('other') && !formData.otherPlatform.trim()) {
-    errors.otherPlatform = 'Укажите другие площадки для загрузки';
+    errors.otherPlatform = 'Напишите в свободной форме, на какие площадки нужно (или не нужно) загрузить релиз';
     isValid = false;
   }
   
@@ -456,7 +451,7 @@ onUnmounted(() => {
     <div class="form__flex">
       <!-- Псевдоним артиста -->
       <div class="form__group">
-        <label for="performerName" class="form__label button">впишите псевдоним артиста*</label>
+        <label for="performerName" class="form__label button">впишите псевдоним артиста<span>*</span></label>
         <p class="form__hint text_small">Укажите имя артиста (ваш псевдоним). Даже если трек совместный, укажите только один свой псевдоним.</p>
         <el-input
           id="performerName"
@@ -476,7 +471,7 @@ onUnmounted(() => {
       
       <!-- Название релиза -->
       <div class="form__group">
-        <label for="releaseName" class="form__label button">впишите название релиза*</label>
+        <label for="releaseName" class="form__label button">впишите название релиза<span>*</span></label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
             <p class="form__hint text_small">Если вы выбрали несколько релизов (например, 2 сингла), впишите их названия через запятую.</p>
@@ -506,7 +501,7 @@ onUnmounted(() => {
       
       <!-- Площадки для загрузки -->
       <div class="form__group">
-        <label class="form__label button">Куда загружать релиз?*</label>
+        <label class="form__label button">Куда загружать релиз?<span>*</span></label>
         <el-select
           v-model="formData.platforms"
           multiple
@@ -545,7 +540,7 @@ onUnmounted(() => {
       
       <!-- Желаемая дата выхода -->
       <div class="form__group">
-        <label class="form__label button">Желаемая дата выхода*</label>
+        <label class="form__label button">Желаемая дата выхода<span>*</span></label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
             <p class="form__hint text_small">Если все равно, ставьте ближайшую пятницу. Выбирайте дату с учётом официальных праздников (особенно в Новый Год)! Во время них модерация не проверяет релизы.</p>
@@ -554,7 +549,7 @@ onUnmounted(() => {
             <p class="form__hint text_small">Заложите минимум 3 полных рабочих дня (выходные и праздники не считаются). Если релиз важный, то рекомендуем заложить 7-10 рабочих дней: на случай возвратов, ошибок и вопросов со стороны модерации...</p>
           </li>
           <li class="form__hint_item">
-            <p class="form__hint text_small">Если дата релиза важна, то рекомендуется заложить минимум 7 дней на загрузку. Также площадка Apple Music сообщает, что отображение релиза на их площадке может занять до 5 рабочих дней с момента прохождения модерации. Рекомендуем учитывать это при выборе даты релиза.</p>
+            <p class="form__hint text_small">Если дата релиза важна, то рекомендуется заложить минимум 7 дней на загрузку. Также площадка <a href="https://music.apple.com/">Apple Music</a> сообщает, что отображение релиза на их площадке может занять до 5 рабочих дней с момента прохождения модерации. Рекомендуем учитывать это при выборе даты релиза.</p>
           </li>
         </ul>
         <el-date-picker
@@ -576,7 +571,7 @@ onUnmounted(() => {
       
       <!-- Наличие мата -->
       <div class="form__group">
-        <label class="form__label button">в треках есть мат?*</label>
+        <label class="form__label button">в треках есть мат?<span>*</span></label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
             <p class="form__hint text_small">Укажите номера треков, в которых есть мат. Если загружаете один трек, то ставьте 1.</p>
@@ -623,7 +618,7 @@ onUnmounted(() => {
       
       <!-- Загрузка обложки -->
       <div class="form__group">
-        <label class="form__label button">Прикрепите обложку релиза*</label>
+        <label class="form__label button">Прикрепите обложку релиза<span>*</span></label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
             <p class="form__hint text_small">Для обложек, созданных с помощью AI, необходимо добавлять уникальные элементы: псевдоним и/или название релиза.</p>
@@ -679,7 +674,7 @@ onUnmounted(() => {
       
       <!-- Ссылка на ВК/Instagram -->
       <div class="form__group">
-        <label for="vkLink" class="form__label button">Ссылка на вашу страницу в ВК для проверки и подписания договора*</label>
+        <label for="vkLink" class="form__label button">Ссылка на вашу страницу в ВК для проверки и подписания договора<span>*</span></label>
         <p class="form__hint text_small">Если у вас нет ВК, то укажите ссылку на ваш инстаграм. Не указывайте ссылку на ваш паблик – только на личную страницу. Ссылка должна быть кликабельная в формате https://vk.com/... или https://instagram.com/... – не указывайте свои адреса через @ или другие отметки.</p>
         <el-input
           id="vkLink"
@@ -699,7 +694,7 @@ onUnmounted(() => {
       
       <!-- Email -->
       <div class="form__group">
-        <label for="email" class="form__label button">Введите вашу электронную почту*</label>
+        <label for="email" class="form__label button">Введите вашу электронную почту<span>*</span></label>
         <el-input
           id="email"
           v-model="formData.email"
@@ -758,7 +753,7 @@ onUnmounted(() => {
       <p class="quiz__important_description">Разрешаются обложки без надписей вообще.</p>
     </li>
     <li class="quiz__important_item">
-      <p class="quiz__important_description">Также приглашаем изучить рекомендации (носящие обязательный характер) от Apple Music</p>
+      <p class="quiz__important_description">Также приглашаем изучить рекомендации (носящие обязательный характер) от <a href="https://music.apple.com/">Apple Music</a></p>
     </li>
   </ul>
   <div class="quiz__form_bottom">

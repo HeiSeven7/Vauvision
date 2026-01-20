@@ -583,7 +583,7 @@ onMounted(() => {
   <div class="quiz__form_single">
     <div class="form__flex">
       <div class="form__group">
-        <label for="genre" class="form__label button">Какой жанр указать?*</label>
+        <label for="genre" class="form__label button">Какой жанр указать?<span>*</span></label>
         <el-input
           id="genre"
           v-model="formData.genre"
@@ -625,7 +625,7 @@ onMounted(() => {
       </div>
       
       <div class="form__group">
-        <label class="form__label button">Текст для Apple Music</label>
+        <label class="form__label button">Текст для <a href="https://music.apple.com/">Apple Music</a></label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
             <p class="form__hint text_small">Куплеты и припевы должны быть разделены пробелом, каждая строчка с большой буквы, в конце строчек без знаков препинания. В тексте должно быть только то, что произносится в песне.</p>
@@ -685,7 +685,7 @@ onMounted(() => {
       </div>
       
       <div class="form__group">
-        <label class="form__label button">ЕСТЬ ЛИ У ВАС В РЕЛИЗЕ УПОМИНАНИЕ НАРКОТИЧЕСКИХ СРЕДСТВ?*</label>
+        <label class="form__label button">ЕСТЬ ЛИ У ВАС В РЕЛИЗЕ УПОМИНАНИЕ НАРКОТИЧЕСКИХ СРЕДСТВ?<span>*</span></label>
         <p class="form__hint text_small">В тексте или названии любого из треков. Независимо от контекста: любое упоминание веществ, способы употребления или производства, в том числе слегновые названия. Алкоголь и сигареты не считаются.</p>
         <el-select
           v-model="formData.hasDrugsMention"
@@ -723,7 +723,7 @@ onMounted(() => {
       </div>
       
       <div class="form__group">
-        <label class="form__label button">Караоке текст для Apple Music и Spotify, Yandex.Music, VK</label>
+        <label class="form__label button">Караоке текст для <a href="https://music.apple.com/">Apple Music</a> и <a href="https://www.spotify.com/i">Spotify</a>, <a href="https://music.yandex.ru/">Yandex Music</a>, <a href="https://music.vk.com/">VK</a></label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
             <p class="form__hint text_small">Чтобы сделать караоке файл, зайдите на наш сайт, следуйте инструкции на сайте и создайте необходимые файлы. Обязательно подпишите их по названию треков, к которым они относятся.</p>
@@ -783,7 +783,7 @@ onMounted(() => {
         <label class="form__label button">ССЫЛКИ НА КАРТОЧКИ АРТИСТОВ</label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
-            <p class="form__hint text_small">Укажите через запятую ссылки на карточки в Apple Music всех артистов, указанных в загружаемом релизе. Если карточек нет, укажите "Нужны новые карточки".</p>
+            <p class="form__hint text_small">Укажите через запятую ссылки на карточки в <a href="https://music.apple.com/">Apple Music</a> всех артистов, указанных в загружаемом релизе. Если карточек нет, укажите "Нужны новые карточки".</p>
           </li>
           <li class="form__hint_item">
             <p class="form__hint text_small">Указание карточек повышает шансы, что релиз попадёт по адресу, но НЕ ГАРАНТИРУЕТ этого. Распределение по карточкам совершают алгоритмы, поэтому есть вероятность ошибок. В случае ошибки, исправить её можно через нашу поддержку.</p>
@@ -840,7 +840,7 @@ onMounted(() => {
       </div>
       
       <div class="form__group">
-        <label for="socialLinks" class="form__label button">ССЫЛКИ НА СОЦИАЛЬНЫЕ СЕТИ АРТИСТОВ*</label>
+        <label for="socialLinks" class="form__label button">ССЫЛКИ НА СОЦИАЛЬНЫЕ СЕТИ АРТИСТОВ<span>*</span></label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
             <p class="form__hint text_small">Паблик в VK, страница в Instagram, профиль в TikTok, YouTube и проч.</p>

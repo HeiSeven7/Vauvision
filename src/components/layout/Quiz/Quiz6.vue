@@ -4,7 +4,7 @@
     <div class="form__flex">
       <!-- Откуда узнали -->
       <div class="form__group">
-        <label class="form__label button">откуда вы о нас узнали?*</label>
+        <label class="form__label button">откуда вы о нас узнали?<span>*</span></label>
         <el-select
           v-model="formData.platforms"
           multiple
@@ -101,7 +101,7 @@
       <!-- Ссылка на Bandlink -->
       <div class="form__group">
         <label for="bandlinkUrl" class="form__label button">ССЫЛКА НА ВАШ ПРЕДСТОЯЩИЙ РЕЛИЗ В BANDLINK</label>
-        <p class="form__hint text_small">Если у вас есть верифицированный профиль Band.link, то зайдите туда, перейдите в раздел «Страницы» и нажмите «Создать Bandlink». Создайте страницу релиза, указав псевдоним и название будущего релиза. Далее нажмите «Превью страницы» и скопируйте получившуюся ссылку. Её и нужно вставить в поле слева. Если у вас нет профиля в Band.link, пропустить это поле.</p>
+        <p class="form__hint text_small">Если у вас есть верифицированный профиль <a href="https://Band.link" target="_blank">Band.link</a>, то зайдите туда, перейдите в раздел «Страницы» и нажмите «Создать Bandlink». Создайте страницу релиза, указав псевдоним и название будущего релиза. Далее нажмите «Превью страницы» и скопируйте получившуюся ссылку. Её и нужно вставить в поле слева. Если у вас нет профиля в Band.link, пропустить это поле.</p>
         <el-input
           v-model="formData.bandlinkUrl"
           type="text"
@@ -548,15 +548,18 @@ onMounted(() => {
 }
 .form__checkbox_group .el-checkbox {
   display: flex;
+  min-height: auto;
   align-items: center;
   gap: 10px;
   color: var(--text-gray);
+}
+.form__group .form__checkbox_group .el-checkbox {
+  padding: 10px 0 0;
 }
 .quiz__form_sum {
   display: flex;
   align-items: center;
   gap: 15px;
-  margin: 20px 0;
 }
 .quiz__form_total {
   color: var(--color);
