@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, reactive, computed, onMounted, } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { ElInput, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import CloseSVG from "@/uikit/icon/CloseSVG.vue";
@@ -16,14 +16,29 @@ const STORAGE_KEY = 'quiz2_state';
 const isLoadingTwo = ref(false);
 const showImportantBlock = ref(false);
 
-// Ошибки валидации
-const errors = reactive({
-  performerName: '',
-  musicAuthor: '',
-  textAuthor: '',
-  trackName: '',
-  audioFile: ''
-});
+// Запрещенные слова
+const forbiddenWords = ['нет', 'такой', 'информации', 'не', 'знаю', 'откуда'];
+
+// Ошибки валидации для синглов
+const singleErrors = ref<Array<{
+  performerName: string;
+  musicAuthor: string;
+  textAuthor: string;
+  trackName: string;
+  audioFile: string;
+}>>([]);
+
+// Ошибки валидации для альбомов
+const albumErrors = ref<Array<{
+  albumName: string;
+  tracks: Array<{
+    performerName: string;
+    musicAuthor: string;
+    textAuthor: string;
+    trackName: string;
+    audioFile: string;
+  }>;
+}>>([]);
 
 // Тип для трека альбома
 interface AlbumTrack {
@@ -149,79 +164,113 @@ const loadStateFromLocalStorage = async () => {
   try {
     // Загружаем состояние шага 2
     const savedState = localStorage.getItem(STORAGE_KEY);
-    if (savedState) {
-      const parsedState = JSON.parse(savedState);
-      
-      // Загружаем синглы
-      if (parsedState.singleTracks && parsedState.singleTracks.length > 0) {
-        singleTracks.value = await Promise.all(
-          parsedState.singleTracks.map(async (track: any) => {
-            let audioFile = null;
-            if (track.audioFileBase64) {
-              try {
-                const mimeType = getMimeTypeFromBase64(track.audioFileBase64);
-                audioFile = base64ToFile(track.audioFileBase64, track.audioFileName, mimeType);
-              } catch (error) {
-                console.error('Error converting base64 to file:', error);
-              }
+    const counts = getCountsFromQuiz1();
+    
+    // Если нет сохраненного состояния, инициализируем из Quiz1
+    if (!savedState) {
+      return;
+    }
+    
+    const parsedState = JSON.parse(savedState);
+    
+    // Загружаем синглы только если они выбраны в Quiz1
+    if (counts.singleCount > 0 && parsedState.singleTracks && parsedState.singleTracks.length > 0) {
+      singleTracks.value = await Promise.all(
+        parsedState.singleTracks.map(async (track: any) => {
+          let audioFile = null;
+          if (track.audioFileBase64) {
+            try {
+              const mimeType = getMimeTypeFromBase64(track.audioFileBase64);
+              audioFile = base64ToFile(track.audioFileBase64, track.audioFileName, mimeType);
+            } catch (error) {
+              console.error('Error converting base64 to file:', error);
             }
-            
-            return {
-              id: track.id || `single-${Date.now()}-${Math.random()}`,
-              performerName: track.performerName || '',
-              musicAuthor: track.musicAuthor || '',
-              textAuthor: track.textAuthor || '',
-              trackName: track.trackName || '',
-              audioFile: audioFile,
-              audioFileName: track.audioFileName || '',
-              audioFileSize: track.audioFileSize || 0,
-              audioFileBase64: track.audioFileBase64 || '',
-              uploaded: track.uploaded || false,
-              hasAudioUploaded: track.hasAudioUploaded || false
-            };
-          })
-        );
-      }
+          }
+          
+          return {
+            id: track.id || `single-${Date.now()}-${Math.random()}`,
+            performerName: track.performerName || '',
+            musicAuthor: track.musicAuthor || '',
+            textAuthor: track.textAuthor || '',
+            trackName: track.trackName || '',
+            audioFile: audioFile,
+            audioFileName: track.audioFileName || '',
+            audioFileSize: track.audioFileSize || 0,
+            audioFileBase64: track.audioFileBase64 || '',
+            uploaded: track.uploaded || false,
+            hasAudioUploaded: track.hasAudioUploaded || false
+          };
+        })
+      );
       
-      // Загружаем альбомы
-      if (parsedState.albums && parsedState.albums.length > 0) {
-        albums.value = await Promise.all(
-          parsedState.albums.map(async (album: any) => ({
-            id: album.id || `album-${Date.now()}-${Math.random()}`,
-            albumName: album.albumName || '',
-            performerName: album.performerName || '',
-            musicAuthor: album.musicAuthor || '',
-            textAuthor: album.textAuthor || '',
-            tracks: await Promise.all(
-              (album.tracks || []).map(async (track: any) => {
-                let audioFile = null;
-                if (track.audioFileBase64) {
-                  try {
-                    const mimeType = getMimeTypeFromBase64(track.audioFileBase64);
-                    audioFile = base64ToFile(track.audioFileBase64, track.audioFileName, mimeType);
-                  } catch (error) {
-                    console.error('Error converting base64 to file:', error);
-                  }
+      // Инициализируем ошибки для синглов
+      singleErrors.value = singleTracks.value.map(() => ({
+        performerName: '',
+        musicAuthor: '',
+        textAuthor: '',
+        trackName: '',
+        audioFile: ''
+      }));
+    } else {
+      // Если синглы не выбраны в Quiz1, очищаем данные
+      singleTracks.value = [];
+      singleErrors.value = [];
+    }
+    
+    // Загружаем альбомы только если они выбраны в Quiz1
+    if (counts.albumCount > 0 && parsedState.albums && parsedState.albums.length > 0) {
+      albums.value = await Promise.all(
+        parsedState.albums.map(async (album: any) => ({
+          id: album.id || `album-${Date.now()}-${Math.random()}`,
+          albumName: album.albumName || '',
+          performerName: album.performerName || '',
+          musicAuthor: album.musicAuthor || '',
+          textAuthor: album.textAuthor || '',
+          tracks: await Promise.all(
+            (album.tracks || []).map(async (track: any) => {
+              let audioFile = null;
+              if (track.audioFileBase64) {
+                try {
+                  const mimeType = getMimeTypeFromBase64(track.audioFileBase64);
+                  audioFile = base64ToFile(track.audioFileBase64, track.audioFileName, mimeType);
+                } catch (error) {
+                  console.error('Error converting base64 to file:', error);
                 }
-                
-                return {
-                  id: track.id || `album-track-${Date.now()}-${Math.random()}`,
-                  trackNumber: track.trackNumber || 1,
-                  trackName: track.trackName || '',
-                  performerName: track.performerName || album.performerName || '',
-                  musicAuthor: track.musicAuthor || album.musicAuthor || '',
-                  textAuthor: track.textAuthor || album.textAuthor || '',
-                  audioFile: audioFile,
-                  audioFileName: track.audioFileName || '',
-                  audioFileSize: track.audioFileSize || 0,
-                  audioFileBase64: track.audioFileBase64 || '',
-                  uploaded: track.uploaded || false
-                };
-              })
-            )
-          }))
-        );
-      }
+              }
+              
+              return {
+                id: track.id || `album-track-${Date.now()}-${Math.random()}`,
+                trackNumber: track.trackNumber || 1,
+                trackName: track.trackName || '',
+                performerName: track.performerName || album.performerName || '',
+                musicAuthor: track.musicAuthor || album.musicAuthor || '',
+                textAuthor: track.textAuthor || album.textAuthor || '',
+                audioFile: audioFile,
+                audioFileName: track.audioFileName || '',
+                audioFileSize: track.audioFileSize || 0,
+                audioFileBase64: track.audioFileBase64 || '',
+                uploaded: track.uploaded || false
+              };
+            })
+          )
+        }))
+      );
+      
+      // Инициализируем ошибки для альбомов
+      albumErrors.value = albums.value.map(album => ({
+        albumName: '',
+        tracks: album.tracks.map(() => ({
+          performerName: '',
+          musicAuthor: '',
+          textAuthor: '',
+          trackName: '',
+          audioFile: ''
+        }))
+      }));
+    } else {
+      // Если альбомы не выбраны в Quiz1, очищаем данные
+      albums.value = [];
+      albumErrors.value = [];
     }
   } catch (error) {
     console.error('Error loading state from localStorage:', error);
@@ -251,8 +300,26 @@ const initializeDataFromQuiz1 = () => {
   const counts = getCountsFromQuiz1();
   console.log('Counts from Quiz1:', counts);
   
-  // Создаем синглы
-  if (counts.singleCount > 0 && singleTracks.value.length === 0) {
+  // ОЧИЩАЕМ существующие данные, если выбор изменился
+  const shouldHaveSingles = counts.singleCount > 0;
+  const shouldHaveAlbums = counts.albumCount > 0;
+  
+  // Если синглы не выбраны в Quiz1, но есть данные в singleTracks - очищаем
+  if (!shouldHaveSingles && singleTracks.value.length > 0) {
+    console.log('Clearing single tracks because no singles selected in Quiz1');
+    singleTracks.value = [];
+    singleErrors.value = [];
+  }
+  
+  // Если альбомы не выбраны в Quiz1, но есть данные в albums - очищаем
+  if (!shouldHaveAlbums && albums.value.length > 0) {
+    console.log('Clearing albums because no albums selected in Quiz1');
+    albums.value = [];
+    albumErrors.value = [];
+  }
+  
+  // Создаем синглы только если они выбраны в Quiz1 И еще не созданы
+  if (shouldHaveSingles && singleTracks.value.length === 0) {
     console.log(`Creating ${counts.singleCount} single tracks`);
     for (let i = 0; i < counts.singleCount; i++) {
       singleTracks.value.push({
@@ -269,10 +336,19 @@ const initializeDataFromQuiz1 = () => {
         hasAudioUploaded: false
       });
     }
+    
+    // Инициализируем ошибки для синглов
+    singleErrors.value = singleTracks.value.map(() => ({
+      performerName: '',
+      musicAuthor: '',
+      textAuthor: '',
+      trackName: '',
+      audioFile: ''
+    }));
   }
   
-  // Создаем альбомы
-  if (counts.albumCount > 0 && albums.value.length === 0) {
+  // Создаем альбомы только если они выбраны в Quiz1 И еще не созданы
+  if (shouldHaveAlbums && albums.value.length === 0) {
     console.log(`Creating ${counts.albumCount} albums`);
     for (let i = 0; i < counts.albumCount; i++) {
       albums.value.push({
@@ -284,38 +360,64 @@ const initializeDataFromQuiz1 = () => {
         tracks: []
       });
     }
+    
+    // Инициализируем ошибки для альбомов
+    albumErrors.value = albums.value.map(album => ({
+      albumName: '',
+      tracks: album.tracks.map(() => ({
+        performerName: '',
+        musicAuthor: '',
+        textAuthor: '',
+        trackName: '',
+        audioFile: ''
+      }))
+    }));
   }
 };
 
 // Проверка, нужно ли показывать секцию синглов
 const showSinglesSection = computed(() => {
   const counts = getCountsFromQuiz1();
-  return counts.singleCount > 0 || singleTracks.value.length > 0;
+  // Показываем только если синглы выбраны в Quiz1
+  return counts.singleCount > 0;
 });
 
 // Проверка, нужно ли показывать секцию альбомов
 const showAlbumsSection = computed(() => {
   const counts = getCountsFromQuiz1();
-  return counts.albumCount > 0 || albums.value.length > 0;
+  // Показываем только если альбомы выбраны в Quiz1
+  return counts.albumCount > 0;
 });
 
 // Проверка готовности к продолжению
 const isReadyForNextStep = computed(() => {
   // Проверяем все синглы
-  const allSinglesComplete = singleTracks.value.every(track => 
-    track.trackName.trim().split(/\s+/).length >= 3 &&
+  const allSinglesComplete = singleTracks.value.every((track, index) => 
+    track.trackName.trim().split(/\s+/).length >= 2 &&
     track.audioFile !== null &&
-    track.uploaded
+    track.uploaded &&
+    track.performerName.trim().split(/\s+/).length >= 3 &&
+    !singleErrors.value[index]?.performerName &&
+    track.musicAuthor.trim().split(/\s+/).length >= 3 &&
+    !singleErrors.value[index]?.musicAuthor &&
+    track.textAuthor.trim().split(/\s+/).length >= 3 &&
+    !singleErrors.value[index]?.textAuthor
   );
 
   // Проверяем все альбомы
-  const allAlbumsComplete = albums.value.every(album =>
+  const allAlbumsComplete = albums.value.every((album, albumIndex) =>
     album.albumName.trim().split(/\s+/).length >= 3 &&
     album.tracks.length > 0 &&
-    album.tracks.every(track =>
-      track.trackName.trim().split(/\s+/).length >= 3 &&
+    album.tracks.every((track, trackIndex) =>
+      track.trackName.trim().split(/\s+/).length >= 2 &&
       track.audioFile !== null &&
-      track.uploaded
+      track.uploaded &&
+      track.performerName.trim().split(/\s+/).length >= 3 &&
+      !albumErrors.value[albumIndex]?.tracks[trackIndex]?.performerName &&
+      track.musicAuthor.trim().split(/\s+/).length >= 3 &&
+      !albumErrors.value[albumIndex]?.tracks[trackIndex]?.musicAuthor &&
+      track.textAuthor.trim().split(/\s+/).length >= 3 &&
+      !albumErrors.value[albumIndex]?.tracks[trackIndex]?.textAuthor
     )
   );
 
@@ -324,28 +426,107 @@ const isReadyForNextStep = computed(() => {
          (counts.albumCount === 0 || allAlbumsComplete);
 });
 
-// Валидация формы сингла
-const validateSingleForm = async (trackIndex: number) => {
-  const track = singleTracks.value[trackIndex];
-  let isValid = true;
+// Проверка на запрещенные слова
+const checkForbiddenWords = (value: string): boolean => {
+  if (!value.trim()) return false;
   
-  // Очищаем ошибки
-  errors.trackName = '';
-  errors.audioFile = '';
+  const lowerValue = value.toLowerCase();
+  return forbiddenWords.some(word => 
+    lowerValue.includes(` ${word} `) || 
+    lowerValue.startsWith(`${word} `) || 
+    lowerValue.endsWith(` ${word}`) ||
+    lowerValue === word
+  );
+};
+
+// Проверка минимального количества слов
+const checkMinWords = (value: string, minWords: number): boolean => {
+  if (!value.trim()) return false;
+  return value.trim().split(/\s+/).length >= minWords;
+};
+
+// Валидация поля исполнителей для сингла
+const validateSinglePerformerName = (trackIndex: number) => {
+  const value = singleTracks.value[trackIndex].performerName;
+  let error = '';
   
-  // Валидация названия трека (минимум 3 слова)
-  if (!track.trackName.trim()) {
-    errors.trackName = 'Название трека обязательно для заполнения';
-    isValid = false;
-  } else if (track.trackName.trim().split(/\s+/).length < 3) {
-    errors.trackName = 'Название трека должно содержать минимум 3 слова';
-    isValid = false;
+  if (!value.trim()) {
+    error = 'ФИО исполнителя обязательно для заполнения';
+  } else if (!checkMinWords(value, 3)) {
+    error = 'ФИО исполнителя должно содержать минимум 3 слова (например: Иван Иванович Иванов)';
+  } else if (checkForbiddenWords(value)) {
+    error = 'В поле "ФИО исполнителей" запрещено использовать слова: "нет", "такой", "информации", "не", "знаю", "откуда"';
   }
   
+  singleErrors.value[trackIndex].performerName = error;
+  return !error;
+};
+
+// Валидация поля автора музыки для сингла
+const validateSingleMusicAuthor = (trackIndex: number) => {
+  const value = singleTracks.value[trackIndex].musicAuthor;
+  let error = '';
+  
+  if (!value.trim()) {
+    error = 'ФИО автора музыки обязательно для заполнения';
+  } else if (!checkMinWords(value, 3)) {
+    error = 'ФИО автора музыки должно содержать минимум 3 слова (например: Иван Иванович Иванов)';
+  } else if (checkForbiddenWords(value)) {
+    error = 'В поле "ФИО авторов музыки" запрещено использовать слова: "нет", "такой", "информации", "не", "знаю", "откуда"';
+  }
+  
+  singleErrors.value[trackIndex].musicAuthor = error;
+  return !error;
+};
+
+// Валидация поля автора текста для сингла
+const validateSingleTextAuthor = (trackIndex: number) => {
+  const value = singleTracks.value[trackIndex].textAuthor;
+  let error = '';
+  
+  if (!value.trim()) {
+    error = 'ФИО автора текста обязательно для заполнения';
+  } else if (!checkMinWords(value, 3)) {
+    error = 'ФИО автора текста должно содержать минимум 3 слова (например: Иван Иванович Иванов)';
+  } else if (checkForbiddenWords(value)) {
+    error = 'В поле "ФИО авторов текста" запрещено использовать слова: "нет", "такой", "информации", "не", "знаю", "откуда"';
+  }
+  
+  singleErrors.value[trackIndex].textAuthor = error;
+  return !error;
+};
+
+// Валидация поля названия трека для сингла
+const validateSingleTrackName = (trackIndex: number) => {
+  const value = singleTracks.value[trackIndex].trackName;
+  let error = '';
+  
+  if (!value.trim()) {
+    error = 'Название трека обязательно для заполнения';
+  } else if (!checkMinWords(value, 2)) {
+    error = 'Название трека должно содержать минимум 2 слова';
+  }
+  
+  singleErrors.value[trackIndex].trackName = error;
+  return !error;
+};
+
+// Валидация формы сингла
+const validateSingleForm = async (trackIndex: number) => {
+  let isValid = true;
+  
+  // Проверяем все поля по отдельности
+  if (!validateSinglePerformerName(trackIndex)) isValid = false;
+  if (!validateSingleMusicAuthor(trackIndex)) isValid = false;
+  if (!validateSingleTextAuthor(trackIndex)) isValid = false;
+  if (!validateSingleTrackName(trackIndex)) isValid = false;
+  
   // Валидация аудио файла
-  if (!track.audioFile) {
-    errors.audioFile = 'Аудио файл обязателен для загрузки';
+  if (!singleTracks.value[trackIndex].audioFile) {
+    singleErrors.value[trackIndex].audioFile = 'Аудио файл обязателен для загрузки';
     isValid = false;
+  } else {
+    singleErrors.value[trackIndex].audioFile = '';
   }
   
   // Сохраняем состояние после валидации
@@ -356,27 +537,98 @@ const validateSingleForm = async (trackIndex: number) => {
   return isValid;
 };
 
-// Валидация формы альбома
-const validateAlbumForm = async (albumIndex: number) => {
-  const album = albums.value[albumIndex];
-  let isValid = true;
+// Валидация поля исполнителей для трека альбома
+const validateAlbumTrackPerformerName = (albumIndex: number, trackIndex: number) => {
+  const value = albums.value[albumIndex].tracks[trackIndex].performerName;
+  let error = '';
   
-  // Очищаем ошибки
-  errors.trackName = '';
-  errors.audioFile = '';
-  
-  // Валидация названия альбома
-  if (!album.albumName.trim()) {
-    errors.trackName = 'Название альбома обязательно для заполнения';
-    isValid = false;
-  } else if (album.albumName.trim().split(/\s+/).length < 3) {
-    errors.trackName = 'Название альбома должно содержать минимум 3 слова';
-    isValid = false;
+  if (!value.trim()) {
+    error = 'ФИО исполнителя обязательно для заполнения';
+  } else if (!checkMinWords(value, 3)) {
+    error = 'ФИО исполнителя должно содержать минимум 3 слова (например: Иван Иванович Иванов)';
+  } else if (checkForbiddenWords(value)) {
+    error = 'В поле "ФИО исполнителей" запрещено использовать слова: "нет", "такой", "информации", "не", "знаю", "откуда"';
   }
   
+  albumErrors.value[albumIndex].tracks[trackIndex].performerName = error;
+  return !error;
+};
+
+// Валидация поля автора музыки для трека альбома
+const validateAlbumTrackMusicAuthor = (albumIndex: number, trackIndex: number) => {
+  const value = albums.value[albumIndex].tracks[trackIndex].musicAuthor;
+  let error = '';
+  
+  if (!value.trim()) {
+    error = 'ФИО автора музыки обязательно для заполнения';
+  } else if (!checkMinWords(value, 3)) {
+    error = 'ФИО автора музыки должно содержать минимум 3 слова (например: Иван Иванович Иванов)';
+  } else if (checkForbiddenWords(value)) {
+    error = 'В поле "ФИО авторов музыки" запрещено использовать слова: "нет", "такой", "информации", "не", "знаю", "откуда"';
+  }
+  
+  albumErrors.value[albumIndex].tracks[trackIndex].musicAuthor = error;
+  return !error;
+};
+
+// Валидация поля автора текста для трека альбома
+const validateAlbumTrackTextAuthor = (albumIndex: number, trackIndex: number) => {
+  const value = albums.value[albumIndex].tracks[trackIndex].textAuthor;
+  let error = '';
+  
+  if (!value.trim()) {
+    error = 'ФИО автора текста обязательно для заполнения';
+  } else if (!checkMinWords(value, 3)) {
+    error = 'ФИО автора текста должно содержать минимум 3 слова (например: Иван Иванович Иванов)';
+  } else if (checkForbiddenWords(value)) {
+    error = 'В поле "ФИО авторов текста" запрещено использовать слова: "нет", "такой", "информации", "не", "знаю", "откуда"';
+  }
+  
+  albumErrors.value[albumIndex].tracks[trackIndex].textAuthor = error;
+  return !error;
+};
+
+// Валидация поля названия трека для трека альбома
+const validateAlbumTrackTrackName = (albumIndex: number, trackIndex: number) => {
+  const value = albums.value[albumIndex].tracks[trackIndex].trackName;
+  let error = '';
+  
+  if (!value.trim()) {
+    error = 'Название трека обязательно для заполнения';
+  } else if (!checkMinWords(value, 2)) {
+    error = 'Название трека должно содержать минимум 2 слова';
+  }
+  
+  albumErrors.value[albumIndex].tracks[trackIndex].trackName = error;
+  return !error;
+};
+
+// Валидация поля названия альбома
+const validateAlbumName = (albumIndex: number) => {
+  const value = albums.value[albumIndex].albumName;
+  let error = '';
+  
+  if (!value.trim()) {
+    error = 'Название альбома обязательно для заполнения';
+  } else if (!checkMinWords(value, 3)) {
+    error = 'Название альбома должно содержать минимум 3 слова';
+  } else if (checkForbiddenWords(value)) {
+    error = 'В поле "Название альбома" запрещено использовать слова: "нет", "такой", "информации", "не", "знаю", "откуда"';
+  }
+  
+  albumErrors.value[albumIndex].albumName = error;
+  return !error;
+};
+
+// Валидация формы альбома
+const validateAlbumForm = async (albumIndex: number) => {
+  let isValid = true;
+  
+  // Проверяем название альбома
+  if (!validateAlbumName(albumIndex)) isValid = false;
+  
   // Валидация наличия треков
-  if (album.tracks.length === 0) {
-    errors.audioFile = 'Добавьте хотя бы один трек в альбом';
+  if (albums.value[albumIndex].tracks.length === 0) {
     isValid = false;
   }
   
@@ -390,26 +642,20 @@ const validateAlbumForm = async (albumIndex: number) => {
 
 // Валидация формы трека альбома
 const validateAlbumTrackForm = async (albumIndex: number, trackIndex: number) => {
-  const track = albums.value[albumIndex].tracks[trackIndex];
   let isValid = true;
   
-  // Очищаем ошибки
-  errors.trackName = '';
-  errors.audioFile = '';
-  
-  // Валидация названия трека
-  if (!track.trackName.trim()) {
-    errors.trackName = 'Название трека обязательно для заполнения';
-    isValid = false;
-  } else if (track.trackName.trim().split(/\s+/).length < 3) {
-    errors.trackName = 'Название трека должно содержать минимум 3 слова';
-    isValid = false;
-  }
+  // Проверяем все поля по отдельности
+  if (!validateAlbumTrackPerformerName(albumIndex, trackIndex)) isValid = false;
+  if (!validateAlbumTrackMusicAuthor(albumIndex, trackIndex)) isValid = false;
+  if (!validateAlbumTrackTextAuthor(albumIndex, trackIndex)) isValid = false;
+  if (!validateAlbumTrackTrackName(albumIndex, trackIndex)) isValid = false;
   
   // Валидация аудио файла
-  if (!track.audioFile) {
-    errors.audioFile = 'Аудио файл обязателен для загрузки';
+  if (!albums.value[albumIndex].tracks[trackIndex].audioFile) {
+    albumErrors.value[albumIndex].tracks[trackIndex].audioFile = 'Аудио файл обязателен для загрузки';
     isValid = false;
+  } else {
+    albumErrors.value[albumIndex].tracks[trackIndex].audioFile = '';
   }
   
   // Сохраняем состояние после валидации
@@ -430,7 +676,7 @@ const handleSingleAudioUpload = async (trackIndex: number, event: Event) => {
   // Валидация типа файла
   const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg'];
   if (!allowedTypes.includes(file.type)) {
-    errors.audioFile = 'Недопустимый формат файла. Разрешенные форматы: MP3, WAV, FLAC, AAC, OGG';
+    singleErrors.value[trackIndex].audioFile = 'Недопустимый формат файла. Разрешенные форматы: MP3, WAV, FLAC, AAC, OGG';
     ElMessage.error('Недопустимый формат аудио файла');
     return;
   }
@@ -438,7 +684,7 @@ const handleSingleAudioUpload = async (trackIndex: number, event: Event) => {
   // Валидация размера файла (макс 50MB)
   const maxSize = 50 * 1024 * 1024;
   if (file.size > maxSize) {
-    errors.audioFile = 'Файл слишком большой. Максимальный размер: 50MB';
+    singleErrors.value[trackIndex].audioFile = 'Файл слишком большой. Максимальный размер: 50MB';
     ElMessage.error('Файл превышает максимальный допустимый размер');
     return;
   }
@@ -456,6 +702,12 @@ const handleSingleAudioUpload = async (trackIndex: number, event: Event) => {
     singleTracks.value[trackIndex].audioFileBase64 = base64;
     singleTracks.value[trackIndex].uploaded = true;
     singleTracks.value[trackIndex].hasAudioUploaded = true;
+    
+    // Очищаем ошибку аудио файла для этого трека
+    singleErrors.value[trackIndex].audioFile = '';
+    
+    // Проверяем валидацию всех полей после загрузки
+    validateSingleForm(trackIndex);
     
     // Сохраняем состояние
     await saveStateToLocalStorage();
@@ -482,6 +734,7 @@ const handleAlbumTrackUpload = async (albumIndex: number, trackIndex: number, ev
   // Валидация типа файла
   const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg'];
   if (!allowedTypes.includes(file.type)) {
+    albumErrors.value[albumIndex].tracks[trackIndex].audioFile = 'Недопустимый формат файла. Разрешенные форматы: MP3, WAV, FLAC, AAC, OGG';
     ElMessage.error('Недопустимый формат аудио файла');
     return;
   }
@@ -489,6 +742,7 @@ const handleAlbumTrackUpload = async (albumIndex: number, trackIndex: number, ev
   // Валидация размера файла (макс 50MB)
   const maxSize = 50 * 1024 * 1024;
   if (file.size > maxSize) {
+    albumErrors.value[albumIndex].tracks[trackIndex].audioFile = 'Файл слишком большой. Максимальный размер: 50MB';
     ElMessage.error('Файл превышает максимальный допустимый размер');
     return;
   }
@@ -508,6 +762,9 @@ const handleAlbumTrackUpload = async (albumIndex: number, trackIndex: number, ev
         album.tracks[trackIndex].audioFileSize = file.size;
         album.tracks[trackIndex].audioFileBase64 = base64;
         album.tracks[trackIndex].uploaded = true;
+        
+        // Очищаем ошибку аудио файла для этого трека
+        albumErrors.value[albumIndex].tracks[trackIndex].audioFile = '';
         
         // Проверяем валидацию трека после загрузки
         await validateAlbumTrackForm(albumIndex, trackIndex);
@@ -570,6 +827,15 @@ const addAlbumTrack = async (albumIndex: number) => {
       uploaded: false
     });
     
+    // Добавляем структуру ошибок для нового трека
+    albumErrors.value[albumIndex].tracks.push({
+      performerName: '',
+      musicAuthor: '',
+      textAuthor: '',
+      trackName: '',
+      audioFile: ''
+    });
+    
     // Сохраняем состояние
     await saveStateToLocalStorage();
     
@@ -583,6 +849,9 @@ const removeAlbumTrack = async (albumIndex: number, trackIndex: number) => {
     const album = albums.value[albumIndex];
     if (trackIndex >= 0 && trackIndex < album.tracks.length) {
       album.tracks.splice(trackIndex, 1);
+      // Удаляем ошибки для этого трека
+      albumErrors.value[albumIndex].tracks.splice(trackIndex, 1);
+      
       // Обновляем номера треков
       album.tracks.forEach((track, index) => {
         track.trackNumber = index + 1;
@@ -605,6 +874,9 @@ const removeSingleUploadedAudio = async (trackIndex: number) => {
   singleTracks.value[trackIndex].uploaded = false;
   singleTracks.value[trackIndex].hasAudioUploaded = false;
   
+  // Очищаем ошибку аудио файла
+  singleErrors.value[trackIndex].audioFile = '';
+  
   // Сохраняем состояние
   await saveStateToLocalStorage();
   
@@ -622,6 +894,9 @@ const removeAlbumTrackAudio = async (albumIndex: number, trackIndex: number) => 
       album.tracks[trackIndex].audioFileBase64 = '';
       album.tracks[trackIndex].uploaded = false;
       
+      // Очищаем ошибку аудио файла для этого трека
+      albumErrors.value[albumIndex].tracks[trackIndex].audioFile = '';
+      
       // Сохраняем состояние
       await saveStateToLocalStorage();
       
@@ -637,6 +912,50 @@ const formatFileSize = (bytes: number): string => {
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// Функция для валидации сингла при изменении полей
+const validateSingleOnChange = (trackIndex: number, field: string) => {
+  switch (field) {
+    case 'performerName':
+      validateSinglePerformerName(trackIndex);
+      break;
+    case 'musicAuthor':
+      validateSingleMusicAuthor(trackIndex);
+      break;
+    case 'textAuthor':
+      validateSingleTextAuthor(trackIndex);
+      break;
+    case 'trackName':
+      validateSingleTrackName(trackIndex);
+      break;
+  }
+  saveStateToLocalStorage();
+};
+
+// Функция для валидации трека альбома при изменении полей
+const validateAlbumTrackOnChange = (albumIndex: number, trackIndex: number, field: string) => {
+  switch (field) {
+    case 'performerName':
+      validateAlbumTrackPerformerName(albumIndex, trackIndex);
+      break;
+    case 'musicAuthor':
+      validateAlbumTrackMusicAuthor(albumIndex, trackIndex);
+      break;
+    case 'textAuthor':
+      validateAlbumTrackTextAuthor(albumIndex, trackIndex);
+      break;
+    case 'trackName':
+      validateAlbumTrackTrackName(albumIndex, trackIndex);
+      break;
+  }
+  saveStateToLocalStorage();
+};
+
+// Функция для валидации названия альбома при изменении
+const validateAlbumNameOnChange = (albumIndex: number) => {
+  validateAlbumName(albumIndex);
+  saveStateToLocalStorage();
 };
 
 const goBack = async () => {
@@ -796,10 +1115,11 @@ document.addEventListener('visibilitychange', async () => {
               placeholder="Введите ФИО исполнителя"
               :disabled="isLoadingTwo"
               size="large"
-              @blur="validateSingleForm(trackIndex)"
+              @input="() => validateSingleOnChange(trackIndex, 'performerName')"
+              @blur="validateSinglePerformerName(trackIndex)"
             />
-            <div v-if="errors.performerName" class="error text_very quiz__form_single_error">
-              {{ errors.performerName }}
+            <div v-if="singleErrors[trackIndex]?.performerName" class="error text_very quiz__form_single_error">
+              {{ singleErrors[trackIndex].performerName }}
             </div>
           </div>
           
@@ -811,10 +1131,11 @@ document.addEventListener('visibilitychange', async () => {
               placeholder="Введите ФИО автора музыки"
               :disabled="isLoadingTwo"
               size="large"
-              @blur="validateSingleForm(trackIndex)"
+              @input="() => validateSingleOnChange(trackIndex, 'musicAuthor')"
+              @blur="validateSingleMusicAuthor(trackIndex)"
             />
-            <div v-if="errors.musicAuthor" class="error text_very quiz__form_single_error">
-              {{ errors.musicAuthor }}
+            <div v-if="singleErrors[trackIndex]?.musicAuthor" class="error text_very quiz__form_single_error">
+              {{ singleErrors[trackIndex].musicAuthor }}
             </div>
           </div>
           
@@ -826,10 +1147,11 @@ document.addEventListener('visibilitychange', async () => {
               placeholder="Введите ФИО автора текста"
               :disabled="isLoadingTwo"
               size="large"
-              @blur="validateSingleForm(trackIndex)"
+              @input="() => validateSingleOnChange(trackIndex, 'textAuthor')"
+              @blur="validateSingleTextAuthor(trackIndex)"
             />
-            <div v-if="errors.textAuthor" class="error text_very quiz__form_single_error">
-              {{ errors.textAuthor }}
+            <div v-if="singleErrors[trackIndex]?.textAuthor" class="error text_very quiz__form_single_error">
+              {{ singleErrors[trackIndex].textAuthor }}
             </div>
           </div>
           
@@ -861,10 +1183,11 @@ document.addEventListener('visibilitychange', async () => {
               placeholder="Введите название трека"
               :disabled="isLoadingTwo"
               size="large"
-              @blur="validateSingleForm(trackIndex)"
+              @input="() => validateSingleOnChange(trackIndex, 'trackName')"
+              @blur="validateSingleTrackName(trackIndex)"
             />
-            <div v-if="errors.trackName" class="error text_very quiz__form_single_error">
-              {{ errors.trackName }}
+            <div v-if="singleErrors[trackIndex]?.trackName" class="error text_very quiz__form_single_error">
+              {{ singleErrors[trackIndex].trackName }}
             </div>
           </div>
         </div>
@@ -882,8 +1205,8 @@ document.addEventListener('visibilitychange', async () => {
         </div>
         
         <!-- Сообщение об ошибке загрузки аудио -->
-        <div v-if="errors.audioFile && !track.hasAudioUploaded" class="error text_very quiz__form_single_error">
-          {{ errors.audioFile }}
+        <div v-if="singleErrors[trackIndex]?.audioFile && !track.hasAudioUploaded" class="error text_very quiz__form_single_error">
+          {{ singleErrors[trackIndex].audioFile }}
         </div>
       </div>
     </div>
@@ -909,10 +1232,11 @@ document.addEventListener('visibilitychange', async () => {
               placeholder="Введите название альбома"
               :disabled="isLoadingTwo"
               size="large"
-              @blur="validateAlbumForm(albumIndex)"
+              @input="() => validateAlbumNameOnChange(albumIndex)"
+              @blur="validateAlbumName(albumIndex)"
             />
-            <div v-if="errors.trackName" class="error text_very quiz__form_single_error">
-              {{ errors.trackName }}
+            <div v-if="albumErrors[albumIndex]?.albumName" class="error text_very quiz__form_single_error">
+              {{ albumErrors[albumIndex].albumName }}
             </div>
           </div>
         </div>
@@ -925,13 +1249,12 @@ document.addEventListener('visibilitychange', async () => {
               :key="track.id"
               class="quiz__album_track_item"
             >
-              <div class="quiz__album_track_header">
+              <div class="quiz__album_track_header" v-if="album.tracks.length > 1">
                 <button 
-                  v-if="album.tracks.length > 1"
-                  class="quiz__album_track_remove button__second button"
+                  class="quiz__album_track_remove button__red button"
                   @click="removeAlbumTrack(albumIndex, trackIndex)"
                 >
-                  Удалить
+                  <span>Удалить</span>
                 </button>
               </div>
               
@@ -957,10 +1280,11 @@ document.addEventListener('visibilitychange', async () => {
                     placeholder="Введите ФИО исполнителя"
                     :disabled="isLoadingTwo"
                     size="large"
-                    @blur="validateAlbumTrackForm(albumIndex, trackIndex)"
+                    @input="() => validateAlbumTrackOnChange(albumIndex, trackIndex, 'performerName')"
+                    @blur="validateAlbumTrackPerformerName(albumIndex, trackIndex)"
                   />
-                  <div v-if="errors.performerName" class="error text_very quiz__form_single_error">
-                    {{ errors.performerName }}
+                  <div v-if="albumErrors[albumIndex]?.tracks[trackIndex]?.performerName" class="error text_very quiz__form_single_error">
+                    {{ albumErrors[albumIndex].tracks[trackIndex].performerName }}
                   </div>
                 </div>
                 
@@ -972,10 +1296,11 @@ document.addEventListener('visibilitychange', async () => {
                     placeholder="Введите ФИО автора музыки"
                     :disabled="isLoadingTwo"
                     size="large"
-                    @blur="validateAlbumTrackForm(albumIndex, trackIndex)"
+                    @input="() => validateAlbumTrackOnChange(albumIndex, trackIndex, 'musicAuthor')"
+                    @blur="validateAlbumTrackMusicAuthor(albumIndex, trackIndex)"
                   />
-                  <div v-if="errors.musicAuthor" class="error text_very quiz__form_single_error">
-                    {{ errors.musicAuthor }}
+                  <div v-if="albumErrors[albumIndex]?.tracks[trackIndex]?.musicAuthor" class="error text_very quiz__form_single_error">
+                    {{ albumErrors[albumIndex].tracks[trackIndex].musicAuthor }}
                   </div>
                 </div>
                 
@@ -987,10 +1312,11 @@ document.addEventListener('visibilitychange', async () => {
                     placeholder="Введите ФИО автора текста"
                     :disabled="isLoadingTwo"
                     size="large"
-                    @blur="validateAlbumTrackForm(albumIndex, trackIndex)"
+                    @input="() => validateAlbumTrackOnChange(albumIndex, trackIndex, 'textAuthor')"
+                    @blur="validateAlbumTrackTextAuthor(albumIndex, trackIndex)"
                   />
-                  <div v-if="errors.textAuthor" class="error text_very quiz__form_single_error">
-                    {{ errors.textAuthor }}
+                  <div v-if="albumErrors[albumIndex]?.tracks[trackIndex]?.textAuthor" class="error text_very quiz__form_single_error">
+                    {{ albumErrors[albumIndex].tracks[trackIndex].textAuthor }}
                   </div>
                 </div>
                 
@@ -1022,10 +1348,11 @@ document.addEventListener('visibilitychange', async () => {
                     placeholder="Введите название трека"
                     :disabled="isLoadingTwo"
                     size="large"
-                    @blur="validateAlbumTrackForm(albumIndex, trackIndex)"
+                    @input="() => validateAlbumTrackOnChange(albumIndex, trackIndex, 'trackName')"
+                    @blur="validateAlbumTrackTrackName(albumIndex, trackIndex)"
                   />
-                  <div v-if="errors.trackName" class="error text_very quiz__form_single_error">
-                    {{ errors.trackName }}
+                  <div v-if="albumErrors[albumIndex]?.tracks[trackIndex]?.trackName" class="error text_very quiz__form_single_error">
+                    {{ albumErrors[albumIndex].tracks[trackIndex].trackName }}
                   </div>
                 </div>
               </div>
@@ -1043,8 +1370,8 @@ document.addEventListener('visibilitychange', async () => {
               </div>
               
               <!-- Сообщение об ошибке загрузки аудио -->
-              <div v-if="errors.audioFile && !track.audioFile" class="error text_very quiz__form_single_error">
-                {{ errors.audioFile }}
+              <div v-if="albumErrors[albumIndex]?.tracks[trackIndex]?.audioFile && !track.audioFile" class="error text_very quiz__form_single_error">
+                {{ albumErrors[albumIndex].tracks[trackIndex].audioFile }}
               </div>
             </div>
           </div>
@@ -1064,7 +1391,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
   </div>
   
-  <div class="quiz__form_bottom" v-if="(showSinglesSection || showAlbumsSection) && dataLoaded">
+  <div class="quiz__form_bottom" v-if="dataLoaded && (showSinglesSection && singleTracks.length > 0 || showAlbumsSection && albums.length > 0)">
     <div class="quiz__form_buttons">
       <button 
         class="form__back button__second button" 

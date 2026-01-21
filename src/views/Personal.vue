@@ -446,25 +446,34 @@ onMounted(() => {
       <div class="personal__balance">
         <div class="personal__balance_info">
           <h3 class="personal__balance_head">Баланс и бонусы аккаунта</h3>
-          <p class="personal__balance_desc">Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится</p>
         </div>
         <div class="personal__divider"></div>
         <ul class="personal__balance_list">
           <li class="personal__balance_item">
             <div class="personal__balance_top">
-              <div class="personal__balance_svg"><WalletSVG/></div><h4 class="personal__balance_heading">Квартальный отчет</h4>
+              <div class="personal__balance_svg"><WalletSVG/></div>
+              <div class="personal__balance_top_info">
+                <h4 class="personal__balance_heading">Квартальный отчет</h4>
+                <p class="personal__balance_desc">Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится</p>
+              </div>
             </div>
             <button class="personal__balance_button button__red"><span><DownloadSVG/>Скачать отчет</span></button>
           </li>
           <li class="personal__balance_item">
             <div class="personal__balance_top">
-              <div class="personal__balance_svg"><WalletSVG/></div><p class="personal__balance_description">Счет</p> <h4 class="personal__balance_heading">144 000 ₽</h4>
+              <div class="personal__balance_svg"><WalletSVG/></div>
+              <div class="personal__balance_top_info">
+                <h4 class="personal__balance_heading"><span class="personal__balance_description text_one">Счет</span>144 000 ₽</h4>
+              </div>
             </div>
             <button class="personal__balance_button button__primary"><span>Запросить выплаты</span></button>
           </li>
           <li class="personal__balance_item">
             <div class="personal__balance_top">
-              <div class="personal__balance_svg"><PaySVG/></div><p class="personal__balance_description">Бонусы партнера</p> <h4 class="personal__balance_heading">455</h4>
+              <div class="personal__balance_svg"><PaySVG/></div>
+              <div class="personal__balance_top_info">
+                <h4 class="personal__balance_heading"><span class="personal__balance_description text_one">Бонусы партнера</span>455</h4>
+              </div>
             </div>
             <button class="personal__balance_button button__primary"><span>Запросить выплаты бонусов</span></button>
           </li>
@@ -805,10 +814,12 @@ onMounted(() => {
   display: flex;
   padding: 40px;
   flex-wrap: wrap;
-  gap: 40px;
+  justify-content: space-between;
+  gap: 20px 40px;
 }
 .personal__balance_item {
   display: flex;
+  max-width: calc(33.333% - 27px);
   flex-direction: column;
   justify-content: space-between;
   gap: 20px;
@@ -816,11 +827,19 @@ onMounted(() => {
 .personal__balance_top {
   display: flex;
   flex: 0 0 auto;
-  align-items: center;
+  gap: 10px;
+}
+.personal__balance_top_info {
+  display: flex;
+  padding: 8px 0;
+  flex-direction: column;
   gap: 10px;
 }
 .personal__balance_heading {
+  display: flex;
   flex: 0 0 auto;
+  align-items: flex-end;
+  gap: 6px;
 }
 .personal__balance_button span {
   padding: 12px 20px;
@@ -835,6 +854,7 @@ onMounted(() => {
   display: flex;
   width: 40px;
   height: 40px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   background-color: var(--border);
@@ -961,7 +981,7 @@ onMounted(() => {
   text-transform: uppercase;
 }
 .personal__releases_head span {
-  color: var(--text-gray);
+  font-weight: 400;
 }
 .personal__releases_codes {
   display: flex;
@@ -1017,7 +1037,7 @@ onMounted(() => {
   display: flex;
   padding: 40px;
   flex-direction: column;
-  gap: 117px;
+  gap: 63px;
   position: relative;
   background-color: var(--bg);
   border: 1px solid var(--border);
@@ -1337,7 +1357,13 @@ onMounted(() => {
     width: calc(100% - 340px);
   }
   .personal__balance_list {
-    gap: 75px;
+    gap: 20px 40px;
+  }
+  .personal__balance_item {
+    max-width: calc(33.333% - 27px);
+  }
+  .personal__partner {
+    gap: 86px;
   }
   .personal__release_desc {
     max-width: 410px;
@@ -1364,9 +1390,14 @@ onMounted(() => {
   .personal__balance_list {
     padding: 30px;
     gap: 30px 40px;
+    justify-content: flex-start;
   }
   .personal__balance_item:first-child {
     width: 100%;
+    max-width: 100%;
+  }
+  .personal__balance_item {
+    max-width: 100%;
   }
   .personal__release_desc {
     max-width: 480px;

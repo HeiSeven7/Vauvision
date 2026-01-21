@@ -51,7 +51,7 @@ const handleGoBack = () => {
                 <p class="quiz__preview_desc">Для редактирования формата треков используйте конвертер <a href="https://online-audio-converter.com" target="`_blank">online-audio-converter.com</a></p>
               </li>
               <li>
-                <p class="quiz__preview_desc">После заполнения этой формы, пожалуйста, напишите сообщение в формате "Ваш псевдоним - Название релиза - ДИСТРИБУЦИЯ" в сообщения паблика <a href="https://vk.com/vauvisionlabel" target="`_blank">vk.com/vauvisionlabel</a>, либо телеграмм.</p>
+                <p class="quiz__preview_desc">После заполнения этой формы, пожалуйста, напишите сообщение в формате "Ваш псевдоним - Название релиза - ДИСТРИБУЦИЯ" в сообщения паблика <a href="https://vk.com/vauvisionlabel" target="`_blank">vk.com/vauvisionlabel</a>, либо <a href="https://t.me/vauvision_bot">телеграмм</a>.</p>
               </li>
               <li>
                 <p class="quiz__preview_desc">Перед загрузкой клипа прочтите инструкцию.</p>

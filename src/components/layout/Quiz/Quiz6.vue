@@ -42,7 +42,7 @@
       <!-- Права на инструменты -->
       <div class="form__group">
         <label for="rightsInfo" class="form__label button">Правила на инструменты</label>
-        <p class="form__hint text_small">В поле ниже, пожалуйста, укажите в столбик «Название трека – тип прав». Эта информация поможет загрузить релиз на площадки и соблюсти сроки. Если у вас только один трек, то напишите для одного трека. Если у вас несколько треков, то напишите для каждого трека. По желанию, вы можете прикрепить ссылку на сам договор на Яндекс Диске – это не обязательно.</p>
+        <p class="form__hint text_small">В поле ниже, пожалуйста, укажите в столбик «Название трека – тип прав». Эта информация поможет загрузить релиз на площадки и соблюсти сроки. Если у вас только один трек, то напишите для одного трека. Если у вас несколько треков, то напишите для каждого трека. По желанию, вы можете прикрепить ссылку на сам договор на <a href="https://360.yandex.ru/disk/">Яндекс Диске</a> – это не обязательно.</p>
         <el-input
           v-model="formData.rightsInfo"
           type="textarea"
@@ -55,7 +55,7 @@
           size="large"
         />
         <div class="form__group_inner">
-          <label for="rightsContractLink" class="form__label button text_small">Ссылка на договор в Яндекс Диске (не обязательно)</label>
+          <label for="rightsContractLink" class="form__label button text_small">Ссылка на договор в <a href="https://360.yandex.ru/disk/">Яндекс Диске</a> (не обязательно)</label>
           <el-input
             v-model="formData.rightsContractLink"
             type="text"
@@ -101,7 +101,7 @@
       <!-- Ссылка на Bandlink -->
       <div class="form__group">
         <label for="bandlinkUrl" class="form__label button">ССЫЛКА НА ВАШ ПРЕДСТОЯЩИЙ РЕЛИЗ В BANDLINK</label>
-        <p class="form__hint text_small">Если у вас есть верифицированный профиль <a href="https://Band.link" target="_blank">Band.link</a>, то зайдите туда, перейдите в раздел «Страницы» и нажмите «Создать Bandlink». Создайте страницу релиза, указав псевдоним и название будущего релиза. Далее нажмите «Превью страницы» и скопируйте получившуюся ссылку. Её и нужно вставить в поле слева. Если у вас нет профиля в Band.link, пропустить это поле.</p>
+        <p class="form__hint text_small">Если у вас есть верифицированный профиль <a href="https://Band.link" target="_blank">Band.link</a>, то зайдите туда, перейдите в раздел «Страницы» и нажмите «Создать Bandlink». Создайте страницу релиз, указав псевдоним и название будущего релиза. Далее нажмите «Превью страницы» и скопируйте получившуюся ссылку. Её и нужно вставить в поле слева. Если у вас нет профиля в Band.link, пропустить это поле.</p>
         <el-input
           v-model="formData.bandlinkUrl"
           type="text"
@@ -180,17 +180,10 @@
           @click="handleContinue"
           :disabled="!isReadyForNextStep"
         >
-          <span>подписать договор и оплатить</span>
+          <span>Далее: Договор</span>
         </button>
       </div>
     </div>
-
-    <!-- Кастомный попап для подписи -->
-    <SignaturePopup
-      v-if="showSignaturePopup"
-      @close="closeSignaturePopup"
-      @submit="handleSignatureSubmit"
-    />
   </div>
 </template>
 
@@ -198,7 +191,6 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { ElSelect, ElOption, ElInput, ElCheckbox, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
-import SignaturePopup from '@/components/layout/Signature.vue';
 
 const emit = defineEmits<{
   'go-back': [];
@@ -235,9 +227,6 @@ const errors = reactive({
   usePartnerBonuses: '', // Убрали из валидации
   confirmNoRightsViolation: ''
 });
-
-// Состояние попапа
-const showSignaturePopup = ref(false);
 
 // Опции для выбора площадок
 const platformOptions = [
@@ -279,11 +268,6 @@ const loadStateFromLocalStorage = () => {
   } catch (error) {
     console.error('Error loading state from localStorage:', error);
   }
-};
-
-// Очистка состояния в localStorage
-const clearLocalStorage = () => {
-  localStorage.removeItem(STORAGE_KEY);
 };
 
 // Валидация URL
@@ -475,30 +459,12 @@ const goBack = () => {
 const handleContinue = () => {
   const formValid = validateForm();
   if (formValid) {
-    // Показываем попап для подписи
-    showSignaturePopup.value = true;
-    document.documentElement.classList.add('noscroll');
+    // Сохраняем данные формы и переходим дальше
+    console.log('Данные формы сохранены:', formData);
+    emit('go-next');
   } else {
     ElMessage.warning('Пожалуйста, заполните все обязательные поля корректно');
   }
-};
-
-const closeSignaturePopup = () => {
-  showSignaturePopup.value = false;
-  document.documentElement.classList.remove('noscroll');
-};
-
-const handleSignatureSubmit = (signatureData: string) => {
-  // Здесь можно обработать подпись (например, отправить на сервер)
-  console.log('Подпись получена:', signatureData);
-  closeSignaturePopup();
-  
-  // Очищаем localStorage после успешного завершения
-  clearLocalStorage();
-  
-  // Сохраняем данные формы и переходим дальше
-  console.log('Данные формы сохранены:', formData);
-  emit('go-next');
 };
 
 // Сохранение состояния при изменении данных формы

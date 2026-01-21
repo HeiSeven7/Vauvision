@@ -78,13 +78,15 @@ const handleSubmit = async () => {
     <div class="auth__block">
       <div class="auth__flex">
         <div class="auth__left">
-          <div class="auth__logo"><Logo /></div>
+          <div class="auth__left_left">
+            <div class="auth__logo"><Logo /></div>
+            <div class="auth__info">
+              <h3 class="auth__heading">Стань известным и популярным в мире музыки</h3>
+              <p class="auth__description">Выложи трек на все площадки и продавай свою музыку во всем мире</p>
+            </div>
+          </div>
           <div class="auth__image">
             <img src="@/assets/img/auth/auth.webp" alt="cover">
-          </div>
-          <div class="auth__info">
-            <h3 class="auth__heading">Стань известным и популярным в мире музыки</h3>
-            <p class="auth__description">Выложи трек на все площадки и продавай свою музыку во всем мире</p>
           </div>
         </div>
         <div class="auth__right">

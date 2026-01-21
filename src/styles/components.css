@@ -348,6 +348,9 @@ textarea,
   background-color: var(--color);
   border-color: var(--color);
 }
+.el-input__inner {
+  height: 55px;
+}
 .el-input__suffix {
   cursor: pointer;
 }
