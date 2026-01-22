@@ -317,7 +317,7 @@ const closeMenu = () => {
   width: 100%;
   height: 100%;
   align-items: center;
-  gap: 120px;
+  gap: 130px;
 }
 
 .header__info {
@@ -340,9 +340,9 @@ const closeMenu = () => {
 }
 
 .header__button:hover {
-  color: var(--white);
-  background-color: var(--color);
-  border-color: var(--color);
+  color: var(--text);
+  background-color: var(--bg);
+  border-color: var(--text);
 }
 
 .header__button span {
@@ -381,22 +381,25 @@ const closeMenu = () => {
   background-color: var(--bg);
 }
 
-.header__faq:hover,
-.header__personal:hover {
-  color: var(--white);
-  background-color: var(--color);
+.header__faq:hover {
+  color: var(--text);
+  background-color: var(--bg);
   border-color: var(--color);
+}
+
+.header__personal {
+  color: var(--text);
+  background-color: var(--bg-color);
+}
+
+.header__personal:hover {
+  background-color: var(--border);
 }
 
 .header__faq svg {
   width: 22.79px;
   height: 22.79px;
   object-fit: contain;
-}
-
-.header__personal {
-  color: var(--text);
-  background-color: var(--bg-gray);
 }
 
 .header__personal svg {
@@ -571,6 +574,11 @@ const closeMenu = () => {
   color: var(--color);
 }
 
+@media (max-width: 1919px) {
+  .header__flex {
+    gap: 50px;
+  }
+}
 @media (max-width: 1439px) {
   .header__info,
   .header__personal {
@@ -630,7 +638,7 @@ const closeMenu = () => {
     transform: rotate3d(0, 0, 1, 45deg);
   }
   .header__flex {
-    gap: 20px;
+    gap: 70px;
   }
 }
 </style>

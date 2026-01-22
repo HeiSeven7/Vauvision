@@ -814,7 +814,6 @@ onMounted(() => {
   display: flex;
   padding: 40px;
   flex-wrap: wrap;
-  justify-content: space-between;
   gap: 20px 40px;
 }
 .personal__balance_item {
@@ -841,7 +840,11 @@ onMounted(() => {
   align-items: flex-end;
   gap: 6px;
 }
+.personal__balance_button {
+  width: 100%;
+}
 .personal__balance_button span {
+  width: 100%;
   padding: 12px 20px;
 }
 .personal__balance_button svg {
@@ -1228,9 +1231,9 @@ onMounted(() => {
 }
 .personal__reports_buttons {
   display: flex;
-  gap: 15px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 10px;
 }
 .personal__reports_button {
   display: flex;
@@ -1504,6 +1507,17 @@ onMounted(() => {
   .personal__releases_image {
     width: 100px;
     height: 100px;
+  }
+}
+@media (max-width: 580px) {
+  .personal__release_image {
+    width: 150px;
+    bottom: -100px;
+  }
+  .personal__reports_date {
+    width: 80px;
+    min-width: 80px;
+    flex: none;
   }
 }
 </style>
