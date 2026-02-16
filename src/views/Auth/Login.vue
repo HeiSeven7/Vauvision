@@ -1,9 +1,11 @@
 <script lang="ts" setup>
 import { ref, reactive } from 'vue'
 import { View, Hide } from '@element-plus/icons-vue'
+import { sendRequest, setToken } from '@/utils/api';
+import { ElMessage } from 'element-plus';
 import Tr from "@/i18n/translation";
 import Logo from "@/uikit/Logo.vue";
-
+import router from '@/router'
 
 // Реактивные данные формы
 const formData = reactive({
@@ -61,29 +63,94 @@ const handleSubmit = async () => {
 
   isLoading.value = true
 
-  try {
-    console.log('Данные формы:', {
+  // Используем sendRequest для отправки данных (без токена, т.к. это логин)
+  await sendRequest(
+    "post",
+    '/api/v1/auth/login/',
+    {
       email: formData.email.trim(),
       password: formData.password,
-      rememberMe: formData.rememberMe
-    })
-
-    // Имитация запроса к API
-    await new Promise(resolve => setTimeout(resolve, 1000))
+      remember_me: formData.rememberMe
+    }
+  )
+  .then((response: any) => {
+    console.log('Успешный вход:', response.data)
     
-    alert('Вход успешно выполнен!')
-    
-    // Сброс формы
-    formData.email = ''
-    formData.password = ''
-    formData.rememberMe = false
-    
-  } catch (error) {
+    // Сохраняем токены используя функцию из api.ts
+    if (response.data.access && response.data.refresh) {
+      setToken(response.data.access, response.data.refresh)
+      
+      ElMessage({
+        message: 'Вход выполнен успешно!',
+        type: 'success',
+      });
+      
+      // Сброс формы
+      formData.email = ''
+      formData.password = ''
+      formData.rememberMe = false
+      
+      // Редирект на главную или в личный кабинет
+      router.push(Tr.i18nRoute({ name: '' }))
+    } else {
+      // Если структура ответа другая, нужно адаптировать
+      console.error('Неожиданная структура ответа:', response.data)
+      ElMessage({
+        message: 'Ошибка при обработке ответа сервера',
+        type: 'error',
+      });
+    }
+  })
+  .catch(error => {
     console.error('Ошибка при входе:', error)
-    alert('Произошла ошибка при входе. Попробуйте еще раз.')
-  } finally {
+    
+    // Обработка конкретных ошибок валидации от сервера
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      // Если сервер возвращает ошибки для конкретных полей
+      if (errorData.email) {
+        errors.email = Array.isArray(errorData.email) ? errorData.email[0] : errorData.email
+      }
+      if (errorData.password) {
+        errors.password = Array.isArray(errorData.password) ? errorData.password[0] : errorData.password
+      }
+      
+      // Общая ошибка, если нет специфичных для полей
+      if (!errorData.email && !errorData.password && errorData.detail) {
+        ElMessage({
+          message: errorData.detail,
+          type: 'error',
+        });
+      } else if (!errorData.email && !errorData.password && errorData.non_field_errors) {
+        // Для DRF часто используется non_field_errors
+        ElMessage({
+          message: Array.isArray(errorData.non_field_errors) 
+            ? errorData.non_field_errors[0] 
+            : errorData.non_field_errors,
+          type: 'error',
+        });
+      } else if (!errorData.email && !errorData.password) {
+        ElMessage({
+          message: 'Ошибка авторизации. Проверьте введенные данные.',
+          type: 'error',
+        });
+      }
+    } else if (error.message) {
+      ElMessage({
+        message: error.message,
+        type: 'error',
+      });
+    } else {
+      ElMessage({
+        message: 'Произошла ошибка при подключении к серверу',
+        type: 'error',
+      });
+    }
+  })
+  .finally(() => {
     isLoading.value = false
-  }
+  })
 }
 </script>
 

@@ -1,9 +1,12 @@
 <script lang="ts" setup>
 import { ref, reactive } from 'vue'
 import { View, Hide } from '@element-plus/icons-vue'
+import { sendRequest, setToken } from '@/utils/api';
+import { ElMessage } from 'element-plus';
 import Tr from "@/i18n/translation";
 import Logo from "@/uikit/Logo.vue";
 import BackSVG from "@/uikit/icon/BackSVG.vue";
+import router from '@/router'
 
 // Текущий шаг формы (1 - первая форма, 2 - вторая форма, 3 - третья форма)
 const currentStep = ref(1)
@@ -29,7 +32,8 @@ const thirdFormData = reactive({
   password: '',
   confirmPassword: '',
   personalData: false,
-  marketing: false
+  marketing: false,
+  policy: false // Добавляем чекбокс политики
 })
 
 // Состояния ошибок
@@ -52,7 +56,8 @@ const thirdFormErrors = reactive({
   phone: '',
   password: '',
   confirmPassword: '',
-  personalData: ''
+  personalData: '',
+  policy: '' // Добавляем ошибку для политики
 })
 
 // Состояние видимости пароля
@@ -66,12 +71,10 @@ const isLoading = ref(false)
 const validateForm = () => {
   let isValid = true
   
-  // Очистка предыдущих ошибок
   errors.firstName = ''
   errors.lastName = ''
   errors.referralCode = ''
 
-  // Валидация имени
   if (!formData.firstName.trim()) {
     errors.firstName = 'Имя обязательно для заполнения'
     isValid = false
@@ -83,7 +86,6 @@ const validateForm = () => {
     isValid = false
   }
 
-  // Валидация фамилии (необязательное поле, но если заполнено - проверяем)
   if (formData.lastName.trim() && formData.lastName.trim().length < 2) {
     errors.lastName = 'Фамилия должна содержать минимум 2 символа'
     isValid = false
@@ -92,7 +94,6 @@ const validateForm = () => {
     isValid = false
   }
 
-  // Валидация реферального кода (необязательное поле)
   if (formData.referralCode.trim() && formData.referralCode.trim().length < 3) {
     errors.referralCode = 'Реферальный код должен содержать минимум 3 символа'
     isValid = false
@@ -136,6 +137,7 @@ const validateThirdForm = () => {
   thirdFormErrors.password = ''
   thirdFormErrors.confirmPassword = ''
   thirdFormErrors.personalData = ''
+  thirdFormErrors.policy = ''
 
   // Валидация email
   if (!thirdFormData.email.trim()) {
@@ -163,7 +165,6 @@ const validateThirdForm = () => {
     thirdFormErrors.password = 'Пароль должен содержать минимум 6 символов'
     isValid = false
   } else {
-    // Проверка сложности пароля
     const hasUpperCase = /[A-Z]/.test(thirdFormData.password)
     const hasLowerCase = /[a-z]/.test(thirdFormData.password)
     const hasNumbers = /\d/.test(thirdFormData.password)
@@ -187,6 +188,12 @@ const validateThirdForm = () => {
   // Валидация согласия на обработку данных
   if (!thirdFormData.personalData) {
     thirdFormErrors.personalData = 'Необходимо согласие на обработку персональных данных'
+    isValid = false
+  }
+
+  // Валидация согласия с политикой конфиденциальности
+  if (!thirdFormData.policy) {
+    thirdFormErrors.policy = 'Необходимо согласие с политикой конфиденциальности'
     isValid = false
   }
 
@@ -227,17 +234,48 @@ const handleFinalSubmit = async () => {
 
   isLoading.value = true
 
-  try {
-    console.log('Все данные формы:', {
-      ...formData,
-      ...secondFormData,
-      ...thirdFormData
-    })
-
-    // Имитация запроса к API
-    await new Promise(resolve => setTimeout(resolve, 1000))
+  // Формируем данные для отправки в соответствии с API
+  const registrationData = {
+    // Данные из первой формы
+    first_name: formData.firstName.trim(),
+    last_name: formData.lastName.trim() || null,
+    referral_code: formData.referralCode.trim() || null,
     
-    alert('Регистрация успешно завершена!')
+    // Данные из второй формы
+    user_type: secondFormData.userType,
+    ...(secondFormData.userType === 'executor' 
+      ? { executor_name: secondFormData.executorName.trim() }
+      : { label_name: secondFormData.labelName.trim() }
+    ),
+    
+    // Данные из третьей формы
+    email: thirdFormData.email.trim(),
+    phone: thirdFormData.phone.trim(),
+    password: thirdFormData.password,
+    
+    // Согласия
+    personal_data_consent: thirdFormData.personalData,
+    marketing_consent: thirdFormData.marketing,
+    privacy_policy_consent: thirdFormData.policy
+  }
+
+  await sendRequest(
+    "post",
+    '/api/v1/auth/register/',
+    registrationData
+  )
+  .then((response: any) => {
+    console.log('Успешная регистрация:', response.data)
+    
+    ElMessage({
+      message: 'Регистрация успешно завершена!',
+      type: 'success',
+    });
+    
+    // Если сервер сразу возвращает токены
+    if (response.data.access && response.data.refresh) {
+      setToken(response.data.access, response.data.refresh)
+    }
     
     // Сброс всех данных
     Object.assign(formData, {
@@ -256,16 +294,87 @@ const handleFinalSubmit = async () => {
       password: '',
       confirmPassword: '',
       personalData: false,
-      marketing: false
+      marketing: false,
+      policy: false
     })
     currentStep.value = 1
     
-  } catch (error) {
+    // Редирект на страницу входа или в личный кабинет
+    router.push(Tr.i18nRoute({ name: 'login' }))
+  })
+  .catch(error => {
     console.error('Ошибка при регистрации:', error)
-    alert('Произошла ошибка при регистрации. Попробуйте еще раз.')
-  } finally {
+    
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      // Обработка ошибок для первой формы
+      if (errorData.first_name) {
+        errors.firstName = Array.isArray(errorData.first_name) ? errorData.first_name[0] : errorData.first_name
+      }
+      if (errorData.last_name) {
+        errors.lastName = Array.isArray(errorData.last_name) ? errorData.last_name[0] : errorData.last_name
+      }
+      if (errorData.referral_code) {
+        errors.referralCode = Array.isArray(errorData.referral_code) ? errorData.referral_code[0] : errorData.referral_code
+      }
+      
+      // Обработка ошибок для второй формы
+      if (errorData.user_type) {
+        secondFormErrors.userType = Array.isArray(errorData.user_type) ? errorData.user_type[0] : errorData.user_type
+      }
+      if (errorData.executor_name) {
+        secondFormErrors.executorName = Array.isArray(errorData.executor_name) ? errorData.executor_name[0] : errorData.executor_name
+      }
+      if (errorData.label_name) {
+        secondFormErrors.labelName = Array.isArray(errorData.label_name) ? errorData.label_name[0] : errorData.label_name
+      }
+      
+      // Обработка ошибок для третьей формы
+      if (errorData.email) {
+        thirdFormErrors.email = Array.isArray(errorData.email) ? errorData.email[0] : errorData.email
+      }
+      if (errorData.phone) {
+        thirdFormErrors.phone = Array.isArray(errorData.phone) ? errorData.phone[0] : errorData.phone
+      }
+      if (errorData.password) {
+        thirdFormErrors.password = Array.isArray(errorData.password) ? errorData.password[0] : errorData.password
+      }
+      if (errorData.personal_data_consent) {
+        thirdFormErrors.personalData = Array.isArray(errorData.personal_data_consent) 
+          ? errorData.personal_data_consent[0] 
+          : errorData.personal_data_consent
+      }
+      if (errorData.privacy_policy_consent) {
+        thirdFormErrors.policy = Array.isArray(errorData.privacy_policy_consent) 
+          ? errorData.privacy_policy_consent[0] 
+          : errorData.privacy_policy_consent
+      }
+      
+      // Общая ошибка
+      if (!Object.keys(errorData).length && errorData.detail) {
+        ElMessage({
+          message: errorData.detail,
+          type: 'error',
+        });
+      } else if (errorData.non_field_errors) {
+        ElMessage({
+          message: Array.isArray(errorData.non_field_errors) 
+            ? errorData.non_field_errors[0] 
+            : errorData.non_field_errors,
+          type: 'error',
+        });
+      }
+    } else {
+      ElMessage({
+        message: 'Произошла ошибка при регистрации. Попробуйте еще раз.',
+        type: 'error',
+      });
+    }
+  })
+  .finally(() => {
     isLoading.value = false
-  }
+  })
 }
 </script>
 
@@ -386,23 +495,23 @@ const handleFinalSubmit = async () => {
                   Выбирайте «Лейбл», если собираетесь загружать много релизов от разных артистов.
                 </p>
                 <div class="form__labels">
-                  <label class="form__label">
+                  <label class="form__label_radio">
                     <input 
                       type="radio" 
                       v-model="secondFormData.userType" 
                       value="executor"
-                      class="form__label_input"
+                      class="form__radio_input"
                     >
-                    <span class="form__label_text">Исполнитель</span>
+                    <span class="form__radio_text">Исполнитель</span>
                   </label>
-                  <label class="form__label">
+                  <label class="form__label_radio">
                     <input 
                       type="radio" 
                       v-model="secondFormData.userType" 
                       value="label"
-                      class="form__label_input"
+                      class="form__radio_input"
                     >
-                    <span class="form__label_text">Лейбл</span>
+                    <span class="form__radio_text">Лейбл</span>
                   </label>
                 </div>
                 <div v-if="secondFormErrors.userType" class="error text_very">
@@ -586,18 +695,33 @@ const handleFinalSubmit = async () => {
                     :class="{ 'error': thirdFormErrors.personalData }"
                     size="large"
                   >
-                    Я даю согласие на обработку своих персональных данных
+                    Я даю согласие на обработку своих персональных данных
                   </el-checkbox>
+                  
+                  <!-- Новый чекбокс политики конфиденциальности -->
+                  <el-checkbox 
+                    v-model="thirdFormData.policy" 
+                    :disabled="isLoading"
+                    :class="{ 'error': thirdFormErrors.policy }"
+                    size="large"
+                  >
+                    Я соглашаюсь с 
+                    <a href="/policy" target="_blank" class="policy-link">Политикой конфиденциальности</a>
+                  </el-checkbox>
+                  
                   <el-checkbox 
                     v-model="thirdFormData.marketing" 
                     :disabled="isLoading"
                     size="large"
                   >
-                    Я даю согласие на рекламную рассылку
+                    Я даю согласие на рекламную рассылку
                   </el-checkbox>
                 </div>
                 <div v-if="thirdFormErrors.personalData" class="error text_very">
                   {{ thirdFormErrors.personalData }}
+                </div>
+                <div v-if="thirdFormErrors.policy" class="error text_very">
+                  {{ thirdFormErrors.policy }}
                 </div>
               </div>
             </div>
@@ -635,4 +759,75 @@ const handleFinalSubmit = async () => {
 </template>
 
 <style lang="css" scoped>
+.form__labels {
+  display: flex;
+  gap: 20px;
+  margin: 10px 0;
+}
+
+.form__label_radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.form__radio_input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.form__radio_text {
+  font-size: 14px;
+}
+
+.form__checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.policy-link {
+  color: var(--el-color-primary);
+  text-decoration: underline;
+}
+
+.policy-link:hover {
+  text-decoration: none;
+}
+
+.error {
+  color: var(--el-color-danger);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.form__group :deep(.el-input.error .el-input__wrapper) {
+  box-shadow: 0 0 0 1px var(--el-color-danger) inset;
+}
+
+.form__hint {
+  color: var(--el-text-color-secondary);
+  margin-bottom: 5px;
+}
+
+.form__step {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 30px;
+}
+
+.form__step span {
+  width: 40px;
+  height: 4px;
+  background-color: var(--el-border-color);
+  border-radius: 2px;
+  transition: background-color 0.3s;
+}
+
+.form__step span.active {
+  background-color: var(--el-color-primary);
+}
 </style>
