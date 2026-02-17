@@ -66,11 +66,10 @@ const handleSubmit = async () => {
   // Используем sendRequest для отправки данных (без токена, т.к. это логин)
   await sendRequest(
     "post",
-    '/api/v1/auth/login/',
+    '/ajax/auth/login.php',
     {
-      email: formData.email.trim(),
-      password: formData.password,
-      remember_me: formData.rememberMe
+      LOGIN: formData.email.trim(),
+      PASSWORD: formData.password
     }
   )
   .then((response: any) => {

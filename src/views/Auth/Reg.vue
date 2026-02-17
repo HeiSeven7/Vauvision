@@ -237,9 +237,9 @@ const handleFinalSubmit = async () => {
   // Формируем данные для отправки в соответствии с API
   const registrationData = {
     // Данные из первой формы
-    first_name: formData.firstName.trim(),
-    last_name: formData.lastName.trim() || null,
-    referral_code: formData.referralCode.trim() || null,
+    FIRST_NAME: formData.firstName.trim(),
+    LAST_NAME: formData.lastName.trim() || null,
+    REF: formData.referralCode.trim() || null,
     
     // Данные из второй формы
     user_type: secondFormData.userType,
@@ -249,19 +249,20 @@ const handleFinalSubmit = async () => {
     ),
     
     // Данные из третьей формы
-    email: thirdFormData.email.trim(),
-    phone: thirdFormData.phone.trim(),
-    password: thirdFormData.password,
+    EMAIL: thirdFormData.email.trim(),
+    TEL: thirdFormData.phone.trim(),
+    PASSWORD: thirdFormData.password,
+    CONFIRM_PASSWORD: thirdFormData.confirmPassword,
     
     // Согласия
-    personal_data_consent: thirdFormData.personalData,
-    marketing_consent: thirdFormData.marketing,
-    privacy_policy_consent: thirdFormData.policy
+    personal: thirdFormData.personalData,
+    security: thirdFormData.marketing,
+    policy: thirdFormData.policy
   }
 
   await sendRequest(
     "post",
-    '/api/v1/auth/register/',
+    '/ajax/auth/register.php',
     registrationData
   )
   .then((response: any) => {
