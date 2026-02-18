@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, reactive } from 'vue'
 import { View, Hide } from '@element-plus/icons-vue'
-import { sendRequest, setToken } from '@/utils/api';
+import { sendRequest } from '@/utils/api';
 import { ElMessage } from 'element-plus';
 import Tr from "@/i18n/translation";
 import Logo from "@/uikit/Logo.vue";
@@ -74,31 +74,18 @@ const handleSubmit = async () => {
   )
   .then((response: any) => {
     console.log('Успешный вход:', response.data)
+    ElMessage({
+      message: 'Вход выполнен успешно!',
+      type: 'success',
+    });
     
-    // Сохраняем токены используя функцию из api.ts
-    if (response.data.access && response.data.refresh) {
-      setToken(response.data.access, response.data.refresh)
-      
-      ElMessage({
-        message: 'Вход выполнен успешно!',
-        type: 'success',
-      });
-      
-      // Сброс формы
-      formData.email = ''
-      formData.password = ''
-      formData.rememberMe = false
-      
-      // Редирект на главную или в личный кабинет
-      router.push(Tr.i18nRoute({ name: '' }))
-    } else {
-      // Если структура ответа другая, нужно адаптировать
-      console.error('Неожиданная структура ответа:', response.data)
-      ElMessage({
-        message: 'Ошибка при обработке ответа сервера',
-        type: 'error',
-      });
-    }
+    // Сброс формы
+    formData.email = ''
+    formData.password = ''
+    formData.rememberMe = false
+    
+    // Редирект на главную или в личный кабинет
+    router.push(Tr.i18nRoute({ name: 'personal' }))
   })
   .catch(error => {
     console.error('Ошибка при входе:', error)

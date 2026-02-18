@@ -2,6 +2,13 @@
 import { ref, reactive } from 'vue'
 import { View, Hide } from '@element-plus/icons-vue'
 import Logo from "@/uikit/Logo.vue";
+import { sendRequest } from '@/utils/api';
+import { ElMessage } from 'element-plus';
+import { useRouter } from 'vue-router'; // Убрали useRoute
+import Tr from "@/i18n/translation";
+
+// Получаем роутер
+const router = useRouter() // Убрали route
 
 // Реактивные данные формы
 const formData = reactive({
@@ -21,6 +28,17 @@ const confirmPasswordVisible = ref(false)
 
 // Состояние загрузки
 const isLoading = ref(false)
+
+// Извлечение id и confirm_code из URL
+const getParamsFromUrl = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  return {
+    id: urlParams.get('id') || '',
+    confirm_code: urlParams.get('confirm_code') || ''
+  }
+}
+
+const { id, confirm_code } = getParamsFromUrl()
 
 // Валидация формы
 const validateForm = () => {
@@ -68,29 +86,116 @@ const handleSubmit = async () => {
     return
   }
 
+  // Проверка наличия id и confirm_code
+  if (!id || !confirm_code) {
+    ElMessage({
+      message: 'Отсутствуют параметры для восстановления пароля',
+      type: 'error',
+    });
+    return
+  }
+
   isLoading.value = true
 
-  try {
-    console.log('Данные формы:', {
-      password: formData.password,
-      confirm: formData.confirm
-    })
+  // Формируем данные для отправки в соответствии с API
+  const resetData = {
+    id: id,
+    confirm_code: confirm_code,
+    password: formData.password,
+    'password-confirm': formData.confirm
+  }
 
-    // Имитация запроса к API
-    await new Promise(resolve => setTimeout(resolve, 1000))
+  try {
+    const response = await sendRequest(
+      "post",
+      '/ajax/auth/changepass.php',
+      resetData
+    )
     
-    alert('Пароль успешно изменен!')
+    console.log('Пароль успешно изменен:', response.data)
+    
+    ElMessage({
+      message: 'Пароль успешно изменен!',
+      type: 'success',
+    });
     
     // Сброс формы
     formData.password = ''
     formData.confirm = ''
     
-  } catch (error) {
+    // Редирект на страницу входа
+    setTimeout(() => {
+      router.push(Tr.i18nRoute({ name: 'login' }))
+    }, 1500)
+    
+  } catch (error: any) {
     console.error('Ошибка при восстановлении пароля:', error)
-    alert('Произошла ошибка при восстановлении пароля. Попробуйте еще раз.')
+    
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      // Обработка ошибок валидации
+      if (errorData.password) {
+        errors.password = Array.isArray(errorData.password) 
+          ? errorData.password[0] 
+          : errorData.password
+      }
+      
+      if (errorData['password-confirm']) {
+        errors.confirm = Array.isArray(errorData['password-confirm']) 
+          ? errorData['password-confirm'][0] 
+          : errorData['password-confirm']
+      }
+      
+      if (errorData.id) {
+        ElMessage({
+          message: Array.isArray(errorData.id) 
+            ? errorData.id[0] 
+            : errorData.id,
+          type: 'error',
+        });
+      }
+      
+      if (errorData.confirm_code) {
+        ElMessage({
+          message: Array.isArray(errorData.confirm_code) 
+            ? errorData.confirm_code[0] 
+            : errorData.confirm_code,
+          type: 'error',
+        });
+      }
+      
+      // Общая ошибка
+      if (errorData.detail) {
+        ElMessage({
+          message: errorData.detail,
+          type: 'error',
+        });
+      } else if (errorData.non_field_errors) {
+        ElMessage({
+          message: Array.isArray(errorData.non_field_errors) 
+            ? errorData.non_field_errors[0] 
+            : errorData.non_field_errors,
+          type: 'error',
+        });
+      }
+    } else {
+      ElMessage({
+        message: 'Произошла ошибка при восстановлении пароля. Попробуйте еще раз.',
+        type: 'error',
+      });
+    }
   } finally {
     isLoading.value = false
   }
+}
+
+// Проверка наличия параметров при загрузке компонента
+if (!id || !confirm_code) {
+  ElMessage({
+    message: 'Недействительная ссылка для восстановления пароля',
+    type: 'warning',
+  });
 }
 </script>
 
@@ -181,7 +286,7 @@ const handleSubmit = async () => {
               <button 
                 class="form__send button__black button" 
                 @click="handleSubmit"
-                :disabled="isLoading"
+                :disabled="isLoading || !id || !confirm_code"
               >
                 <span v-if="!isLoading">восстановить пароль</span>
                 <span v-else>Загрузка...</span>
@@ -196,4 +301,13 @@ const handleSubmit = async () => {
 </template>
 
 <style lang="css" scoped>
+.error {
+  color: var(--el-color-danger);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.form__group :deep(.el-input.error .el-input__wrapper) {
+  box-shadow: 0 0 0 1px var(--el-color-danger) inset;
+}
 </style>

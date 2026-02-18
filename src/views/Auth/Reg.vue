@@ -60,6 +60,18 @@ const thirdFormErrors = reactive({
   policy: '' // Добавляем ошибку для политики
 })
 
+// Извлечение реферального кода из URL
+const getReferralCodeFromUrl = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('ref') || '';
+}
+
+// Применяем реферальный код к форме при загрузке компонента
+const referralCodeFromUrl = getReferralCodeFromUrl();
+if (referralCodeFromUrl) {
+  formData.referralCode = referralCodeFromUrl;
+}
+
 // Состояние видимости пароля
 const passwordVisible = ref(false)
 const confirmPasswordVisible = ref(false)
@@ -244,8 +256,8 @@ const handleFinalSubmit = async () => {
     // Данные из второй формы
     user_type: secondFormData.userType,
     ...(secondFormData.userType === 'executor' 
-      ? { executor_name: secondFormData.executorName.trim() }
-      : { label_name: secondFormData.labelName.trim() }
+      ? { lable: secondFormData.executorName.trim() }
+      : { lable2: secondFormData.labelName.trim() }
     ),
     
     // Данные из третьей формы
@@ -255,9 +267,9 @@ const handleFinalSubmit = async () => {
     CONFIRM_PASSWORD: thirdFormData.confirmPassword,
     
     // Согласия
-    personal: thirdFormData.personalData,
-    security: thirdFormData.marketing,
-    policy: thirdFormData.policy
+    personal: thirdFormData.personalData ? 'on' : 'off',
+    security: thirdFormData.marketing ? 'on' : 'off',
+    policy: thirdFormData.policy ? 'on' : 'off'
   }
 
   await sendRequest(

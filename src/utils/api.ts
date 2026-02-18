@@ -13,14 +13,14 @@ const getToken = () => {
 }
 
 const sendRequest = async (typeRequest:string, url:string, data:any)  => {
-  let csrf = await getCSRFToken();
+  // let csrf = await getCSRFToken();
   let config = {
     method: typeRequest,
     maxBodyLength: Infinity,
     url: url,
     headers: { 
       'Content-Type': 'application/json',
-      'X-CSRFToken': csrf,
+      // 'X-CSRFToken': csrf,
     },
     withCredentials: true, // для отправки cookie
     data : data
@@ -30,14 +30,14 @@ const sendRequest = async (typeRequest:string, url:string, data:any)  => {
 }
 
 const BearerRequest = async (typeRequest:string, url:string, data:any)  => {
-  let csrf = await getCSRFToken();
+  // let csrf = await getCSRFToken();
   let config = {
     method: typeRequest,
     maxBodyLength: Infinity,
     url: url,
     headers: { 
       'Content-Type': 'application/json',
-      'X-CSRFToken': csrf,
+      // 'X-CSRFToken': csrf,
       'Authorization': "Bearer " + `${localStorage.getItem("access_token")}`,
       'Accept-Language': `${localStorage.getItem("user-locale")}`,
     },
@@ -49,7 +49,7 @@ const BearerRequest = async (typeRequest:string, url:string, data:any)  => {
 }
 
 const FileRequest = async (typeRequest:string, url:string, data:any)  => {
-  let csrf = await getCSRFToken();
+  // let csrf = await getCSRFToken();
   let config = {
     method: typeRequest,
     maxBodyLength: Infinity,
@@ -57,7 +57,7 @@ const FileRequest = async (typeRequest:string, url:string, data:any)  => {
     headers: { 
       'Content-Type': 'multipart/form-data',
       Accept: 'application/json',
-      'X-CSRFToken': csrf,
+      // 'X-CSRFToken': csrf,
       // 'Authorization': "Bearer " + `${localStorage.getItem("access_token")}`,
       'Accept-Language': `${localStorage.getItem("user-locale")}`,
     },

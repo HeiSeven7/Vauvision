@@ -3,6 +3,8 @@ import { ref, reactive } from 'vue'
 import Tr from "@/i18n/translation";
 import Logo from "@/uikit/Logo.vue";
 import BackSVG from "@/uikit/icon/BackSVG.vue";
+import { sendRequest } from '@/utils/api';
+import { ElMessage } from 'element-plus';
 
 // Состояние отправки формы
 const isSubmitted = ref(false)
@@ -47,25 +49,77 @@ const handleSubmit = async () => {
 
   isLoading.value = true
 
-  try {
-    // Логика отправки email для восстановления пароля
-    console.log('Email для восстановления пароля:', {
-      email: formData.email.trim()
-    })
+  // Формируем данные для отправки в соответствии с API
+  const forgotData = {
+    EMAIL: formData.email.trim()
+  }
 
-    // Имитация запроса к API
-    await new Promise(resolve => setTimeout(resolve, 1000))
+  try {
+    const response = await sendRequest(
+      "post",
+      '/ajax/auth/forgot.php',
+      forgotData
+    )
+    
+    console.log('Запрос на восстановление пароля отправлен:', response.data)
     
     // Успешная отправка - показываем описание
     isSubmitted.value = true
-    alert('Ссылка для восстановления пароля отправлена на ваш email!')
+    
+    ElMessage({
+      message: 'Ссылка для восстановления пароля отправлена на ваш email!',
+      type: 'success',
+    });
     
     // Сброс формы
     formData.email = ''
     
-  } catch (error) {
-    console.error('Ошибка при отправке:', error)
-    alert('Произошла ошибка при отправке. Попробуйте еще раз.')
+  } catch (error: any) {
+    console.error('Ошибка при отправке запроса на восстановление пароля:', error)
+    
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      // Обработка ошибок валидации
+      if (errorData.EMAIL) {
+        errors.email = Array.isArray(errorData.EMAIL) 
+          ? errorData.EMAIL[0] 
+          : errorData.EMAIL
+      }
+      
+      // Обработка ошибки, если email не найден
+      if (errorData.email_not_found) {
+        ElMessage({
+          message: errorData.email_not_found,
+          type: 'error',
+        });
+      }
+      
+      // Общая ошибка
+      if (errorData.detail) {
+        ElMessage({
+          message: errorData.detail,
+          type: 'error',
+        });
+      } else if (errorData.non_field_errors) {
+        ElMessage({
+          message: Array.isArray(errorData.non_field_errors) 
+            ? errorData.non_field_errors[0] 
+            : errorData.non_field_errors,
+          type: 'error',
+        });
+      } else if (errorData.error) {
+        ElMessage({
+          message: errorData.error,
+          type: 'error',
+        });
+      }
+    } else {
+      ElMessage({
+        message: 'Произошла ошибка при отправке запроса. Попробуйте еще раз.',
+        type: 'error',
+      });
+    }
   } finally {
     isLoading.value = false
   }
@@ -96,7 +150,7 @@ const handleSubmit = async () => {
               <p class="form__desc title_small">Введите e-mail, на который будет отправлена ссылка с восстановлением пароля.</p>
             </div>
             <div class="form__flex">
-              <!-- Поле имени -->
+              <!-- Поле email -->
               <div class="form__group">
                 <label for="email" class="form__label button">E-mail</label>
                 <el-input
@@ -105,7 +159,7 @@ const handleSubmit = async () => {
                   type="email"
                   :class="{ 'error': errors.email }"
                   placeholder="Введите ваш e-mail"
-                  :disabled="isLoading"
+                  :disabled="isLoading || isSubmitted"
                   @blur="validateForm"
                   @input="errors.email = ''"
                   size="large"
@@ -113,7 +167,7 @@ const handleSubmit = async () => {
                 <div v-if="errors.email" class="error text_very">
                   {{ errors.email }}
                 </div>
-                <p v-if="isSubmitted" class="form__description text_very">
+                <p v-if="isSubmitted" class="form__description text_very success-message">
                   Если у вас есть учётная запись Vauvision, 
                   соответствующая этому адресу электронной почты, 
                   вы получите ссылку для сброса пароля в течение 
@@ -123,7 +177,11 @@ const handleSubmit = async () => {
               </div>
             </div>
             <div class="form__buttons">
-              <RouterLink class="auth__back button__second button" :to="Tr.i18nRoute({ name: 'login' })">
+              <RouterLink 
+                class="auth__back button__second button" 
+                :to="Tr.i18nRoute({ name: 'login' })"
+                :disabled="isLoading"
+              >
                 <span><BackSVG /></span>
                 <span>Назад</span>
               </RouterLink>
@@ -131,8 +189,7 @@ const handleSubmit = async () => {
               <button 
                 class="form__send button__black button" 
                 @click="handleSubmit"
-                :disabled="isLoading"
-                :loading="isLoading"
+                :disabled="isLoading || isSubmitted"
               >
                 <span v-if="!isLoading">Отправить</span>
                 <span v-else>Загрузка...</span>
@@ -147,4 +204,21 @@ const handleSubmit = async () => {
 </template>
 
 <style lang="css" scoped>
+.error {
+  color: var(--el-color-danger);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.form__group :deep(.el-input.error .el-input__wrapper) {
+  box-shadow: 0 0 0 1px var(--el-color-danger) inset;
+}
+
+.success-message {
+  color: var(--el-color-success);
+  margin-top: 10px;
+  padding: 10px;
+  background-color: var(--el-color-success-light-9);
+  border-radius: 4px;
+}
 </style>
