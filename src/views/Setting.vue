@@ -1,15 +1,16 @@
 <script lang="ts" setup>
 import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { View, Hide } from '@element-plus/icons-vue'
+import { sendRequest, FileRequest } from '@/utils/api';
+import { useRouter } from 'vue-router';
+import Tr from "@/i18n/translation";
+
 import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
 import PhotoSVG from "@/uikit/icon/PhotoSVG.vue";
 import UploadSVG from "@/uikit/icon/UploadSVG.vue";
 
-// Состояние видимости паролей
-const passwordVisible = ref(false)
-const confirmPasswordVisible = ref(false)
+const router = useRouter();
 
 // Основная форма данных
 const formData = reactive({
@@ -18,8 +19,6 @@ const formData = reactive({
   nickname: '',
   email: '',
   country: '',
-  password: '',
-  confirmPassword: '',
   passport: {
     series: '',
     number: '',
@@ -66,15 +65,6 @@ const validateEmail = (email: string): boolean => {
   return re.test(email)
 }
 
-// Валидация пароля
-const validatePassword = (password: string): string => {
-  if (password.length < 8) return 'Пароль должен содержать минимум 8 символов'
-  if (!/[A-Z]/.test(password)) return 'Пароль должен содержать заглавную букву'
-  if (!/[a-z]/.test(password)) return 'Пароль должен содержать строчную букву'
-  if (!/\d/.test(password)) return 'Пароль должен содержать цифру'
-  return ''
-}
-
 // Основная валидация формы
 const validateForm = (field?: string) => {
   if (!field || field === 'firstName') {
@@ -101,22 +91,6 @@ const validateForm = (field?: string) => {
   
   if (!field || field === 'country') {
     errors.country = formData.country ? '' : 'Страна обязательна для заполнения'
-  }
-  
-  if (!field || field === 'password') {
-    if (formData.password) {
-      errors.password = validatePassword(formData.password)
-    } else {
-      errors.password = ''
-    }
-  }
-  
-  if (!field || field === 'confirmPassword') {
-    if (formData.confirmPassword) {
-      errors.confirmPassword = formData.password === formData.confirmPassword ? '' : 'Пароли не совпадают'
-    } else {
-      errors.confirmPassword = ''
-    }
   }
 }
 
@@ -162,21 +136,61 @@ const hasFormErrors = computed(() => {
 
 // Отправка личных данных
 const submitPersonalData = async () => {
-  validateForm()
+  validateForm('firstName')
+  validateForm('lastName')
   
-  if (errors.firstName || errors.lastName || errors.email) {
+  if (errors.firstName || errors.lastName) {
     ElMessage.error('Исправьте ошибки в форме')
     return
   }
   
   isLoading.value = true
   try {
-    // Здесь будет API запрос
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // Формируем данные для отправки
+    const nameData = {
+      'alias-profile-name': formData.firstName.trim(),
+      'profile-sec-name': formData.lastName.trim()
+    }
+    
+    const response = await sendRequest(
+      "post",
+      '/ajax/profile/updateName.php',
+      nameData
+    )
+    
+    console.log('Имя и фамилия сохранены:', response.data)
     
     ElMessage.success('Личные данные сохранены успешно')
-  } catch (error) {
-    ElMessage.error('Ошибка при сохранении данных')
+  } catch (error: any) {
+    console.error('Ошибка при сохранении данных:', error)
+    
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      // Обработка ошибок валидации
+      if (errorData['alias-profile-name']) {
+        errors.firstName = Array.isArray(errorData['alias-profile-name']) 
+          ? errorData['alias-profile-name'][0] 
+          : errorData['alias-profile-name']
+      }
+      
+      if (errorData['profile-sec-name']) {
+        errors.lastName = Array.isArray(errorData['profile-sec-name']) 
+          ? errorData['profile-sec-name'][0] 
+          : errorData['profile-sec-name']
+      }
+      
+      // Общая ошибка
+      if (errorData.error) {
+        ElMessage.error(errorData.error)
+      } else if (errorData.message) {
+        ElMessage.error(errorData.message)
+      } else if (errorData.detail) {
+        ElMessage.error(errorData.detail)
+      }
+    } else {
+      ElMessage.error('Ошибка при сохранении данных')
+    }
   } finally {
     isLoading.value = false
   }
@@ -201,36 +215,6 @@ const submitGeneralData = async () => {
     ElMessage.success('Общие данные сохранены успешно')
   } catch (error) {
     ElMessage.error('Ошибка при сохранении данных')
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// Смена пароля
-const changePassword = async () => {
-  validateForm('password')
-  validateForm('confirmPassword')
-  
-  if (errors.password || errors.confirmPassword) {
-    ElMessage.error('Исправьте ошибки в форме пароля')
-    return
-  }
-  
-  if (!formData.password) {
-    ElMessage.error('Введите новый пароль')
-    return
-  }
-  
-  isLoading.value = true
-  try {
-    // Здесь будет API запрос
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    ElMessage.success('Пароль успешно изменен')
-    formData.password = ''
-    formData.confirmPassword = ''
-  } catch (error) {
-    ElMessage.error('Ошибка при смене пароля')
   } finally {
     isLoading.value = false
   }
@@ -277,23 +261,115 @@ const uploadProfileImage = async (event: Event) => {
   
   isUploadingImage.value = true
   try {
-    // Здесь будет API запрос для загрузки файла
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // Создаем FormData для отправки файла
+    const formData = new FormData()
+    formData.append('personal-photo', file)
     
-    // Временное решение для отображения preview
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      profileImage.value = e.target?.result as string
+    // Используем FileRequest для загрузки файла
+    const response = await FileRequest(
+      "post",
+      '/ajax/profile/avatar.php',
+      formData
+    )
+    
+    console.log('Фото загружено:', response.data)
+    
+    // Если сервер возвращает URL загруженного фото
+    if (response.data && response.data.url) {
+      profileImage.value = response.data.url
+    } else {
+      // Временное решение для отображения preview
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        profileImage.value = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
     }
-    reader.readAsDataURL(file)
     
     ElMessage.success('Фото профиля загружено успешно')
-  } catch (error) {
-    ElMessage.error('Ошибка при загрузке фото')
+  } catch (error: any) {
+    console.error('Ошибка при загрузке фото:', error)
+    
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      if (errorData.error) {
+        ElMessage.error(errorData.error)
+      } else if (errorData.message) {
+        ElMessage.error(errorData.message)
+      } else {
+        ElMessage.error('Ошибка при загрузке фото')
+      }
+    } else {
+      ElMessage.error('Ошибка при загрузке фото')
+    }
   } finally {
     isUploadingImage.value = false
     input.value = '' // Сброс input
   }
+}
+
+// Функция для отправки запроса на смену пароля через email
+const requestPasswordChange = async () => {
+  ElMessageBox.confirm(
+    'Вы уверены, что хотите изменить пароль?',
+    'Изменение пароля',
+    {
+      confirmButtonText: 'Отправить',
+      cancelButtonText: 'Отмена',
+      type: 'info',
+      dangerouslyUseHTMLString: true,
+      message: `
+        <div style="margin-bottom: 10px;">
+          Ссылка для изменения пароля будет отправлена на вашу электронную почту.
+        </div>
+        <div style="color: #909399; font-size: 13px;">
+          Письмо придет в течение нескольких минут. Проверьте папку "Спам", если не видите письмо во входящих.
+        </div>
+      `,
+    }
+  ).then(async () => {
+    isLoading.value = true
+    try {
+      // Отправляем запрос на отправку ссылки для смены пароля
+      // Если нужно отправить email, добавьте его в данные
+      const response = await sendRequest(
+        "post",
+        '/ajax/auth/mailPass.php',
+        {
+          email: formData.email // Отправляем email пользователя
+        }
+      )
+      
+      console.log('Запрос на смену пароля отправлен:', response.data)
+      
+      ElMessage.success('Ссылка для изменения пароля отправлена на вашу почту')
+      
+    } catch (error: any) {
+      console.error('Ошибка при запросе смены пароля:', error)
+      
+      if (error.response && error.response.data) {
+        const errorData = error.response.data
+        
+        if (errorData.error) {
+          ElMessage.error(errorData.error)
+        } else if (errorData.message) {
+          ElMessage.error(errorData.message)
+        } else if (errorData.detail) {
+          ElMessage.error(errorData.detail)
+        } else {
+          ElMessage.error('Ошибка при отправке запроса')
+        }
+      } else {
+        ElMessage.error('Ошибка при отправке запроса')
+      }
+    } finally {
+      isLoading.value = false
+    }
+  }).catch(() => {
+    // Отмена
+    console.log('Запрос на смену пароля отменен')
+  })
 }
 
 // Удаление фото профиля
@@ -370,17 +446,55 @@ const deleteAccount = () => {
         </div>
       `,
     }
-  ).then(() => {
+  ).then(async () => {
     isLoading.value = true
-    // Здесь будет API запрос для удаления аккаунта
-    setTimeout(() => {
-      ElMessage.success('Аккаунт удален')
-      // Перенаправление на главную страницу
-      // router.push('/')
+    try {
+      // Отправляем запрос на удаление аккаунта
+      const response = await sendRequest(
+        "post",
+        '/ajax/profile/deleteProfile.php',
+        {} // Можно отправить пустой объект или данные подтверждения если нужны
+      )
+      
+      console.log('Аккаунт удален:', response.data)
+      
+      ElMessage.success('Аккаунт успешно удален')
+      
+      // Очищаем localStorage (удаляем токены и другие данные)
+      localStorage.removeItem("access_token")
+      localStorage.removeItem("refresh_token")
+      localStorage.removeItem("user-locale")
+      // Добавьте другие ключи, которые нужно очистить
+      
+      // Перенаправляем на страницу регистрации
+      setTimeout(() => {
+        router.push(Tr.i18nRoute({ name: 'register' })) // или 'registration' в зависимости от имени маршрута
+      }, 1500)
+      
+    } catch (error: any) {
+      console.error('Ошибка при удалении аккаунта:', error)
+      
+      if (error.response && error.response.data) {
+        const errorData = error.response.data
+        
+        if (errorData.error) {
+          ElMessage.error(errorData.error)
+        } else if (errorData.message) {
+          ElMessage.error(errorData.message)
+        } else if (errorData.detail) {
+          ElMessage.error(errorData.detail)
+        } else {
+          ElMessage.error('Ошибка при удалении аккаунта')
+        }
+      } else {
+        ElMessage.error('Ошибка при удалении аккаунта')
+      }
+      
       isLoading.value = false
-    }, 1000)
+    }
   }).catch(() => {
     // Отмена удаления
+    console.log('Удаление отменено')
   })
 }
 
@@ -578,70 +692,15 @@ initializeData()
           </div>
           <div class="setting__password">
             <h5 class="setting__password_heading">Смена пароля</h5>
-            <div class="setting__password_flex">
-              <div class="form__group">
-                <label for="password" class="form__label button">Новый пароль</label>
-                <el-input
-                  id="password"
-                  v-model="formData.password"
-                  :type="passwordVisible ? 'text' : 'password'"
-                  :class="{ 'error': errors.password }"
-                  placeholder="Введите новый пароль"
-                  :disabled="isLoading"
-                  @blur="validateForm('password')"
-                  @input="errors.password = ''"
-                  size="large"
-                >
-                  <template #suffix>
-                    <el-icon 
-                      @click="passwordVisible = !passwordVisible"
-                      style="color: var(--el-text-color-placeholder); cursor: pointer;"
-                    >
-                      <View v-if="passwordVisible" />
-                      <Hide v-else />
-                    </el-icon>
-                  </template>
-                </el-input>
-                <div v-if="errors.password" class="error text_very">
-                  {{ errors.password }}
-                </div>
-              </div>
-              <div class="form__group">
-                <label for="confirmPassword" class="form__label button">Повторите пароль</label>
-                <el-input
-                  id="confirmPassword"
-                  v-model="formData.confirmPassword"
-                  :type="confirmPasswordVisible ? 'text' : 'password'"
-                  :class="{ 'error': errors.confirmPassword }"
-                  placeholder="Повторите новый пароль"
-                  :disabled="isLoading"
-                  @blur="validateForm('confirmPassword')"
-                  @input="errors.confirmPassword = ''"
-                  size="large"
-                >
-                  <template #suffix>
-                    <el-icon 
-                      @click="confirmPasswordVisible = !confirmPasswordVisible"
-                      style="color: var(--el-text-color-placeholder); cursor: pointer;"
-                    >
-                      <View v-if="confirmPasswordVisible" />
-                      <Hide v-else />
-                    </el-icon>
-                  </template>
-                </el-input>
-                <div v-if="errors.confirmPassword" class="error text_very">
-                  {{ errors.confirmPassword }}
-                </div>
-              </div>
-            </div>
+            <p class="setting__password_desc">Для изменения пароля мы отправим ссылку на вашу электронную почту.</p>
             <div class="setting__password_buttons">
               <button 
                 class="setting__password_button button__primary" 
-                @click="changePassword"
+                @click="requestPasswordChange"
                 :disabled="isLoading"
               >
-                <span v-if="!isLoading">сохранить изменения</span>
-                <span v-else>Сохранение...</span>
+                <span v-if="!isLoading">изменить пароль</span>
+                <span v-else>Отправка...</span>
               </button>
             </div>
           </div>
