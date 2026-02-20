@@ -1,517 +1,3 @@
-<script lang="ts" setup>
-import { ref, reactive, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { sendRequest, FileRequest } from '@/utils/api';
-import { useRouter } from 'vue-router';
-import Tr from "@/i18n/translation";
-
-import Header from "@/components/layout/Header.vue";
-import Menu from "@/components/layout/Menu.vue";
-import PhotoSVG from "@/uikit/icon/PhotoSVG.vue";
-import UploadSVG from "@/uikit/icon/UploadSVG.vue";
-
-const router = useRouter();
-
-// Основная форма данных
-const formData = reactive({
-  firstName: '',
-  lastName: '',
-  nickname: '',
-  email: '',
-  country: '',
-  passport: {
-    series: '',
-    number: '',
-    issuedBy: '',
-    issueDate: '',
-    birthDate: '',
-    registrationAddress: ''
-  },
-  bankDetails: {
-    userType: 'executor',
-    fullName: '',
-    accountNumber: '',
-    bik: '',
-    inn: '',
-    kpp: '',
-    bankName: '',
-    correspondentAccount: ''
-  }
-})
-
-// Состояние для ошибок валидации
-const errors = reactive({
-  firstName: '',
-  lastName: '',
-  nickname: '',
-  email: '',
-  country: '',
-  password: '',
-  confirmPassword: '',
-  passport: {} as Record<string, string>,
-  bankDetails: {} as Record<string, string>
-})
-
-// Загрузочное состояние
-const isLoading = ref(false)
-
-// Состояние для загрузки фото
-const profileImage = ref<string | null>(null)
-const isUploadingImage = ref(false)
-
-// Валидация email
-const validateEmail = (email: string): boolean => {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return re.test(email)
-}
-
-// Основная валидация формы
-const validateForm = (field?: string) => {
-  if (!field || field === 'firstName') {
-    errors.firstName = formData.firstName ? '' : 'Имя обязательно для заполнения'
-  }
-  
-  if (!field || field === 'lastName') {
-    errors.lastName = formData.lastName ? '' : 'Фамилия обязательна для заполнения'
-  }
-  
-  if (!field || field === 'nickname') {
-    errors.nickname = formData.nickname ? '' : 'Псевдоним обязателен для заполнения'
-  }
-  
-  if (!field || field === 'email') {
-    if (!formData.email) {
-      errors.email = 'Email обязателен для заполнения'
-    } else if (!validateEmail(formData.email)) {
-      errors.email = 'Введите корректный email'
-    } else {
-      errors.email = ''
-    }
-  }
-  
-  if (!field || field === 'country') {
-    errors.country = formData.country ? '' : 'Страна обязательна для заполнения'
-  }
-}
-
-// Валидация паспортных данных
-// const validatePassport = () => {
-//   const passportErrors: Record<string, string> = {}
-  
-//   if (!formData.passport.series) passportErrors.series = 'Серия паспорта обязательна'
-//   if (!formData.passport.number) passportErrors.number = 'Номер паспорта обязателен'
-//   if (!formData.passport.issuedBy) passportErrors.issuedBy = 'Кем выдан обязательно'
-//   if (!formData.passport.issueDate) passportErrors.issueDate = 'Дата выдачи обязательна'
-//   if (!formData.passport.birthDate) passportErrors.birthDate = 'Дата рождения обязательна'
-//   if (!formData.passport.registrationAddress) passportErrors.registrationAddress = 'Адрес регистрации обязателен'
-  
-//   errors.passport = passportErrors
-//   return Object.keys(passportErrors).length === 0
-// }
-
-// Валидация банковских данных
-const validateBankDetails = () => {
-  const bankErrors: Record<string, string> = {}
-  
-  if (!formData.bankDetails.fullName) bankErrors.fullName = 'ФИО обязательно'
-  if (!formData.bankDetails.accountNumber) bankErrors.accountNumber = 'Расчетный счет обязателен'
-  if (!formData.bankDetails.bik) bankErrors.bik = 'БИК банка обязателен'
-  
-  if (formData.bankDetails.userType === 'label') {
-    if (!formData.bankDetails.inn) bankErrors.inn = 'ИНН обязательно для ИП'
-    if (!formData.bankDetails.kpp) bankErrors.kpp = 'КПП обязательно для ИП'
-    if (!formData.bankDetails.bankName) bankErrors.bankName = 'Название банка обязательно'
-  }
-  
-  errors.bankDetails = bankErrors
-  return Object.keys(bankErrors).length === 0
-}
-
-// Проверка, есть ли ошибки в основной форме
-const hasFormErrors = computed(() => {
-  return Object.values(errors).some(error => 
-    typeof error === 'string' ? error.length > 0 : false
-  )
-})
-
-// Отправка личных данных
-const submitPersonalData = async () => {
-  validateForm('firstName')
-  validateForm('lastName')
-  
-  if (errors.firstName || errors.lastName) {
-    ElMessage.error('Исправьте ошибки в форме')
-    return
-  }
-  
-  isLoading.value = true
-  try {
-    // Формируем данные для отправки
-    const nameData = {
-      'alias-profile-name': formData.firstName.trim(),
-      'profile-sec-name': formData.lastName.trim()
-    }
-    
-    const response = await sendRequest(
-      "post",
-      '/ajax/profile/updateName.php',
-      nameData
-    )
-    
-    console.log('Имя и фамилия сохранены:', response.data)
-    
-    ElMessage.success('Личные данные сохранены успешно')
-  } catch (error: any) {
-    console.error('Ошибка при сохранении данных:', error)
-    
-    if (error.response && error.response.data) {
-      const errorData = error.response.data
-      
-      // Обработка ошибок валидации
-      if (errorData['alias-profile-name']) {
-        errors.firstName = Array.isArray(errorData['alias-profile-name']) 
-          ? errorData['alias-profile-name'][0] 
-          : errorData['alias-profile-name']
-      }
-      
-      if (errorData['profile-sec-name']) {
-        errors.lastName = Array.isArray(errorData['profile-sec-name']) 
-          ? errorData['profile-sec-name'][0] 
-          : errorData['profile-sec-name']
-      }
-      
-      // Общая ошибка
-      if (errorData.error) {
-        ElMessage.error(errorData.error)
-      } else if (errorData.message) {
-        ElMessage.error(errorData.message)
-      } else if (errorData.detail) {
-        ElMessage.error(errorData.detail)
-      }
-    } else {
-      ElMessage.error('Ошибка при сохранении данных')
-    }
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// Отправка общих данных
-const submitGeneralData = async () => {
-  validateForm('nickname')
-  validateForm('email')
-  validateForm('country')
-  
-  if (errors.nickname || errors.email || errors.country) {
-    ElMessage.error('Исправьте ошибки в форме')
-    return
-  }
-  
-  isLoading.value = true
-  try {
-    // Здесь будет API запрос
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    ElMessage.success('Общие данные сохранены успешно')
-  } catch (error) {
-    ElMessage.error('Ошибка при сохранении данных')
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// Сохранение банковских данных
-const submitBankDetails = async () => {
-  if (!validateBankDetails()) {
-    ElMessage.error('Исправьте ошибки в банковских данных')
-    return
-  }
-  
-  isLoading.value = true
-  try {
-    // Здесь будет API запрос
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    ElMessage.success('Банковские данные сохранены успешно')
-  } catch (error) {
-    ElMessage.error('Ошибка при сохранении банковских данных')
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// Загрузка фото профиля
-const uploadProfileImage = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  
-  if (!file) return
-  
-  // Проверка типа файла
-  if (!file.type.startsWith('image/')) {
-    ElMessage.error('Пожалуйста, выберите изображение')
-    return
-  }
-  
-  // Проверка размера файла (максимум 5MB)
-  if (file.size > 5 * 1024 * 1024) {
-    ElMessage.error('Размер файла не должен превышать 5MB')
-    return
-  }
-  
-  isUploadingImage.value = true
-  try {
-    // Создаем FormData для отправки файла
-    const formData = new FormData()
-    formData.append('personal-photo', file)
-    
-    // Используем FileRequest для загрузки файла
-    const response = await FileRequest(
-      "post",
-      '/ajax/profile/avatar.php',
-      formData
-    )
-    
-    console.log('Фото загружено:', response.data)
-    
-    // Если сервер возвращает URL загруженного фото
-    if (response.data && response.data.url) {
-      profileImage.value = response.data.url
-    } else {
-      // Временное решение для отображения preview
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        profileImage.value = e.target?.result as string
-      }
-      reader.readAsDataURL(file)
-    }
-    
-    ElMessage.success('Фото профиля загружено успешно')
-  } catch (error: any) {
-    console.error('Ошибка при загрузке фото:', error)
-    
-    if (error.response && error.response.data) {
-      const errorData = error.response.data
-      
-      if (errorData.error) {
-        ElMessage.error(errorData.error)
-      } else if (errorData.message) {
-        ElMessage.error(errorData.message)
-      } else {
-        ElMessage.error('Ошибка при загрузке фото')
-      }
-    } else {
-      ElMessage.error('Ошибка при загрузке фото')
-    }
-  } finally {
-    isUploadingImage.value = false
-    input.value = '' // Сброс input
-  }
-}
-
-// Функция для отправки запроса на смену пароля через email
-const requestPasswordChange = async () => {
-  ElMessageBox.confirm(
-    'Вы уверены, что хотите изменить пароль?',
-    'Изменение пароля',
-    {
-      confirmButtonText: 'Отправить',
-      cancelButtonText: 'Отмена',
-      type: 'info',
-      dangerouslyUseHTMLString: true,
-      message: `
-        <div style="margin-bottom: 10px;">
-          Ссылка для изменения пароля будет отправлена на вашу электронную почту.
-        </div>
-        <div style="color: #909399; font-size: 13px;">
-          Письмо придет в течение нескольких минут. Проверьте папку "Спам", если не видите письмо во входящих.
-        </div>
-      `,
-    }
-  ).then(async () => {
-    isLoading.value = true
-    try {
-      // Отправляем запрос на отправку ссылки для смены пароля
-      // Если нужно отправить email, добавьте его в данные
-      const response = await sendRequest(
-        "post",
-        '/ajax/auth/mailPass.php',
-        {
-          email: formData.email // Отправляем email пользователя
-        }
-      )
-      
-      console.log('Запрос на смену пароля отправлен:', response.data)
-      
-      ElMessage.success('Ссылка для изменения пароля отправлена на вашу почту')
-      
-    } catch (error: any) {
-      console.error('Ошибка при запросе смены пароля:', error)
-      
-      if (error.response && error.response.data) {
-        const errorData = error.response.data
-        
-        if (errorData.error) {
-          ElMessage.error(errorData.error)
-        } else if (errorData.message) {
-          ElMessage.error(errorData.message)
-        } else if (errorData.detail) {
-          ElMessage.error(errorData.detail)
-        } else {
-          ElMessage.error('Ошибка при отправке запроса')
-        }
-      } else {
-        ElMessage.error('Ошибка при отправке запроса')
-      }
-    } finally {
-      isLoading.value = false
-    }
-  }).catch(() => {
-    // Отмена
-    console.log('Запрос на смену пароля отменен')
-  })
-}
-
-// Удаление фото профиля
-const deleteProfileImage = () => {
-  ElMessageBox.confirm(
-    'Вы уверены, что хотите удалить фото профиля?',
-    'Удаление фото',
-    {
-      confirmButtonText: 'Удалить',
-      cancelButtonText: 'Отмена',
-      type: 'warning',
-    }
-  ).then(() => {
-    profileImage.value = null
-    ElMessage.success('Фото профиля удалено')
-  }).catch(() => {
-    // Отмена удаления
-  })
-}
-
-// Открытие модального окна для паспортных данных
-const openPassportModal = () => {
-  ElMessageBox.prompt('', 'Введите данные паспорта', {
-    confirmButtonText: 'Сохранить',
-    cancelButtonText: 'Отмена',
-    title: 'Паспортные данные',
-    inputType: 'textarea',
-    inputPlaceholder: 'Введите серию, номер и другие данные паспорта...',
-    beforeClose: async (action, instance, done) => {
-      if (action === 'confirm') {
-        const value = instance.inputValue
-        if (value && value.trim()) {
-          try {
-            // Здесь будет API запрос для сохранения паспортных данных
-            await new Promise(resolve => setTimeout(resolve, 500))
-            ElMessage.success('Паспортные данные сохранены')
-            done()
-          } catch (error) {
-            ElMessage.error('Ошибка при сохранении')
-          }
-        } else {
-          ElMessage.error('Введите данные')
-          return
-        }
-      } else {
-        done()
-      }
-    }
-  }).catch(() => {
-    // Отмена
-  })
-}
-
-// Удаление аккаунта
-const deleteAccount = () => {
-  ElMessageBox.confirm(
-    'Вы уверены, что хотите удалить аккаунт? Это действие нельзя отменить. Все ваши данные будут удалены.',
-    'Удаление аккаунта',
-    {
-      confirmButtonText: 'Удалить',
-      cancelButtonText: 'Отмена',
-      type: 'error',
-      confirmButtonClass: 'el-button--danger',
-      dangerouslyUseHTMLString: true,
-      message: `
-        <div style="margin-bottom: 10px;">
-          <strong>Внимание!</strong> Это действие нельзя отменить.
-        </div>
-        <div style="color: #f56c6c; margin-bottom: 10px;">
-          Все ваши данные будут удалены без возможности восстановления.
-        </div>
-        <div style="color: #909399;">
-          Для восстановления аккаунта напишите нам в поддержку.
-        </div>
-      `,
-    }
-  ).then(async () => {
-    isLoading.value = true
-    try {
-      // Отправляем запрос на удаление аккаунта
-      const response = await sendRequest(
-        "post",
-        '/ajax/profile/deleteProfile.php',
-        {} // Можно отправить пустой объект или данные подтверждения если нужны
-      )
-      
-      console.log('Аккаунт удален:', response.data)
-      
-      ElMessage.success('Аккаунт успешно удален')
-      
-      // Очищаем localStorage (удаляем токены и другие данные)
-      localStorage.removeItem("access_token")
-      localStorage.removeItem("refresh_token")
-      localStorage.removeItem("user-locale")
-      // Добавьте другие ключи, которые нужно очистить
-      
-      // Перенаправляем на страницу регистрации
-      setTimeout(() => {
-        router.push(Tr.i18nRoute({ name: 'register' })) // или 'registration' в зависимости от имени маршрута
-      }, 1500)
-      
-    } catch (error: any) {
-      console.error('Ошибка при удалении аккаунта:', error)
-      
-      if (error.response && error.response.data) {
-        const errorData = error.response.data
-        
-        if (errorData.error) {
-          ElMessage.error(errorData.error)
-        } else if (errorData.message) {
-          ElMessage.error(errorData.message)
-        } else if (errorData.detail) {
-          ElMessage.error(errorData.detail)
-        } else {
-          ElMessage.error('Ошибка при удалении аккаунта')
-        }
-      } else {
-        ElMessage.error('Ошибка при удалении аккаунта')
-      }
-      
-      isLoading.value = false
-    }
-  }).catch(() => {
-    // Отмена удаления
-    console.log('Удаление отменено')
-  })
-}
-
-// Инициализация данных (в реальном приложении - загрузка с сервера)
-const initializeData = () => {
-  // Здесь будет загрузка данных пользователя с сервера
-  formData.firstName = 'Иван'
-  formData.lastName = 'Иванов'
-  formData.nickname = 'artist123'
-  formData.email = 'user@example.com'
-  formData.country = 'Россия'
-}
-
-// Инициализируем данные при загрузке компонента
-initializeData()
-</script>
-
 <template>
 <Header></Header>
 <section class="personal">
@@ -696,11 +182,10 @@ initializeData()
             <div class="setting__password_buttons">
               <button 
                 class="setting__password_button button__primary" 
-                @click="requestPasswordChange"
+                @click="openPasswordModal"
                 :disabled="isLoading"
               >
-                <span v-if="!isLoading">изменить пароль</span>
-                <span v-else>Отправка...</span>
+                <span>изменить пароль</span>
               </button>
             </div>
           </div>
@@ -825,7 +310,7 @@ initializeData()
             <div class="setting__delete_buttons">
               <button 
                 class="setting__delete_button button__primary" 
-                @click="deleteAccount"
+                @click="openDeleteModal"
                 :disabled="isLoading"
                 style="background-color: #f56c6c; border-color: #f56c6c;"
               >
@@ -840,7 +325,772 @@ initializeData()
     </div>
   </div>
 </section>
+
+<!-- Модальное окно паспортных данных (оригинальное, без изменений) -->
+<Teleport to="body">
+  <div v-if="showPassportModal" class="passport-modal-overlay" @click.self="closePassportModal">
+    <div class="passport-modal">
+      <div class="passport-modal__header">
+        <h3 class="passport-modal__title">Паспортные данные</h3>
+        <button class="passport-modal__close" @click="closePassportModal">×</button>
+      </div>
+      
+      <div class="passport-modal__content">
+        <div class="passport-modal__grid">
+          <!-- Левая колонка -->
+          <div class="passport-modal__column">
+            <div class="form__group">
+              <label class="form__label button">Гражданство</label>
+              <el-select
+                v-model="passportForm.citizenship"
+                placeholder="Выберите гражданство"
+                :disabled="isLoading"
+                size="large"
+                class="passport-select"
+                clearable
+              >
+                <el-option label="Россия" value="Россия" />
+                <el-option label="Беларусь" value="Беларусь" />
+                <el-option label="Казахстан" value="Казахстан" />
+                <el-option label="Армения" value="Армения" />
+                <el-option label="Кыргызстан" value="Кыргызстан" />
+                <el-option label="Другое" value="Другое" />
+              </el-select>
+            </div>
+
+            <div class="form__group">
+              <label class="form__label button">Кем выдан</label>
+              <el-input
+                v-model="passportForm.issuedBy"
+                placeholder="Кем выдан паспорт"
+                :disabled="isLoading"
+                size="large"
+              />
+            </div>
+
+            <div class="form__group">
+              <label class="form__label button">Фамилия</label>
+              <el-input
+                v-model="passportForm.fam"
+                placeholder="Фамилия"
+                :disabled="isLoading"
+                size="large"
+              />
+            </div>
+
+            <div class="form__group">
+              <label class="form__label button">Имя</label>
+              <el-input
+                v-model="passportForm.imya"
+                placeholder="Имя"
+                :disabled="isLoading"
+                size="large"
+              />
+            </div>
+          </div>
+
+          <!-- Правая колонка -->
+          <div class="passport-modal__column">
+            <div class="form__group">
+              <label class="form__label button">Отчество</label>
+              <el-input
+                v-model="passportForm.otch"
+                placeholder="Отчество"
+                :disabled="isLoading"
+                size="large"
+              />
+            </div>
+
+            <div class="form__group">
+              <label class="form__label button">Серия и номер паспорта</label>
+              <el-input
+                v-model="passportForm.number"
+                placeholder="0000 000000"
+                :disabled="isLoading"
+                size="large"
+              />
+            </div>
+
+            <div class="form__group">
+              <label class="form__label button">Дата выдачи</label>
+              <el-date-picker
+                v-model="passportForm.date"
+                type="date"
+                placeholder="Выберите дату"
+                format="DD.MM.YYYY"
+                value-format="DD.MM.YYYY"
+                :disabled="isLoading"
+                size="large"
+                class="passport-datepicker"
+              />
+            </div>
+
+            <div class="form__group">
+              <label class="form__label button">Адрес регистрации</label>
+              <el-input
+                v-model="passportForm.adress"
+                placeholder="Адрес регистрации"
+                :disabled="isLoading"
+                size="large"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="passport-modal__footer">
+        <button 
+          class="passport-modal__button passport-modal__button--clear"
+          @click="clearPassportForm"
+          :disabled="isLoading"
+        >
+          очистить
+        </button>
+        <button 
+          class="passport-modal__button passport-modal__button--save"
+          @click="savePassportData"
+          :disabled="isLoading"
+        >
+          <span v-if="!isLoading">сохранить изменения</span>
+          <span v-else>Сохранение...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
+<!-- Модальное окно смены пароля (новое) -->
+<Teleport to="body">
+  <div v-if="showPasswordModal" class="modal-overlay" @click.self="closePasswordModal">
+    <div class="modal modal--small">
+      <div class="modal__header">
+        <h3 class="modal__title">Смена пароля</h3>
+        <button class="modal__close" @click="closePasswordModal">×</button>
+      </div>
+      
+      <div class="modal__content">
+        <div class="modal__info">
+          <p>Ссылка для изменения пароля будет отправлена на вашу электронную почту:</p>
+          <p class="modal__email">{{ formData.email || 'не указан' }}</p>
+          <p class="modal__hint">Письмо придет в течение нескольких минут. Проверьте папку "Спам", если не видите письмо во входящих.</p>
+        </div>
+      </div>
+
+      <div class="modal__footer">
+        <button 
+          class="modal__button modal__button--clear"
+          @click="closePasswordModal"
+          :disabled="isLoading"
+        >
+          отмена
+        </button>
+        <button 
+          class="modal__button modal__button--save"
+          @click="submitPasswordChange"
+          :disabled="isLoading"
+        >
+          <span v-if="!isLoading">отправить ссылку</span>
+          <span v-else>Отправка...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
+<!-- Модальное окно удаления аккаунта (новое) -->
+<Teleport to="body">
+  <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
+    <div class="modal modal--small">
+      <div class="modal__header">
+        <h3 class="modal__title">Удаление аккаунта</h3>
+        <button class="modal__close" @click="closeDeleteModal">×</button>
+      </div>
+      
+      <div class="modal__content">
+        <div class="modal__warning">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#f56c6c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 8V12" stroke="#f56c6c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 16H12.01" stroke="#f56c6c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="modal__warning-text">
+            <h4>Внимание! Это действие нельзя отменить</h4>
+            <p>Все ваши данные будут удалены без возможности восстановления.</p>
+          </div>
+        </div>
+        
+        <div class="form__group">
+          <label class="form__label button">Подтверждение</label>
+          <el-input
+            v-model="deleteConfirmText"
+            placeholder="Введите 'УДАЛИТЬ' для подтверждения"
+            :disabled="isLoading"
+            size="large"
+          />
+        </div>
+      </div>
+
+      <div class="modal__footer">
+        <button 
+          class="modal__button modal__button--clear"
+          @click="closeDeleteModal"
+          :disabled="isLoading"
+        >
+          отмена
+        </button>
+        <button 
+          class="modal__button modal__button--delete"
+          @click="confirmDeleteAccount"
+          :disabled="isLoading || deleteConfirmText !== 'УДАЛИТЬ'"
+        >
+          <span v-if="!isLoading">удалить аккаунт</span>
+          <span v-else>Удаление...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</Teleport>
 </template>
+
+<script lang="ts" setup>
+import { ref, reactive, computed } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { sendRequest, FileRequest } from '@/utils/api';
+import { useRouter } from 'vue-router';
+import Tr from "@/i18n/translation";
+
+import Header from "@/components/layout/Header.vue";
+import Menu from "@/components/layout/Menu.vue";
+import PhotoSVG from "@/uikit/icon/PhotoSVG.vue";
+import UploadSVG from "@/uikit/icon/UploadSVG.vue";
+
+const router = useRouter();
+
+// Основная форма данных
+const formData = reactive({
+  firstName: '',
+  lastName: '',
+  nickname: '',
+  email: '',
+  country: '',
+  passport: {
+    series: '',
+    number: '',
+    issuedBy: '',
+    issueDate: '',
+    birthDate: '',
+    registrationAddress: ''
+  },
+  bankDetails: {
+    userType: 'executor',
+    fullName: '',
+    accountNumber: '',
+    bik: '',
+    inn: '',
+    kpp: '',
+    bankName: '',
+    correspondentAccount: ''
+  }
+})
+
+// Состояние для ошибок валидации
+const errors = reactive({
+  firstName: '',
+  lastName: '',
+  nickname: '',
+  email: '',
+  country: '',
+  password: '',
+  confirmPassword: '',
+  passport: {} as Record<string, string>,
+  bankDetails: {} as Record<string, string>
+})
+
+// Загрузочное состояние
+const isLoading = ref(false)
+
+// Состояние для загрузки фото
+const profileImage = ref<string | null>(null)
+const isUploadingImage = ref(false)
+
+// Состояние для модальных окон
+const showPassportModal = ref(false)
+const showPasswordModal = ref(false)
+const showDeleteModal = ref(false)
+
+// Данные формы паспорта
+const passportForm = reactive({
+  citizenship: '',
+  issuedBy: '',
+  fam: '',
+  imya: '',
+  otch: '',
+  number: '',
+  date: '',
+  adress: ''
+})
+
+// Текст подтверждения удаления
+const deleteConfirmText = ref('')
+
+// Валидация email
+const validateEmail = (email: string): boolean => {
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return re.test(email)
+}
+
+// Основная валидация формы
+const validateForm = (field?: string) => {
+  if (!field || field === 'firstName') {
+    errors.firstName = formData.firstName ? '' : 'Имя обязательно для заполнения'
+  }
+  
+  if (!field || field === 'lastName') {
+    errors.lastName = formData.lastName ? '' : 'Фамилия обязательна для заполнения'
+  }
+  
+  if (!field || field === 'nickname') {
+    errors.nickname = formData.nickname ? '' : 'Псевдоним обязателен для заполнения'
+  }
+  
+  if (!field || field === 'email') {
+    if (!formData.email) {
+      errors.email = 'Email обязателен для заполнения'
+    } else if (!validateEmail(formData.email)) {
+      errors.email = 'Введите корректный email'
+    } else {
+      errors.email = ''
+    }
+  }
+  
+  if (!field || field === 'country') {
+    errors.country = formData.country ? '' : 'Страна обязательна для заполнения'
+  }
+}
+
+// Валидация банковских данных
+const validateBankDetails = () => {
+  const bankErrors: Record<string, string> = {}
+  
+  if (!formData.bankDetails.fullName) bankErrors.fullName = 'ФИО обязательно'
+  if (!formData.bankDetails.accountNumber) bankErrors.accountNumber = 'Расчетный счет обязателен'
+  if (!formData.bankDetails.bik) bankErrors.bik = 'БИК банка обязателен'
+  
+  if (formData.bankDetails.userType === 'label') {
+    if (!formData.bankDetails.inn) bankErrors.inn = 'ИНН обязательно для ИП'
+    if (!formData.bankDetails.kpp) bankErrors.kpp = 'КПП обязательно для ИП'
+    if (!formData.bankDetails.bankName) bankErrors.bankName = 'Название банка обязательно'
+  }
+  
+  errors.bankDetails = bankErrors
+  return Object.keys(bankErrors).length === 0
+}
+
+// Проверка, есть ли ошибки в основной форме
+const hasFormErrors = computed(() => {
+  return Object.values(errors).some(error => 
+    typeof error === 'string' ? error.length > 0 : false
+  )
+})
+
+// Открытие модальных окон
+const openPassportModal = () => {
+  loadPassportData()
+  showPassportModal.value = true
+  document.documentElement.classList.add('noscroll')
+}
+
+const openPasswordModal = () => {
+  showPasswordModal.value = true
+  document.documentElement.classList.add('noscroll')
+}
+
+const openDeleteModal = () => {
+  deleteConfirmText.value = ''
+  showDeleteModal.value = true
+  document.documentElement.classList.add('noscroll')
+}
+
+// Закрытие модальных окон
+const closePassportModal = () => {
+  showPassportModal.value = false
+  document.documentElement.classList.remove('noscroll')
+}
+
+const closePasswordModal = () => {
+  showPasswordModal.value = false
+  document.documentElement.classList.remove('noscroll')
+}
+
+const closeDeleteModal = () => {
+  showDeleteModal.value = false
+  deleteConfirmText.value = ''
+  document.documentElement.classList.remove('noscroll')
+}
+
+// Очистка формы паспорта
+const clearPassportForm = () => {
+  passportForm.citizenship = ''
+  passportForm.issuedBy = ''
+  passportForm.fam = ''
+  passportForm.imya = ''
+  passportForm.otch = ''
+  passportForm.number = ''
+  passportForm.date = ''
+  passportForm.adress = ''
+  ElMessage.success('Форма очищена')
+}
+
+// Загрузка данных паспорта (пример)
+const loadPassportData = () => {
+  // Здесь должен быть запрос к API для получения текущих данных
+  // Пример заполнения:
+  passportForm.citizenship = 'Россия'
+  passportForm.issuedBy = 'УФМС России по г. Москва'
+  passportForm.fam = 'Иванов'
+  passportForm.imya = 'Иван'
+  passportForm.otch = 'Иванович'
+  passportForm.number = '1234 567890'
+  passportForm.date = '15.05.2015'
+  passportForm.adress = 'г. Москва, ул. Примерная, д. 1, кв. 1'
+}
+
+// Сохранение паспортных данных
+const savePassportData = async () => {
+  if (!passportForm.fam || !passportForm.imya || !passportForm.number) {
+    ElMessage.error('Заполните обязательные поля (фамилия, имя, серия и номер)')
+    return
+  }
+  
+  isLoading.value = true
+  try {
+    const passportData = {
+      'citysenship-profile-others': passportForm.citizenship,
+      'issued-profile': passportForm.issuedBy,
+      'fam': passportForm.fam,
+      'number-profile': passportForm.number,
+      'imya': passportForm.imya,
+      'date-profile': passportForm.date,
+      'otch': passportForm.otch,
+      'adress-profile': passportForm.adress
+    }
+    
+    const response = await sendRequest(
+      "post",
+      '/ajax/profile/updatePassport.php',
+      passportData
+    )
+    
+    console.log('Паспортные данные сохранены:', response.data)
+    ElMessage.success('Паспортные данные сохранены успешно')
+    closePassportModal()
+    
+  } catch (error: any) {
+    console.error('Ошибка при сохранении паспортных данных:', error)
+    
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      if (errorData.error) {
+        ElMessage.error(errorData.error)
+      } else if (errorData.message) {
+        ElMessage.error(errorData.message)
+      } else {
+        ElMessage.error('Ошибка при сохранении данных')
+      }
+    } else {
+      ElMessage.error('Ошибка при сохранении данных')
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Отправка запроса на смену пароля
+const submitPasswordChange = async () => {
+  if (!formData.email) {
+    ElMessage.error('Email не указан. Пожалуйста, заполните email в общих данных')
+    closePasswordModal()
+    return
+  }
+  
+  isLoading.value = true
+  try {
+    const response = await sendRequest(
+      "post",
+      '/ajax/auth/mailPass.php',
+      {
+        email: formData.email
+      }
+    )
+    
+    console.log('Запрос на смену пароля отправлен:', response.data)
+    ElMessage.success('Ссылка для изменения пароля отправлена на вашу почту')
+    closePasswordModal()
+    
+  } catch (error: any) {
+    console.error('Ошибка при запросе смены пароля:', error)
+    
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      if (errorData.error) {
+        ElMessage.error(errorData.error)
+      } else if (errorData.message) {
+        ElMessage.error(errorData.message)
+      } else {
+        ElMessage.error('Ошибка при отправке запроса')
+      }
+    } else {
+      ElMessage.error('Ошибка при отправке запроса')
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Подтверждение удаления аккаунта
+const confirmDeleteAccount = async () => {
+  if (deleteConfirmText.value !== 'УДАЛИТЬ') {
+    ElMessage.error('Введите "УДАЛИТЬ" для подтверждения')
+    return
+  }
+  
+  isLoading.value = true
+  try {
+    const response = await sendRequest(
+      "post",
+      '/ajax/profile/deleteProfile.php',
+      {
+        confirmation: deleteConfirmText.value
+      }
+    )
+    
+    console.log('Аккаунт удален:', response.data)
+    ElMessage.success('Аккаунт успешно удален')
+    
+    // Очищаем localStorage
+    localStorage.removeItem("access_token")
+    localStorage.removeItem("refresh_token")
+    localStorage.removeItem("user-locale")
+    
+    // Перенаправляем на страницу регистрации
+    setTimeout(() => {
+      router.push(Tr.i18nRoute({ name: 'register' }))
+    }, 1500)
+    
+  } catch (error: any) {
+    console.error('Ошибка при удалении аккаунта:', error)
+    
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      if (errorData.error) {
+        ElMessage.error(errorData.error)
+      } else if (errorData.message) {
+        ElMessage.error(errorData.message)
+      } else {
+        ElMessage.error('Ошибка при удалении аккаунта')
+      }
+    } else {
+      ElMessage.error('Ошибка при удалении аккаунта')
+    }
+  } finally {
+    isLoading.value = false
+    closeDeleteModal()
+  }
+}
+
+// Отправка личных данных
+const submitPersonalData = async () => {
+  validateForm('firstName')
+  validateForm('lastName')
+  
+  if (errors.firstName || errors.lastName) {
+    ElMessage.error('Исправьте ошибки в форме')
+    return
+  }
+  
+  isLoading.value = true
+  try {
+    const nameData = {
+      'alias-profile-name': formData.firstName.trim(),
+      'profile-sec-name': formData.lastName.trim()
+    }
+    
+    const response = await sendRequest(
+      "post",
+      '/ajax/profile/updateName.php',
+      nameData
+    )
+    
+    console.log('Имя и фамилия сохранены:', response.data)
+    ElMessage.success('Личные данные сохранены успешно')
+  } catch (error: any) {
+    console.error('Ошибка при сохранении данных:', error)
+    
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      if (errorData['alias-profile-name']) {
+        errors.firstName = Array.isArray(errorData['alias-profile-name']) 
+          ? errorData['alias-profile-name'][0] 
+          : errorData['alias-profile-name']
+      }
+      
+      if (errorData['profile-sec-name']) {
+        errors.lastName = Array.isArray(errorData['profile-sec-name']) 
+          ? errorData['profile-sec-name'][0] 
+          : errorData['profile-sec-name']
+      }
+      
+      if (errorData.error) {
+        ElMessage.error(errorData.error)
+      } else if (errorData.message) {
+        ElMessage.error(errorData.message)
+      } else if (errorData.detail) {
+        ElMessage.error(errorData.detail)
+      }
+    } else {
+      ElMessage.error('Ошибка при сохранении данных')
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Отправка общих данных
+const submitGeneralData = async () => {
+  validateForm('nickname')
+  validateForm('email')
+  validateForm('country')
+  
+  if (errors.nickname || errors.email || errors.country) {
+    ElMessage.error('Исправьте ошибки в форме')
+    return
+  }
+  
+  isLoading.value = true
+  try {
+    // Здесь будет API запрос
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Общие данные сохранены успешно')
+  } catch (error) {
+    ElMessage.error('Ошибка при сохранении данных')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Сохранение банковских данных
+const submitBankDetails = async () => {
+  if (!validateBankDetails()) {
+    ElMessage.error('Исправьте ошибки в банковских данных')
+    return
+  }
+  
+  isLoading.value = true
+  try {
+    // Здесь будет API запрос
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Банковские данные сохранены успешно')
+  } catch (error) {
+    ElMessage.error('Ошибка при сохранении банковских данных')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Загрузка фото профиля
+const uploadProfileImage = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  
+  if (!file) return
+  
+  if (!file.type.startsWith('image/')) {
+    ElMessage.error('Пожалуйста, выберите изображение')
+    return
+  }
+  
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.error('Размер файла не должен превышать 5MB')
+    return
+  }
+  
+  isUploadingImage.value = true
+  try {
+    const formData = new FormData()
+    formData.append('personal-photo', file)
+    
+    const response = await FileRequest(
+      "post",
+      '/ajax/profile/avatar.php',
+      formData
+    )
+    
+    console.log('Фото загружено:', response.data)
+    
+    if (response.data && response.data.url) {
+      profileImage.value = response.data.url
+    } else {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        profileImage.value = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    }
+    
+    ElMessage.success('Фото профиля загружено успешно')
+  } catch (error: any) {
+    console.error('Ошибка при загрузке фото:', error)
+    
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      if (errorData.error) {
+        ElMessage.error(errorData.error)
+      } else if (errorData.message) {
+        ElMessage.error(errorData.message)
+      } else {
+        ElMessage.error('Ошибка при загрузке фото')
+      }
+    } else {
+      ElMessage.error('Ошибка при загрузке фото')
+    }
+  } finally {
+    isUploadingImage.value = false
+    input.value = ''
+  }
+}
+
+// Удаление фото профиля
+const deleteProfileImage = () => {
+  ElMessageBox.confirm(
+    'Вы уверены, что хотите удалить фото профиля?',
+    'Удаление фото',
+    {
+      confirmButtonText: 'Удалить',
+      cancelButtonText: 'Отмена',
+      type: 'warning',
+    }
+  ).then(() => {
+    profileImage.value = null
+    ElMessage.success('Фото профиля удалено')
+  }).catch(() => {})
+}
+
+// Инициализация данных
+const initializeData = () => {
+  formData.firstName = 'Иван'
+  formData.lastName = 'Иванов'
+  formData.nickname = 'artist123'
+  formData.email = 'user@example.com'
+  formData.country = 'Россия'
+}
+
+initializeData()
+</script>
 
 <style lang="css" scoped>
 .personal {
@@ -1052,6 +1302,383 @@ initializeData()
 .setting__delete_desc {
   color: var(--text-gray);
 }
+
+/* Стили для оригинального модального окна паспорта (без изменений) */
+.passport-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.passport-modal {
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.passport-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30px 40px;
+  border-bottom: 1px solid var(--border);
+}
+
+.passport-modal__title {
+  text-transform: uppercase;
+}
+
+.passport-modal__close {
+  background: none;
+  border: none;
+  font-size: 32px;
+  line-height: 1;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+}
+
+.passport-modal__close:hover {
+  opacity: 0.7;
+}
+
+.passport-modal__content {
+  padding: 40px;
+}
+
+.passport-modal__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+.passport-modal__column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.passport-modal__footer {
+  display: flex;
+  gap: 20px;
+  padding: 30px 40px;
+  border-top: 1px solid var(--border);
+}
+
+.passport-modal__button {
+  padding: 12px 30px;
+  font-size: 14px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  font-weight: 500;
+}
+
+.passport-modal__button--clear {
+  background-color: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.passport-modal__button--clear:hover {
+  background-color: var(--border);
+}
+
+.passport-modal__button--save {
+  background-color: var(--text);
+  color: var(--bg);
+}
+
+.passport-modal__button--save:hover {
+  opacity: 0.9;
+}
+
+.passport-modal__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Стили для новых модальных окон (смена пароля и удаление) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal {
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalFadeIn 0.3s ease;
+}
+
+.modal--small {
+  max-width: 450px;
+}
+
+.modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal__title {
+  text-transform: uppercase;
+  font-size: 18px;
+}
+
+.modal__close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+}
+
+.modal__close:hover {
+  opacity: 0.7;
+}
+
+.modal__content {
+  padding: 30px;
+}
+
+.modal__footer {
+  display: flex;
+  gap: 15px;
+  padding: 20px 30px;
+  border-top: 1px solid var(--border);
+}
+
+.modal__button {
+  padding: 10px 25px;
+  font-size: 14px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  font-weight: 500;
+}
+
+.modal__button--clear {
+  background-color: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.modal__button--clear:hover {
+  background-color: var(--border);
+}
+
+.modal__button--save {
+  background-color: var(--text);
+  color: var(--bg);
+}
+
+.modal__button--save:hover {
+  opacity: 0.9;
+}
+
+.modal__button--delete {
+  background-color: #f56c6c;
+  color: white;
+}
+
+.modal__button--delete:hover {
+  opacity: 0.9;
+}
+
+.modal__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal__info {
+  text-align: center;
+}
+
+.modal__info p {
+  margin-bottom: 10px;
+  color: var(--text-gray);
+  font-size: 14px;
+}
+
+.modal__email {
+  font-weight: bold;
+  color: var(--text) !important;
+  font-size: 16px !important;
+  margin: 15px 0;
+}
+
+.modal__hint {
+  font-size: 12px !important;
+  color: #909399 !important;
+  margin-top: 15px;
+}
+
+.modal__warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: rgba(245, 108, 108, 0.05);
+}
+
+.modal__warning svg {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+.modal__warning-text h4 {
+  color: #f56c6c;
+  margin-bottom: 5px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.modal__warning-text p {
+  color: var(--text-gray);
+  font-size: 14px;
+}
+
+/* Стили для Element Plus компонентов */
+:deep(.passport-select) {
+  width: 100%;
+}
+
+:deep(.passport-datepicker) {
+  width: 100%;
+}
+
+:deep(.el-input__wrapper) {
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow: none !important;
+  border-radius: 0;
+  padding: 0 15px;
+  width: 100%;
+  height: 40px;
+}
+
+:deep(.el-input__wrapper:hover) {
+  border-color: var(--text);
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  border-color: var(--text);
+  box-shadow: none !important;
+}
+
+:deep(.el-input__inner) {
+  color: var(--text);
+  font-size: 14px;
+  height: 40px;
+}
+
+:deep(.el-select__caret) {
+  color: var(--text);
+  font-size: 14px;
+}
+
+:deep(.el-picker-popper) {
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+}
+
+:deep(.el-picker-panel) {
+  background-color: var(--bg);
+  border: none;
+}
+
+:deep(.el-date-table td.today .el-date-table-cell) {
+  color: var(--text);
+  font-weight: bold;
+}
+
+:deep(.el-date-table td.current:not(.disabled) .el-date-table-cell) {
+  background-color: var(--text);
+  color: var(--bg);
+}
+
+:deep(.el-date-table td .el-date-table-cell:hover) {
+  background-color: var(--border);
+}
+
+:deep(.el-select-dropdown) {
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+
+:deep(.el-select-dropdown__item) {
+  color: var(--text);
+  font-size: 14px;
+  height: 36px;
+  line-height: 36px;
+}
+
+:deep(.el-select-dropdown__item.hover) {
+  background-color: var(--border);
+}
+
+:deep(.el-select-dropdown__item.selected) {
+  background-color: var(--text);
+  color: var(--bg);
+  font-weight: normal;
+}
+
 @media (max-width: 1919px) {
   .setting__flex {
     gap: 20px;
@@ -1109,6 +1736,44 @@ initializeData()
   }
   .setting__top {
     padding: 0 15px;
+  }
+  
+  .passport-modal__grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .passport-modal__header,
+  .passport-modal__content,
+  .passport-modal__footer {
+    padding: 20px;
+  }
+  
+  .passport-modal__footer {
+    flex-direction: column;
+  }
+  
+  .passport-modal__button {
+    width: 100%;
+  }
+  
+  .modal__header,
+  .modal__content,
+  .modal__footer {
+    padding: 20px;
+  }
+  
+  .modal__footer {
+    flex-direction: column;
+  }
+  
+  .modal__button {
+    width: 100%;
+  }
+  
+  .modal__warning {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
 }
 </style>
