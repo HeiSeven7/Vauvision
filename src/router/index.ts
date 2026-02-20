@@ -86,4 +86,14 @@ const router = createRouter({
   },
 })
 
+// Глобальный перехватчик ошибок навигации
+router.onError((error) => {
+  // Проверяем, связана ли ошибка с 401 (Unauthorized)
+  if (error.message?.includes('401') || error.response?.status === 401) {
+    // Перенаправляем на страницу логина
+    router.push({ name: 'login' })
+  }
+  console.error('Router error:', error)
+})
+
 export default router

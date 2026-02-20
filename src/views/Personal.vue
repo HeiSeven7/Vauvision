@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { ref, computed, onMounted } from "vue";
+import { sendRequest } from '@/utils/api';
 import Header from "@/components/layout/Header.vue";
 // import Footer from "@/components/layout/Footer.vue";
 import Menu from "@/components/layout/Menu.vue";
@@ -430,10 +431,19 @@ const getStatusClass = (status: string) => {
   }
 };
 
+const fetchData = async () => {
+  try {
+    const response = await sendRequest('get', '/ajax/getData.php', {});
+    console.log('Данные из API:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Ошибка при загрузке данных:', error);
+  }
+};
+
 // Инициализация при монтировании
 onMounted(() => {
-  // Здесь может быть логика загрузки данных из API
-  console.log('Компонент Personal загружен');
+  fetchData();
 });
 </script>
 
