@@ -496,7 +496,9 @@ onMounted(() => {
               <h5 class="personal__release_head">Выложите релиз</h5>
               <p class="personal__release_desc">Lorem ipsum dolor sit amet consectetur. Gravida elementum mauris penatibus lectus tellus ac neque mollis. Nascetur pulvinar tellus maecenas venenatis pharetra vulputate odio quis pretium.</p>
             </div>
-            <button class="personal__release_button button__black"><span>Выложить релиз</span></button>
+            <RouterLink class="personal__release_button button__black button" :to="Tr.i18nRoute({ name: 'quiz' })">
+              <span>Выложить релиз</span>
+            </RouterLink>
             <div class="personal__release_image">
               <img src="@/assets/img/personal/release/cassette.webp" alt="">
               <img src="@/assets/img/personal/release/cassette_back.webp" alt="">

@@ -1,53 +1,24 @@
 <script lang="ts" setup>
+import { ref, onMounted } from 'vue';
+import { sendRequest } from '@/utils/api';
 import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
 import ArrowSVG from "@/uikit/icon/ArrowSVG.vue";
-import { ref } from 'vue';
 
 interface FAQItem {
-  id: number;
+  id: number | string;
   question: string;
   answer: string;
   isOpen: boolean;
 }
 
-const faqItems = ref<FAQItem[]>([
-  {
-    id: 1,
-    question: "Как подписать договор?",
-    answer: "После успешного заполнения формы и оплаты вы увидите название своего релиза в разделе 'РЕЛИЗЫ' личного кабинета. Вам нужно скачать договор на данный релиз по кнопке 'Скачать договор'. Подписать его можно двумя способами:\n1) Полученный PDF файл нужно либо распечатать, подписать везде, где есть ваши инициалы и место для подписи, отсканировать (или аккуратно сфотографировать) все страницы, соединить в единый PDF файл и загрузить в личный кабинет по кнопке 'Загрузить договор'.\n2) Зайти на сайт https://smallpdf.com/ru/sign-pdf (или аналогичный), загрузить туда ваш договор, поставить подписи, скачать подписанный PDF документ и загрузить его в личном кабинете по кнопке 'Загрузить договор'.\nГотово!",
-    isOpen: false
-  },
-  {
-    id: 2,
-    question: "Сколько времени занимает публикация релиза?",
-    answer: "Обычно публикация релиза занимает от 7 до 14 рабочих дней. Время может варьироваться в зависимости от загруженности платформ.",
-    isOpen: false
-  },
-  {
-    id: 3,
-    question: "Могу ли я изменить информацию о релизе после публикации?",
-    answer: "Да, вы можете внести изменения в информацию о релизе, но это может потребовать дополнительного времени на модерацию.",
-    isOpen: false
-  },
-  {
-    id: 4,
-    question: "Как отслеживать статистику прослушиваний?",
-    answer: "Статистика доступна в вашем личном кабинете в разделе 'Аналитика'. Данные обновляются ежедневно.",
-    isOpen: false
-  },
-  {
-    id: 5,
-    question: "Какие форматы файлов поддерживаются?",
-    answer: "Мы поддерживаем следующие форматы: WAV (24-bit или 16-bit, 44.1 кГц или выше), FLAC, AIFF. MP3 не рекомендуется для дистрибуции.",
-    isOpen: false
-  }
-]);
-
-const activeItemId = ref<number | null>(null);
+const faqItems = ref<FAQItem[]>([]);
+const activeItemId = ref<number | string | null>(null);
 const contentRefs = ref<HTMLElement[]>([]);
+const isLoading = ref<boolean>(true);
+const error = ref<string | null>(null);
 
-const toggleAccordion = (id: number) => {
+const toggleAccordion = (id: number | string) => {
   if (activeItemId.value === id) {
     // Закрываем текущий элемент
     activeItemId.value = null;
@@ -95,7 +66,7 @@ const setContentRef = (el: HTMLElement, index: number) => {
   contentRefs.value[index] = el;
   
   // Инициализация состояний
-  if (el) {
+  if (el && faqItems.value[index]) {
     const item = faqItems.value[index];
     if (item.isOpen) {
       el.style.maxHeight = el.scrollHeight + 'px';
@@ -106,6 +77,53 @@ const setContentRef = (el: HTMLElement, index: number) => {
     }
   }
 };
+
+const fetchData = async () => {
+  isLoading.value = true;
+  error.value = null;
+  
+  try {
+    const response = await sendRequest('get', '/ajax/getData.php', {});
+    console.log('Данные из API:', response.data);
+    
+    // Проверяем, есть ли данные FAQ в ответе
+    if (response.data && response.data.education && response.data.education.faq) {
+      const apiFaq = response.data.education.faq;
+      
+      // Преобразуем данные из API в формат для компонента
+      faqItems.value = apiFaq.map((item: any, index: number) => ({
+        id: item.ID || index + 1,
+        question: item.NAME || 'Вопрос',
+        answer: item.ANSWER || 'Ответ отсутствует',
+        isOpen: false
+      }));
+    } else {
+      // Если данных нет, используем заглушку или показываем сообщение
+      faqItems.value = [];
+      console.warn('FAQ данные не найдены в ответе API');
+    }
+  } catch (err) {
+    console.error('Ошибка при загрузке данных:', err);
+    error.value = 'Не удалось загрузить данные. Пожалуйста, попробуйте позже.';
+    
+    // Опционально: показать заглушку при ошибке
+    faqItems.value = [
+      {
+        id: 1,
+        question: 'Сервис временно недоступен',
+        answer: 'Пожалуйста, обновите страницу или попробуйте позже.',
+        isOpen: false
+      }
+    ];
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Инициализация при монтировании
+onMounted(() => {
+  fetchData();
+});
 </script>
 
 <template>
@@ -117,9 +135,25 @@ const setContentRef = (el: HTMLElement, index: number) => {
       <div class="faq__content">
         <div class="faq__top">
           <h3 class="faq__head">ответы на ваши вопросы</h3>
-          <p class="faq__desc">Не нашли ответ на вопрос? Написать в поддержку.</p>
+          <p class="faq__desc">
+            Не нашли ответ на вопрос? 
+            <a href="#" class="faq__support-link">Написать в поддержку</a>
+          </p>
         </div>
-        <ul class="faq__list">
+        
+        <!-- Индикатор загрузки -->
+        <div v-if="isLoading" class="faq__loading">
+          <p>Загрузка вопросов...</p>
+        </div>
+        
+        <!-- Сообщение об ошибке -->
+        <div v-else-if="error" class="faq__error">
+          <p>{{ error }}</p>
+          <button @click="fetchData" class="faq__retry-btn">Повторить попытку</button>
+        </div>
+        
+        <!-- Список вопросов -->
+        <ul v-else-if="faqItems.length > 0" class="faq__list">
           <li 
             v-for="(item, index) in faqItems" 
             :key="item.id" 
@@ -144,12 +178,19 @@ const setContentRef = (el: HTMLElement, index: number) => {
               role="region"
               :aria-labelledby="`faq-heading-${item.id}`"
             >
-              <p class="faq__description">
-                {{ item.answer }}
-              </p>
+              <!-- Используем v-html для отображения HTML из API -->
+              <div 
+                class="faq__description"
+                v-html="item.answer"
+              ></div>
             </div>
           </li>
         </ul>
+        
+        <!-- Сообщение если нет вопросов -->
+        <div v-else class="faq__empty">
+          <p>Вопросы временно отсутствуют</p>
+        </div>
       </div>
     </div>
   </div>
@@ -173,6 +214,14 @@ const setContentRef = (el: HTMLElement, index: number) => {
 }
 .faq__head {
   text-transform: uppercase;
+}
+.faq__support-link {
+  color: var(--primary);
+  text-decoration: underline;
+  transition: opacity 0.3s ease;
+}
+.faq__support-link:hover {
+  opacity: 0.8;
 }
 .faq__list {
   display: flex;
@@ -224,6 +273,40 @@ const setContentRef = (el: HTMLElement, index: number) => {
   max-width: 780px;
   padding: 0 40px 40px;
 }
+.faq__description :deep(p) {
+  margin-bottom: 15px;
+}
+.faq__description :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.faq__description :deep(a) {
+  color: var(--primary);
+  text-decoration: underline;
+}
+.faq__description :deep(b),
+.faq__description :deep(strong) {
+  font-weight: 600;
+}
+.faq__loading,
+.faq__error,
+.faq__empty {
+  padding: 60px 40px;
+  text-align: center;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+}
+.faq__retry-btn {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.3s ease;
+}
+.faq__retry-btn:hover {
+  opacity: 0.8;
+}
 @media (max-width: 1919px) {
   .faq__flex {
     gap: 20px;
@@ -262,6 +345,11 @@ const setContentRef = (el: HTMLElement, index: number) => {
   }
   .faq__description {
     padding: 0 20px 20px;
+  }
+  .faq__loading,
+  .faq__error,
+  .faq__empty {
+    padding: 40px 20px;
   }
 }
 </style>
