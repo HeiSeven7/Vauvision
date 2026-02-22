@@ -57,11 +57,13 @@ interface ActResponse {
 
 // Данные из API
 const profileData = ref({
-  balance: 10000,
+  balance: 0,
   bonus: 0,
   region: 'Russia'
 });
 
+const minWithdraw = ref(1000);
+const minBonusWithdraw = ref(100);
 const showReportButton = ref(false);
 const reportYears = ref<string[]>([]);
 const selectedYear = ref<string>('');
@@ -574,6 +576,12 @@ const fetchData = async () => {
       profileData.value.region = response.data.profile.region || 'Russia';
     }
     
+    // Сохраняем минимальные суммы для выплат
+    if (response.data) {
+      minWithdraw.value = response.data.minWithdraw || 1000;
+      minBonusWithdraw.value = response.data.minBonusWithdraw || 100;
+    }
+    
     // Сохраняем reportYears из ответа API
     if (response.data && response.data.reportYears) {
       reportYears.value = response.data.reportYears;
@@ -595,8 +603,14 @@ const fetchData = async () => {
   }
 };
 
-// Функция для запроса выплаты
+// Функция для запроса выплаты с баланса
 const requestPayout = async () => {
+  // Проверяем минимальную сумму для выплаты
+  if (profileData.value.balance < minWithdraw.value) {
+    alert(`Минимальная сумма для выплаты: ${minWithdraw.value} ₽`);
+    return;
+  }
+
   try {
     const valuta = profileData.value.region === 'Russia' ? 'RUB' : 'USD';
     const summ = profileData.value.balance;
@@ -624,6 +638,36 @@ const requestPayout = async () => {
   }
 };
 
+// Функция для запроса выплаты бонусов
+const requestBonusPayout = async () => {
+  // Проверяем минимальную сумму для выплаты бонусов
+  if (profileData.value.bonus < minBonusWithdraw.value) {
+    alert(`Минимальная сумма для выплаты бонусов: ${minBonusWithdraw.value}`);
+    return;
+  }
+
+  try {
+    const valuta = profileData.value.region === 'Russia' ? 'RUB' : 'USD';
+    const summ = profileData.value.bonus;
+
+    const response = await sendRequest('post', '/ajax/profile/bonusVyplata.php', {
+      summ,
+      valuta
+    });
+
+    if (response.data && response.data.success) {
+      alert('Запрос на выплату бонусов успешно отправлен');
+      // Обновляем данные после успешной выплаты
+      await fetchData();
+    } else {
+      alert(response.data?.message || 'Ошибка при запросе выплаты бонусов');
+    }
+  } catch (error) {
+    console.error('Ошибка при запросе выплаты бонусов:', error);
+    alert('Не удалось отправить запрос на выплату бонусов');
+  }
+};
+
 // Функция для отправки подписи
 const submitSignature = async (signatureDataUrl: string) => {
   if (!actData.value) return;
@@ -638,7 +682,6 @@ const submitSignature = async (signatureDataUrl: string) => {
     formData.append('paymentId', actData.value.paymentId);
     formData.append('signature', signatureFile);
 
-    // ИСПРАВЛЕНО: sendRequest принимает (method, url, data, config)
     const submitResponse = await sendRequest('post', '/ajax/newAkt_vyp.php', formData);
 
     if (submitResponse.data && submitResponse.data.success) {
@@ -647,7 +690,7 @@ const submitSignature = async (signatureDataUrl: string) => {
       // Обновляем баланс после успешной выплаты
       await fetchData();
     } else {
-      alert('Ошибка при отправке подписи');
+      alert(submitResponse.data?.message || 'Ошибка при отправке подписи');
     }
   } catch (error) {
     console.error('Ошибка при отправке подписи:', error);
@@ -698,13 +741,16 @@ onMounted(() => {
                   <span class="personal__balance_description text_one">Счет</span>
                   {{ profileData.balance.toLocaleString() }} ₽
                 </h4>
+                <p class="personal__balance_desc" v-if="profileData.balance < minWithdraw">
+                  Минимальная сумма для выплаты: {{ minWithdraw }} ₽
+                </p>
               </div>
             </div>
             <button 
               class="personal__balance_button button__primary"
               @click="requestPayout"
-              :disabled="profileData.balance <= 0"
-              :class="{ 'button__disabled': profileData.balance <= 0 }"
+              :disabled="profileData.balance < minWithdraw"
+              :class="{ 'button__disabled': profileData.balance < minWithdraw }"
             >
               <span>Запросить выплаты</span>
             </button>
@@ -717,9 +763,19 @@ onMounted(() => {
                   <span class="personal__balance_description text_one">Бонусы партнера</span>
                   {{ profileData.bonus.toLocaleString() }}
                 </h4>
+                <p class="personal__balance_desc" v-if="profileData.bonus < minBonusWithdraw">
+                  Минимальная сумма для выплаты: {{ minBonusWithdraw }}
+                </p>
               </div>
             </div>
-            <button class="personal__balance_button button__primary"><span>Запросить выплаты бонусов</span></button>
+            <button 
+              class="personal__balance_button button__primary"
+              @click="requestBonusPayout"
+              :disabled="profileData.bonus < minBonusWithdraw"
+              :class="{ 'button__disabled': profileData.bonus < minBonusWithdraw }"
+            >
+              <span>Запросить выплаты бонусов</span>
+            </button>
           </li>
         </ul>
       </div>
@@ -1990,4 +2046,4 @@ onMounted(() => {
     flex: none;
   }
 }
-</style>
+</style>ы
