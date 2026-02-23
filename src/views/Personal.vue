@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { sendRequest } from '@/utils/api';
 import Header from "@/components/layout/Header.vue";
 // import Footer from "@/components/layout/Footer.vue";
@@ -15,16 +15,27 @@ import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
 import Tr from "@/i18n/translation"
 import Signature from "@/components/layout/Signature.vue";
 
+// Получаем базовый URL из текущего окна
+const API_BASE_URL = window.location.origin;
+
 // Интерфейсы для объектов списков
 interface Release {
-  id: number;
-  title: string;
-  type: string;
-  album: string;
+  id: string | number;
+  name: string;
   date: string;
-  image: string;
-  upcCode: string;
-  link: string;
+  image?: string;
+  upcCode?: string;
+  link?: string;
+  contractFile?: string | null;
+  hasPng?: boolean;
+  previewText?: string | null;
+  propertyDateRelizValue?: string;
+  propertyDopValue?: string | null;
+  propertyNewDocxValue?: string;
+  propertyDogovorUserValue?: string | null;
+  propertyDogovorPdfValue?: string | null;
+  propertyLinkValue?: string | null;
+  propertyDogovorStatusValue?: string | null;
 }
 
 interface Report {
@@ -39,9 +50,10 @@ interface Transaction {
   id: number;
   type: string;
   date: string;
-  period: string;
+  period: string | null;
   status: 'completed' | 'processing' | 'cancelled';
   amount: string;
+  currency?: string;
 }
 
 interface Quarter {
@@ -57,7 +69,7 @@ interface ActResponse {
 
 // Данные из API
 const profileData = ref({
-  balance: 10000,
+  balance: 0,
   bonus: 0,
   region: 'Russia'
 });
@@ -72,385 +84,250 @@ const showSignaturePopup = ref(false);
 const actData = ref<ActResponse | null>(null);
 const userLabel = ref(0);
 
-// Доступные кварталы
-const quarters: Quarter[] = [
-  { id: 'Q1', name: 'Q1', months: 'декабрь, январь, февраль' },
-  { id: 'Q2', name: 'Q2', months: 'март, апрель, май' },
-  { id: 'Q3', name: 'Q3', months: 'июнь, июль, август' },
-  { id: 'Q4', name: 'Q4', months: 'сентябрь, октябрь, ноябрь' }
-];
+// Список кварталов из API
+const availableQuarters = ref<Quarter[]>([]);
 
-// Объекты для списка релизов
-const releasesData = ref<Release[]>([
-  {
-    id: 1,
-    title: "Where Have You Been (Orchestra)",
-    type: "Сингл",
-    album: "Lune",
-    date: "10.10.2025",
-    image: "releases_1.webp",
-    upcCode: "8712",
-    link: "https://www.google.com"
-  },
-  {
-    id: 2,
-    title: "Where Have You Been (Orchestra)",
-    type: "Альбом",
-    album: "Lune",
-    date: "10.10.2025",
-    image: "releases_2.webp",
-    upcCode: "8713",
-    link: "https://www.google.com"
-  },
-  {
-    id: 3,
-    title: "Where Have You Been (Orchestra)",
-    type: "Сингл",
-    album: "Lune",
-    date: "10.10.2025",
-    image: "releases_3.webp",
-    upcCode: "8714",
-    link: "https://www.google.com"
-  },
-  {
-    id: 4,
-    title: "Where Have You Been (Orchestra)",
-    type: "Сингл",
-    album: "Lune",
-    date: "10.10.2025",
-    image: "releases_4.webp",
-    upcCode: "8715",
-    link: "https://www.google.com"
-  },
-  {
-    id: 5,
-    title: "Where Have You Been (Orchestra)",
-    type: "Сингл",
-    album: "Lune",
-    date: "10.10.2025",
-    image: "releases_5.webp",
-    upcCode: "8716",
-    link: "https://www.google.com"
-  },
-  {
-    id: 6,
-    title: "Moonlight Sonata",
-    type: "Альбом",
-    album: "Classical Collection",
-    date: "15.10.2025",
-    image: "releases_1.webp",
-    upcCode: "8717",
-    link: "https://www.apple.com"
-  },
-  {
-    id: 7,
-    title: "Summer Vibes",
-    type: "Сингл",
-    album: "Beach Hits",
-    date: "20.10.2025",
-    image: "releases_2.webp",
-    upcCode: "8718",
-    link: "https://www.spotify.com"
-  },
-  {
-    id: 8,
-    title: "Winter Dreams",
-    type: "Альбом",
-    album: "Seasonal",
-    date: "25.10.2025",
-    image: "releases_3.webp",
-    upcCode: "8719",
-    link: "https://www.youtube.com"
-  },
-  {
-    id: 9,
-    title: "Autumn Leaves",
-    type: "Сингл",
-    album: "Seasonal",
-    date: "30.10.2025",
-    image: "releases_4.webp",
-    upcCode: "8720",
-    link: "https://www.deezer.com"
-  },
-  {
-    id: 10,
-    title: "Spring Flowers",
-    type: "Сингл",
-    album: "Seasonal",
-    date: "05.11.2025",
-    image: "releases_5.webp",
-    upcCode: "8721",
-    link: "https://www.tidal.com"
-  }
-]);
+// Данные для списков
+const releasesData = ref<Release[]>([]);
+const reportsData = ref<Report[]>([]);
+const transactionsData = ref<Transaction[]>([]);
 
-// Объекты для списка отчетов
-const reportsData = ref<Report[]>([
-  {
-    id: 1,
-    filename: "ArtistName Q1 2025.pdf",
-    filesize: "2.4 MB",
-    date: "12.10.2025",
-    hasAct: true
-  },
-  {
-    id: 2,
-    filename: "ArtistName Q2 2025.pdf",
-    filesize: "3.1 MB",
-    date: "05.04.2025",
-    hasAct: true
-  },
-  {
-    id: 3,
-    filename: "ArtistName Q3 2025.pdf",
-    filesize: "5.7 MB",
-    date: "15.01.2025",
-    hasAct: true
-  },
-  {
-    id: 4,
-    filename: "ArtistName Q4 2024.pdf",
-    filesize: "4.2 MB",
-    date: "20.12.2024",
-    hasAct: true
-  },
-  {
-    id: 5,
-    filename: "ArtistName Q1 2024.pdf",
-    filesize: "3.8 MB",
-    date: "10.10.2024",
-    hasAct: true
-  },
-  {
-    id: 6,
-    filename: "ArtistName Q2 2024.pdf",
-    filesize: "4.5 MB",
-    date: "05.07.2024",
-    hasAct: true
-  },
-  {
-    id: 7,
-    filename: "ArtistName Q3 2024.pdf",
-    filesize: "5.2 MB",
-    date: "15.04.2024",
-    hasAct: true
-  },
-  {
-    id: 8,
-    filename: "ArtistName Q4 2023.pdf",
-    filesize: "3.9 MB",
-    date: "20.12.2023",
-    hasAct: true
-  },
-  {
-    id: 9,
-    filename: "ArtistName Q1 2023.pdf",
-    filesize: "2.8 MB",
-    date: "10.10.2023",
-    hasAct: true
-  },
-  {
-    id: 10,
-    filename: "ArtistName Q2 2023.pdf",
-    filesize: "3.3 MB",
-    date: "05.07.2023",
-    hasAct: true
-  }
-]);
+// Состояние загрузки
+const isLoadingReleases = ref(false);
+const isLoadingReports = ref(false);
+const isLoadingTransactions = ref(false);
+const isLoadingQuarters = ref(false);
+const isDownloading = ref(false);
 
-// Объекты для списка транзакций
-const transactionsData = ref<Transaction[]>([
-  {
-    id: 1,
-    type: "Выплата роялти",
-    date: "15.10.2025",
-    period: "Q3 2025",
-    status: "completed",
-    amount: "55 000 ₽"
-  },
-  {
-    id: 2,
-    type: "Пополнение счета",
-    date: "10.10.2025",
-    period: "-",
-    status: "completed",
-    amount: "55 000 ₽"
-  },
-  {
-    id: 3,
-    type: "Выплата бонусов",
-    date: "05.10.2025",
-    period: "Сентябрь 2025",
-    status: "processing",
-    amount: "55 000 ₽"
-  },
-  {
-    id: 4,
-    type: "Комиссия сервиса",
-    date: "01.10.2025",
-    period: "-",
-    status: "completed",
-    amount: "55 000 ₽"
-  },
-  {
-    id: 5,
-    type: "Выплата роялти",
-    date: "15.09.2025",
-    period: "Q2 2025",
-    status: "completed",
-    amount: "48 500 ₽"
-  },
-  {
-    id: 6,
-    type: "Пополнение счета",
-    date: "10.09.2025",
-    period: "-",
-    status: "completed",
-    amount: "25 000 ₽"
-  },
-  {
-    id: 7,
-    type: "Выплата бонусов",
-    date: "05.09.2025",
-    period: "Август 2025",
-    status: "completed",
-    amount: "12 300 ₽"
-  },
-  {
-    id: 8,
-    type: "Комиссия сервиса",
-    date: "01.09.2025",
-    period: "-",
-    status: "completed",
-    amount: "5 500 ₽"
-  },
-  {
-    id: 9,
-    type: "Выплата роялти",
-    date: "15.08.2025",
-    period: "Q1 2025",
-    status: "completed",
-    amount: "42 000 ₽"
-  },
-  {
-    id: 10,
-    type: "Отмена выплаты",
-    date: "10.08.2025",
-    period: "-",
-    status: "cancelled",
-    amount: "10 000 ₽"
-  },
-  {
-    id: 11,
-    type: "Выплата бонусов",
-    date: "05.08.2025",
-    period: "Июль 2025",
-    status: "completed",
-    amount: "8 750 ₽"
-  },
-  {
-    id: 12,
-    type: "Комиссия сервиса",
-    date: "01.08.2025",
-    period: "-",
-    status: "completed",
-    amount: "4 200 ₽"
-  }
-]);
+// Общая информация о пагинации из API
+const releasesPagination = ref({
+  currentPage: 1,
+  perPage: 6,
+  total: "0"
+});
+
+const reportsPagination = ref({
+  currentPage: 1,
+  perPage: 3,
+  total: "0"
+});
+
+const transactionsPagination = ref({
+  currentPage: 1,
+  perPage: 6,
+  total: "0"
+});
 
 // Пагинация для релизов
-const releasesPerPage = ref<number>(5);
+const releasesPerPage = ref<number>(6);
 const currentReleasesPage = ref<number>(1);
+const totalReleasesItems = computed(() => parseInt(releasesPagination.value.total) || 0);
 
 // Пагинация для отчетов
 const reportsPerPage = ref<number>(3);
 const currentReportsPage = ref<number>(1);
+const totalReportsItems = computed(() => parseInt(reportsPagination.value.total) || 0);
 
 // Пагинация для транзакций
-const transactionsPerPage = ref<number>(4);
+const transactionsPerPage = ref<number>(6);
 const currentTransactionsPage = ref<number>(1);
+const totalTransactionsItems = computed(() => parseInt(transactionsPagination.value.total) || 0);
 
 // Вычисляемые свойства для релизов
 const totalReleasesPages = computed(() => {
-  return Math.ceil(releasesData.value.length / releasesPerPage.value);
+  return Math.ceil(totalReleasesItems.value / releasesPerPage.value);
 });
 
 const paginatedReleases = computed(() => {
-  const start = (currentReleasesPage.value - 1) * releasesPerPage.value;
-  const end = start + releasesPerPage.value;
-  return releasesData.value.slice(start, end);
+  return releasesData.value;
 });
 
 const showReleasesPagination = computed(() => {
-  return releasesData.value.length > releasesPerPage.value;
+  return totalReleasesItems.value > releasesPerPage.value;
 });
 
 // Вычисляемые свойства для отчетов
 const totalReportsPages = computed(() => {
-  return Math.ceil(reportsData.value.length / reportsPerPage.value);
+  return Math.ceil(totalReportsItems.value / reportsPerPage.value);
 });
 
 const paginatedReports = computed(() => {
-  const start = (currentReportsPage.value - 1) * reportsPerPage.value;
-  const end = start + reportsPerPage.value;
-  return reportsData.value.slice(start, end);
+  return reportsData.value;
 });
 
 const showReportsPagination = computed(() => {
-  return reportsData.value.length > reportsPerPage.value;
+  return totalReportsItems.value > reportsPerPage.value;
 });
 
 // Вычисляемые свойства для транзакций
 const totalTransactionsPages = computed(() => {
-  return Math.ceil(transactionsData.value.length / transactionsPerPage.value);
+  return Math.ceil(totalTransactionsItems.value / transactionsPerPage.value);
 });
 
 const paginatedTransactions = computed(() => {
-  const start = (currentTransactionsPage.value - 1) * transactionsPerPage.value;
-  const end = start + transactionsPerPage.value;
-  return transactionsData.value.slice(start, end);
+  return transactionsData.value;
 });
 
 const showTransactionsPagination = computed(() => {
-  return transactionsData.value.length > transactionsPerPage.value;
+  return totalTransactionsItems.value > transactionsPerPage.value;
 });
 
 // Методы для пагинации релизов
-const nextReleasesPage = () => {
+const nextReleasesPage = async () => {
   if (currentReleasesPage.value < totalReleasesPages.value) {
     currentReleasesPage.value++;
+    await fetchReleasesPage(currentReleasesPage.value);
   }
 };
 
-const prevReleasesPage = () => {
+const prevReleasesPage = async () => {
   if (currentReleasesPage.value > 1) {
     currentReleasesPage.value--;
+    await fetchReleasesPage(currentReleasesPage.value);
   }
 };
 
 // Методы для пагинации отчетов
-const nextReportsPage = () => {
+const nextReportsPage = async () => {
   if (currentReportsPage.value < totalReportsPages.value) {
     currentReportsPage.value++;
+    await fetchReportsPage(currentReportsPage.value);
   }
 };
 
-const prevReportsPage = () => {
+const prevReportsPage = async () => {
   if (currentReportsPage.value > 1) {
     currentReportsPage.value--;
+    await fetchReportsPage(currentReportsPage.value);
   }
 };
 
 // Методы для пагинации транзакций
-const nextTransactionsPage = () => {
+const nextTransactionsPage = async () => {
   if (currentTransactionsPage.value < totalTransactionsPages.value) {
     currentTransactionsPage.value++;
+    await fetchTransactionsPage(currentTransactionsPage.value);
   }
 };
 
-const prevTransactionsPage = () => {
+const prevTransactionsPage = async () => {
   if (currentTransactionsPage.value > 1) {
     currentTransactionsPage.value--;
+    await fetchTransactionsPage(currentTransactionsPage.value);
+  }
+};
+
+// Функция для формирования полного URL
+const getFullUrl = (path: string) => {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${API_BASE_URL}${cleanPath}`;
+};
+
+// Функция для загрузки страницы релизов
+const fetchReleasesPage = async (page: number) => {
+  isLoadingReleases.value = true;
+  try {
+    const response = await sendRequest('get', `/ajax/getData.php?PAGEN_1=${page}`, {});
+    
+    if (response.data && response.data.releases) {
+      releasesData.value = response.data.releases.items.map((item: any) => ({
+        id: item.ID || item.id,
+        name: item.NAME || item.name,
+        date: item.DATE_CREATE || item.date,
+        upcCode: item.PROPERTY_ZVONKO_UPC_VALUE,
+        link: item.PROPERTY_ZVONKO_SMART_LINK_URL_VALUE,
+        contractFile: item.CONTRACT_FILE ? getFullUrl(item.CONTRACT_FILE) : null,
+        hasPng: item.HAS_PNG,
+        previewText: item.PREVIEW_TEXT,
+        propertyDateRelizValue: item.PROPERTY_DATE_RELIZ_VALUE,
+        propertyDopValue: item.PROPERTY_DOP_VALUE,
+        propertyNewDocxValue: item.PROPERTY_NEW_DOCX_VALUE,
+        propertyDogovorUserValue: item.PROPERTY_DOGOVOR_USER_VALUE,
+        propertyDogovorPdfValue: item.PROPERTY_DOGOVOR_PDF_VALUE ? getFullUrl(item.PROPERTY_DOGOVOR_PDF_VALUE) : null,
+        propertyLinkValue: item.PROPERTY_LINK_VALUE,
+        propertyDogovorStatusValue: item.PROPERTY_DOGOVOR_STATUS_VALUE
+      }));
+      
+      releasesPagination.value = {
+        currentPage: response.data.releases.currentPage || page,
+        perPage: response.data.releases.perPage || releasesPerPage.value,
+        total: response.data.releases.total || "0"
+      };
+      
+      currentReleasesPage.value = releasesPagination.value.currentPage;
+    }
+  } catch (error) {
+    console.error('Ошибка при загрузке релизов:', error);
+  } finally {
+    isLoadingReleases.value = false;
+  }
+};
+
+// Функция для загрузки страницы отчетов
+const fetchReportsPage = async (page: number) => {
+  isLoadingReports.value = true;
+  try {
+    const response = await sendRequest('get', `/ajax/getData.php?PAGEN_3=${page}`, {});
+    
+    if (response.data && response.data.reports) {
+      reportsData.value = response.data.reports.items.map((item: any) => ({
+        id: item.ID || item.id,
+        filename: item.FILENAME || item.filename || 'Отчет',
+        filesize: item.FILESIZE || item.filesize || '0 KB',
+        date: item.DATE || item.date || '',
+        hasAct: item.HAS_ACT || item.hasAct || false
+      }));
+      
+      reportsPagination.value = {
+        currentPage: response.data.reports.currentPage || page,
+        perPage: response.data.reports.perPage || reportsPerPage.value,
+        total: response.data.reports.total || "0"
+      };
+      
+      currentReportsPage.value = reportsPagination.value.currentPage;
+    }
+  } catch (error) {
+    console.error('Ошибка при загрузке отчетов:', error);
+  } finally {
+    isLoadingReports.value = false;
+  }
+};
+
+// Функция для загрузки страницы транзакций
+const fetchTransactionsPage = async (page: number) => {
+  isLoadingTransactions.value = true;
+  try {
+    const response = await sendRequest('get', `/ajax/getData.php?PAGEN_2=${page}`, {});
+    
+    if (response.data && response.data.finances) {
+      transactionsData.value = response.data.finances.items.map((item: any, index: number) => ({
+        id: item.ID || index + 1,
+        type: item.TYPE || 'Транзакция',
+        date: item.DATE || '',
+        period: item.PERIOD || '-',
+        status: item.STATUS === 'В обработке' ? 'processing' : 
+                item.STATUS === 'Завершено' ? 'completed' : 
+                item.STATUS === 'Отменено' ? 'cancelled' : 'processing',
+        amount: item.SUM ? `${Number(item.SUM).toLocaleString()} ${item.CURRENCY || '₽'}` : '0 ₽',
+        currency: item.CURRENCY
+      }));
+      
+      transactionsPagination.value = {
+        currentPage: response.data.finances.currentPage || page,
+        perPage: response.data.finances.perPage || transactionsPerPage.value,
+        total: response.data.finances.total || "0"
+      };
+      
+      currentTransactionsPage.value = transactionsPagination.value.currentPage;
+    }
+  } catch (error) {
+    console.error('Ошибка при загрузке транзакций:', error);
+  } finally {
+    isLoadingTransactions.value = false;
   }
 };
 
@@ -468,11 +345,123 @@ const getStatusClass = (status: string) => {
   }
 };
 
-// Функция для выбора года
-const selectYear = (year: string) => {
+// Функция для перевода статуса
+const getStatusText = (status: string) => {
+  switch (status) {
+    case 'completed':
+      return 'Завершено';
+    case 'processing':
+      return 'В обработке';
+    case 'cancelled':
+      return 'Отменено';
+    default:
+      return status;
+  }
+};
+
+// Функция для выбора года - теперь выводит список кварталов
+const selectYear = async (year: string) => {
   selectedYear.value = year;
-  showReportPopup.value = false;
-  showQuarterPopup.value = true;
+  
+  isLoadingQuarters.value = true;
+  try {
+    // Отправляем POST запрос с ID = выбранный год
+    const response = await sendRequest('post', '/ajax/profile/kvartal.php', {
+      ID: year
+    });
+    
+    console.log('Ответ с кварталами (HTML):', response.data);
+    
+    // Получаем HTML с сервера
+    const quartersHtml = response.data;
+    
+    // Создаем временный DOM элемент для парсинга HTML
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(quartersHtml, 'text/html');
+    
+    // Находим все radio input'ы с кварталами
+    const radioInputs = doc.querySelectorAll('input[name="QUARTER_ID"]');
+    
+    console.log('Найдено radio inputs:', radioInputs.length);
+    
+    // Очищаем предыдущие кварталы
+    availableQuarters.value = [];
+    
+    // Проходим по всем найденным input'ам
+    radioInputs.forEach((input: Element) => {
+      const value = input.getAttribute('value');
+      // Ищем соответствующий label
+      const label = doc.querySelector(`label[for="${input.id}"]`);
+      let text = '';
+      
+      if (label) {
+        const span = label.querySelector('span');
+        text = span ? span.textContent || '' : label.textContent || '';
+      }
+      
+      console.log('Найден квартал:', { value, text });
+      
+      if (value) {
+        // Пробуем извлечь название и месяцы из текста
+        // Текст обычно в формате "Q3 (июнь, июль, август)"
+        const match = text.match(/(Q[1-4])\s*\((.+)\)/);
+        if (match) {
+          availableQuarters.value.push({
+            id: value,
+            name: match[1],
+            months: match[2]
+          });
+        } else {
+          // Если не удалось распарсить, просто сохраняем как есть
+          availableQuarters.value.push({
+            id: value,
+            name: text || value,
+            months: ''
+          });
+        }
+      }
+    });
+    
+    // Если не нашли через input'ы, пробуем найти option (на случай если это select)
+    if (availableQuarters.value.length === 0) {
+      const select = doc.querySelector('select[name="QUARTER_ID"]');
+      if (select) {
+        const options = select.querySelectorAll('option');
+        options.forEach((option: Element) => {
+          const value = option.getAttribute('value');
+          const text = option.textContent || '';
+          
+          if (value) {
+            const match = text.match(/(Q[1-4])\s*\((.+)\)/);
+            if (match) {
+              availableQuarters.value.push({
+                id: value,
+                name: match[1],
+                months: match[2]
+              });
+            } else {
+              availableQuarters.value.push({
+                id: value,
+                name: text,
+                months: ''
+              });
+            }
+          }
+        });
+      }
+    }
+    
+    console.log('Обработанные кварталы:', availableQuarters.value);
+    
+    showReportPopup.value = false;
+    showQuarterPopup.value = true;
+    
+  } catch (error) {
+    console.error('Ошибка при загрузке кварталов:', error);
+    alert('Не удалось загрузить список кварталов');
+  } finally {
+    isLoadingQuarters.value = false;
+  }
 };
 
 // Функция для скачивания отчета по кварталу
@@ -482,64 +471,66 @@ const downloadReport = async () => {
     return;
   }
 
+  isDownloading.value = true;
   try {
-    console.log('Отправляем запрос на скачивание отчета...');
-    console.log('Параметры:', {
+    const requestData = {
       LABLE_1: userLabel.value,
       QUARTER_ID: selectedQuarter.value,
       YEAR_ID: selectedYear.value
+    };
+    
+    // Используем fetch вместо sendRequest
+    const response = await fetch('/ajax/profile/report.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData)
     });
     
-    const response = await sendRequest('post', '/ajax/profile/report.php', {
-      LABLE_1: userLabel.value,
-      QUARTER_ID: selectedQuarter.value,
-      YEAR_ID: selectedYear.value
-    });
+    const data = await response.json();
+    console.log('Ответ от сервера:', data);
     
-    console.log('Ответ от сервера:', response);
-    
-    // Проверяем наличие ошибки в ответе
-    if (response.data && response.data.error) {
-      alert(`Ошибка при формировании отчета: ${response.data.error}`);
-      return;
-    }
-    
-    // Обработка успешного ответа - ожидаем ссылку на скачивание
-    if (response.data && response.data.url) {
-      // Открываем ссылку в новом окне
-      window.open(response.data.url, '_blank');
-      closeAllPopups();
-    } else if (typeof response.data === 'string' && response.data.startsWith('http')) {
-      // Если приходит строка с URL
-      window.open(response.data, '_blank');
-      closeAllPopups();
-    } else if (response.data && response.data.message) {
-      alert(response.data.message);
-      closeAllPopups();
-    } else {
-      console.log('Неожиданный формат ответа:', response.data);
-      alert('Отчет сформирован. Проверьте ссылку в консоли браузера.');
-      closeAllPopups();
-    }
-    
-  } catch (error: unknown) {
-    console.error('Ошибка при скачивании отчета:', error);
-    
-    // Показываем понятное сообщение пользователю с проверкой типа
-    if (error && typeof error === 'object' && 'response' in error) {
-      const axiosError = error as { response?: { data?: { message?: string } } };
-      if (axiosError.response?.data?.message) {
-        alert(`Ошибка: ${axiosError.response.data.message}`);
+    if (data.message) {
+      // Если есть ссылка для скачивания
+      if (data.error === 0 && data.message.startsWith('http')) {
+        // Создаем ссылку для скачивания
+        const link = document.createElement('a');
+        link.href = data.message;
+        link.download = ''; // Пустое значение - использовать имя из URL
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        closeAllPopups();
       } else {
-        alert('Не удалось сформировать отчет. Ошибка на сервере. Пожалуйста, обратитесь в поддержку.');
+        // Просто показываем сообщение
+        alert(data.message);
       }
-    } else {
-      alert('Не удалось сформировать отчет. Ошибка на сервере. Пожалуйста, обратитесь в поддержку.');
     }
+    
+  } catch (error) {
+    console.error('Ошибка при запросе:', error);
+    alert('Произошла ошибка при запросе');
+  } finally {
+    isDownloading.value = false;
   }
 };
 
 const showReportPopupFunc = () => {
+  // Проверяем что profile.showReportButton = true
+  if (!showReportButton.value) {
+    alert('Кнопка скачивания отчета недоступна');
+    return;
+  }
+  
+  // Проверяем reportYears - если массив пустой, то нет отчетов
+  if (reportYears.value.length === 0) {
+    alert('Нет доступных отчетов');
+    return;
+  }
+  
   showReportPopup.value = true;
   document.documentElement.classList.add('noscroll');
 };
@@ -551,6 +542,7 @@ const closeAllPopups = () => {
   showSignaturePopup.value = false;
   selectedYear.value = '';
   selectedQuarter.value = '';
+  availableQuarters.value = [];
   actData.value = null;
   document.documentElement.classList.remove('noscroll');
 };
@@ -560,18 +552,20 @@ const backToYearSelection = () => {
   showQuarterPopup.value = false;
   showReportPopup.value = true;
   selectedQuarter.value = '';
+  availableQuarters.value = [];
 };
 
 const fetchData = async () => {
   try {
     const response = await sendRequest('get', '/ajax/getData.php', {});
-    console.log('Данные из API:', response.data);
     
     // Обновляем данные профиля из ответа API
     if (response.data && response.data.profile) {
       profileData.value.balance = response.data.profile.balance || 0;
       profileData.value.bonus = response.data.profile.bonus || 0;
       profileData.value.region = response.data.profile.region || 'Russia';
+      showReportButton.value = response.data.profile.showReportButton || false;
+      userLabel.value = response.data.profile.ufLable || 0;
     }
     
     // Сохраняем reportYears из ответа API
@@ -579,14 +573,72 @@ const fetchData = async () => {
       reportYears.value = response.data.reportYears;
     }
     
-    // Универсальное получение showReportButton
-    if (response.data) {
-      // Проверяем разные возможные пути
-      showReportButton.value = 
-        response.data.showReportButton || 
-        (response.data.profile && response.data.profile.showReportButton) || 
-        false;
-      console.log('showReportButton значение:', showReportButton.value);
+    // Загружаем релизы
+    if (response.data && response.data.releases) {
+      releasesData.value = response.data.releases.items.map((item: any) => ({
+        id: item.ID || item.id,
+        name: item.NAME || item.name,
+        date: item.DATE_CREATE || item.date,
+        upcCode: item.PROPERTY_ZVONKO_UPC_VALUE,
+        link: item.PROPERTY_ZVONKO_SMART_LINK_URL_VALUE,
+        contractFile: item.CONTRACT_FILE ? getFullUrl(item.CONTRACT_FILE) : null,
+        hasPng: item.HAS_PNG,
+        previewText: item.PREVIEW_TEXT,
+        propertyDateRelizValue: item.PROPERTY_DATE_RELIZ_VALUE,
+        propertyDopValue: item.PROPERTY_DOP_VALUE,
+        propertyNewDocxValue: item.PROPERTY_NEW_DOCX_VALUE,
+        propertyDogovorUserValue: item.PROPERTY_DOGOVOR_USER_VALUE,
+        propertyDogovorPdfValue: item.PROPERTY_DOGOVOR_PDF_VALUE ? getFullUrl(item.PROPERTY_DOGOVOR_PDF_VALUE) : null,
+        propertyLinkValue: item.PROPERTY_LINK_VALUE,
+        propertyDogovorStatusValue: item.PROPERTY_DOGOVOR_STATUS_VALUE
+      }));
+      
+      releasesPagination.value = {
+        currentPage: response.data.releases.currentPage || 1,
+        perPage: response.data.releases.perPage || releasesPerPage.value,
+        total: response.data.releases.total || "0"
+      };
+      currentReleasesPage.value = releasesPagination.value.currentPage;
+    }
+    
+    // Загружаем отчеты (первая страница)
+    if (response.data && response.data.reports) {
+      reportsData.value = response.data.reports.items.map((item: any) => ({
+        id: item.ID || item.id,
+        filename: item.FILENAME || item.filename || 'Отчет',
+        filesize: item.FILESIZE || item.filesize || '0 KB',
+        date: item.DATE || item.date || '',
+        hasAct: item.HAS_ACT || item.hasAct || false
+      }));
+      
+      reportsPagination.value = {
+        currentPage: response.data.reports.currentPage || 1,
+        perPage: response.data.reports.perPage || reportsPerPage.value,
+        total: response.data.reports.total || "0"
+      };
+      currentReportsPage.value = reportsPagination.value.currentPage;
+    }
+    
+    // Загружаем транзакции
+    if (response.data && response.data.finances) {
+      transactionsData.value = response.data.finances.items.map((item: any, index: number) => ({
+        id: item.ID || index + 1,
+        type: item.TYPE || 'Транзакция',
+        date: item.DATE || '',
+        period: item.PERIOD || '-',
+        status: item.STATUS === 'В обработке' ? 'processing' : 
+                item.STATUS === 'Завершено' ? 'completed' : 
+                item.STATUS === 'Отменено' ? 'cancelled' : 'processing',
+        amount: item.SUM ? `${Number(item.SUM).toLocaleString()} ${item.CURRENCY || '₽'}` : '0 ₽',
+        currency: item.CURRENCY
+      }));
+      
+      transactionsPagination.value = {
+        currentPage: response.data.finances.currentPage || 1,
+        perPage: response.data.finances.perPage || transactionsPerPage.value,
+        total: response.data.finances.total || "0"
+      };
+      currentTransactionsPage.value = transactionsPagination.value.currentPage;
     }
     
     return response.data;
@@ -609,8 +661,12 @@ const requestPayout = async () => {
     });
 
     if (response.data && response.data.actImages && response.data.paymentId) {
+      const fullActImages = response.data.actImages.map((img: string) => 
+        img.startsWith('http') ? img : getFullUrl(img)
+      );
+      
       actData.value = {
-        actImages: response.data.actImages,
+        actImages: fullActImages,
         paymentId: response.data.paymentId
       };
       showSignaturePopup.value = true;
@@ -629,7 +685,6 @@ const submitSignature = async (signatureDataUrl: string) => {
   if (!actData.value) return;
 
   try {
-    // Преобразуем dataURL в File объект
     const response = await fetch(signatureDataUrl);
     const blob = await response.blob();
     const signatureFile = new File([blob], 'signature.png', { type: 'image/png' });
@@ -638,13 +693,11 @@ const submitSignature = async (signatureDataUrl: string) => {
     formData.append('paymentId', actData.value.paymentId);
     formData.append('signature', signatureFile);
 
-    // ИСПРАВЛЕНО: sendRequest принимает (method, url, data, config)
     const submitResponse = await sendRequest('post', '/ajax/newAkt_vyp.php', formData);
 
     if (submitResponse.data && submitResponse.data.success) {
       alert('Выплата успешно запрошена');
       closeAllPopups();
-      // Обновляем баланс после успешной выплаты
       await fetchData();
     } else {
       alert('Ошибка при отправке подписи');
@@ -654,6 +707,13 @@ const submitSignature = async (signatureDataUrl: string) => {
     alert('Не удалось отправить подпись');
   }
 };
+
+// Следим за изменением страницы отчетов
+watch(currentReportsPage, async (newPage) => {
+  if (newPage > 0) {
+    await fetchReportsPage(newPage);
+  }
+});
 
 // Инициализация при монтировании
 onMounted(() => {
@@ -749,30 +809,49 @@ onMounted(() => {
                 >
                   <div class="personal__releases_information">
                     <div class="personal__releases_image">
-                      <img :src="`/src/assets/img/personal/releases/${release.image}`" alt="">
+                      <img 
+                        :src="release.hasPng 
+                          ? getFullUrl(`/upload/releases/${release.id}/cover.png`) 
+                          : '/src/assets/img/personal/releases/releases_1.webp'" 
+                        alt=""
+                      >
                     </div>
                     <div class="personal__releases_flex">
                       <div class="personal__releases_top">
-                        <h5 class="personal__releases_head"><span>{{ release.type }}</span> {{ release.title }}</h5>
-                        <p class="personal__releases_album text_very">{{ release.album }}</p>
+                        <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Сингл' : 'Релиз' }}</span> {{ release.name }}</h5>
+                        <p class="personal__releases_album text_very">{{ release.propertyDateRelizValue || 'Альбом' }}</p>
                       </div>
                       <p class="personal__releases_date text_very">{{ release.date }}</p>
                     </div>
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h5 class="personal__releases_head"><span>{{ release.type }}</span> {{ release.title }}</h5>
-                      <p class="personal__releases_album text_very">{{ release.album }}</p>
+                      <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Сингл' : 'Релиз' }}</span> {{ release.name }}</h5>
+                      <p class="personal__releases_album text_very">{{ release.propertyDateRelizValue || 'Альбом' }}</p>
                     </div>
                     <div class="personal__releases_codes">
-                      <button class="personal__releases_code"><span>UPC код: {{ release.upcCode }}</span></button>
-                      <button class="personal__releases_code"><LinkSVG/><span>{{ release.link }}</span></button>
+                      <button v-if="release.upcCode" class="personal__releases_code"><span>UPC код: {{ release.upcCode }}</span></button>
+                      <button v-if="release.link" class="personal__releases_code"><LinkSVG/><span>{{ release.link }}</span></button>
                     </div>
                     <div class="personal__releases_bottom">
                       <p class="personal__releases_date text_very">{{ release.date }}</p>
                       <div class="personal__releases_agreements">
-                        <a href="#" class="personal__releases_agreement button" download=""><DownloadSVG/><span>Скачать договор</span></a>
-                        <a href="#" class="personal__releases_agreement button" target="_blank"><EyeSVG/><span>Открыть договор</span></a>
+                        <a 
+                          v-if="release.contractFile" 
+                          :href="release.contractFile" 
+                          class="personal__releases_agreement button" 
+                          download=""
+                        >
+                          <DownloadSVG/><span>Скачать договор</span>
+                        </a>
+                        <a 
+                          v-if="release.contractFile" 
+                          :href="release.contractFile" 
+                          class="personal__releases_agreement button" 
+                          target="_blank"
+                        >
+                          <EyeSVG/><span>Открыть договор</span>
+                        </a>
                       </div>
                     </div>
                   </div>
@@ -782,7 +861,7 @@ onMounted(() => {
                 <button 
                   class="pagination__buttons_button button button__pagination button__pagination_prev"
                   @click="prevReleasesPage"
-                  :disabled="currentReleasesPage === 1"
+                  :disabled="currentReleasesPage === 1 || isLoadingReleases"
                 >
                   <span><ButtonSVG /></span>
                   <span>{{$t('button.prev')}}</span>
@@ -795,9 +874,9 @@ onMounted(() => {
                 <button 
                   class="pagination__buttons_button button button__pagination button__pagination_next"
                   @click="nextReleasesPage"
-                  :disabled="currentReleasesPage === totalReleasesPages"
+                  :disabled="currentReleasesPage === totalReleasesPages || isLoadingReleases"
                 >
-                <span>{{$t('button.next')}}</span>
+                  <span>{{$t('button.next')}}</span>
                   <span><ButtonSVG /></span>
                 </button>
               </div>
@@ -831,14 +910,19 @@ onMounted(() => {
                 </div>
                 <div class="personal__reports_cell personal__reports_actions">
                   <div class="personal__reports_buttons">
-                    <a href="#" class="personal__reports_button button__text" download="">
+                    <a 
+                      :href="getFullUrl(`/reports/${report.id}`)" 
+                      class="personal__reports_button button__text" 
+                      download=""
+                    >
                       <DownloadSVG/>
                       <span>Скачать</span>
                     </a>
                     <a 
-                      href="#" 
+                      :href="getFullUrl(`/acts/${report.id}`)" 
                       class="personal__reports_button button__text"
                       v-if="report.hasAct"
+                      download=""
                     >
                       <DownloadSVG/>
                       <span>Скачать акт</span>
@@ -851,7 +935,7 @@ onMounted(() => {
               <button 
                 class="pagination__buttons_button button button__pagination button__pagination_prev"
                 @click="prevReportsPage"
-                :disabled="currentReportsPage === 1"
+                :disabled="currentReportsPage === 1 || isLoadingReports"
               >
                 <span><ButtonSVG /></span>
                 <span>{{$t('button.prev')}}</span>
@@ -864,9 +948,9 @@ onMounted(() => {
               <button 
                 class="pagination__buttons_button button button__pagination button__pagination_next"
                 @click="nextReportsPage"
-                :disabled="currentReportsPage === totalReportsPages"
+                :disabled="currentReportsPage === totalReportsPages || isLoadingReports"
               >
-              <span>{{$t('button.next')}}</span>
+                <span>{{$t('button.next')}}</span>
                 <span><ButtonSVG /></span>
               </button>
             </div>
@@ -901,11 +985,7 @@ onMounted(() => {
                     class="personal__transactions_statusvalue text_small"
                     :class="getStatusClass(transaction.status)"
                   >
-                    {{ 
-                      transaction.status === 'completed' ? 'Завершено' :
-                      transaction.status === 'processing' ? 'В обработке' :
-                      transaction.status === 'cancelled' ? 'Отменено' : ''
-                    }}
+                    {{ getStatusText(transaction.status) }}
                   </span>
                 </div>
                 <div class="personal__transactions_cell personal__transactions_amount">
@@ -917,7 +997,7 @@ onMounted(() => {
               <button 
                 class="pagination__buttons_button button button__pagination button__pagination_prev"
                 @click="prevTransactionsPage"
-                :disabled="currentTransactionsPage === 1"
+                :disabled="currentTransactionsPage === 1 || isLoadingTransactions"
               >
                 <span><ButtonSVG /></span>
                 <span>{{$t('button.prev')}}</span>
@@ -930,9 +1010,9 @@ onMounted(() => {
               <button 
                 class="pagination__buttons_button button button__pagination button__pagination_next"
                 @click="nextTransactionsPage"
-                :disabled="currentTransactionsPage === totalTransactionsPages"
+                :disabled="currentTransactionsPage === totalTransactionsPages || isLoadingTransactions"
               >
-              <span>{{$t('button.next')}}</span>
+                <span>{{$t('button.next')}}</span>
                 <span><ButtonSVG /></span>
               </button>
             </div>
@@ -1033,7 +1113,7 @@ onMounted(() => {
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
-        <div class="popup__years">
+        <div class="popup__years" v-if="reportYears.length > 0">
           <button 
             v-for="year in reportYears" 
             :key="year"
@@ -1042,6 +1122,9 @@ onMounted(() => {
           >
             {{ year }}
           </button>
+        </div>
+        <div v-else class="popup__empty">
+          Нет доступных годов
         </div>
       </div>
     </div>
@@ -1059,9 +1142,14 @@ onMounted(() => {
       </div>
       <div class="popup__body">
         <p class="popup__year-selected">Год: {{ selectedYear }}</p>
-        <div class="popup__quarters">
+        
+        <div v-if="isLoadingQuarters" class="popup__loading">
+          Загрузка кварталов...
+        </div>
+        
+        <div v-else-if="availableQuarters.length > 0" class="popup__quarters">
           <button 
-            v-for="quarter in quarters" 
+            v-for="quarter in availableQuarters" 
             :key="quarter.id"
             class="popup__quarter-button"
             :class="{ 'selected': selectedQuarter === quarter.id }"
@@ -1071,13 +1159,18 @@ onMounted(() => {
             <span class="quarter__months">{{ quarter.months }}</span>
           </button>
         </div>
+        
+        <div v-else class="popup__empty">
+          Нет доступных кварталов
+        </div>
+        
         <button 
           class="popup__download-button button button__primary"
-          :disabled="!selectedQuarter"
+          :disabled="!selectedQuarter || isLoadingQuarters || isDownloading"
           @click="downloadReport"
         >
           <DownloadSVG/>
-          <span>Скачать отчет</span>
+          <span>{{ isDownloading ? 'Загрузка...' : 'Скачать отчет' }}</span>
         </button>
       </div>
     </div>
@@ -1666,7 +1759,7 @@ onMounted(() => {
   color: var(--text);
 }
 
-/* Стили для disabled кнопки и попапов */
+/* Стили для disabled кнопки */
 .button__disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -1738,6 +1831,18 @@ onMounted(() => {
 
 .popup__body {
   padding: 20px;
+}
+
+.popup__loading {
+  text-align: center;
+  padding: 30px;
+  color: var(--text-gray);
+}
+
+.popup__empty {
+  text-align: center;
+  padding: 30px;
+  color: var(--text-gray);
 }
 
 .popup__years,
