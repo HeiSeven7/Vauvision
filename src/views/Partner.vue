@@ -1,144 +1,33 @@
 <script lang="ts" setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
 import PersonalSVG from "@/uikit/icon/PersonalSVG.vue";
 import MoreSVG from "@/uikit/icon/MoreSVG.vue";
 import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
+import ClipSVG from "@/uikit/icon/ClipSVG.vue";
+import { sendRequest } from '@/utils/api';
 
-// Интерфейс для партнера
-interface Partner {
-  id: number;
-  name: string;
-  email: string;
-  date: string;
-  earnings: string;
-  releases: string;
+// Интерфейс для партнера из API
+interface ReferralUser {
+  ID: string;
+  EMAIL: string;
+  LOGIN: string;
+  DATE_REGISTER: string;
+  UF_RELEASES: string | number;
+  PAYOUT: string;
 }
 
-// Объект для списка партнеров
-const partnersData = ref<Partner[]>([
-  {
-    id: 1,
-    name: "Superkuper",
-    email: "mail@yandex.ru",
-    date: "12.10.2025",
-    earnings: "400 ₽",
-    releases: "3 релиза"
-  },
-  {
-    id: 2,
-    name: "leoneo",
-    email: "leoneo@mail.com",
-    date: "11.10.2025",
-    earnings: "800 ₽",
-    releases: "6 релизов"
-  },
-  {
-    id: 3,
-    name: "tat55",
-    email: "tatiana@example.com",
-    date: "10.10.2025",
-    earnings: "1200 ₽",
-    releases: "9 релизов"
-  },
-  {
-    id: 4,
-    name: "musiclover",
-    email: "music@protonmail.com",
-    date: "09.10.2025",
-    earnings: "400 ₽",
-    releases: "2 релиза"
-  },
-  {
-    id: 5,
-    name: "beatmaker",
-    email: "beats@gmail.com",
-    date: "08.10.2025",
-    earnings: "1600 ₽",
-    releases: "12 релизов"
-  },
-  {
-    id: 6,
-    name: "dj_pro",
-    email: "dj@yandex.ru",
-    date: "07.10.2025",
-    earnings: "400 ₽",
-    releases: "1 релиз"
-  },
-  {
-    id: 7,
-    name: "soundmaster",
-    email: "sound@mail.ru",
-    date: "06.10.2025",
-    earnings: "1200 ₽",
-    releases: "8 релизов"
-  },
-  {
-    id: 8,
-    name: "vocalist",
-    email: "vocal@protonmail.com",
-    date: "05.10.2025",
-    earnings: "800 ₽",
-    releases: "5 релизов"
-  },
-  {
-    id: 9,
-    name: "guitarhero",
-    email: "guitar@example.com",
-    date: "04.10.2025",
-    earnings: "400 ₽",
-    releases: "3 релиза"
-  },
-  {
-    id: 10,
-    name: "producer_x",
-    email: "producer@yandex.ru",
-    date: "03.10.2025",
-    earnings: "2000 ₽",
-    releases: "15 релизов"
-  },
-  {
-    id: 11,
-    name: "bassline",
-    email: "bass@mail.com",
-    date: "02.10.2025",
-    earnings: "400 ₽",
-    releases: "2 релиза"
-  },
-  {
-    id: 12,
-    name: "synthwave",
-    email: "synth@example.com",
-    date: "01.10.2025",
-    earnings: "1200 ₽",
-    releases: "7 релизов"
-  },
-  {
-    id: 13,
-    name: "drummer",
-    email: "drums@yandex.ru",
-    date: "30.09.2025",
-    earnings: "800 ₽",
-    releases: "4 релиза"
-  },
-  {
-    id: 14,
-    name: "mixengineer",
-    email: "mix@protonmail.com",
-    date: "29.09.2025",
-    earnings: "400 ₽",
-    releases: "3 релиза"
-  },
-  {
-    id: 15,
-    name: "composer",
-    email: "compose@mail.ru",
-    date: "28.09.2025",
-    earnings: "1600 ₽",
-    releases: "10 релизов"
-  }
-]);
+// Данные из API
+const referralData = ref({
+  isAgreed: false,
+  link: ''
+});
+
+const referralUsers = ref<ReferralUser[]>([]);
+const isLoading = ref(false);
+const isAccepting = ref(false);
+const copySuccess = ref(false);
 
 // Пагинация для партнеров
 const partnersPerPage = ref<number>(6);
@@ -146,18 +35,45 @@ const currentPartnersPage = ref<number>(1);
 
 // Вычисляемые свойства для партнеров
 const totalPartnersPages = computed(() => {
-  return Math.ceil(partnersData.value.length / partnersPerPage.value);
+  return Math.ceil(referralUsers.value.length / partnersPerPage.value);
 });
 
 const paginatedPartners = computed(() => {
   const start = (currentPartnersPage.value - 1) * partnersPerPage.value;
   const end = start + partnersPerPage.value;
-  return partnersData.value.slice(start, end);
+  return referralUsers.value.slice(start, end).map((user: ReferralUser) => ({
+    id: parseInt(user.ID),
+    name: user.LOGIN || 'Без имени',
+    email: user.EMAIL,
+    date: formatDate(user.DATE_REGISTER),
+    earnings: user.PAYOUT,
+    releases: formatReleases(user.UF_RELEASES)
+  }));
 });
 
 const showPartnersPagination = computed(() => {
-  return partnersData.value.length > partnersPerPage.value;
+  return referralUsers.value.length > partnersPerPage.value;
 });
+
+// Форматирование даты
+const formatDate = (dateString: string) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+// Форматирование количества релизов
+const formatReleases = (releases: string | number) => {
+  const count = Number(releases);
+  if (count === 0) return '0 релизов';
+  if (count === 1) return '1 релиз';
+  if (count >= 2 && count <= 4) return `${count} релиза`;
+  return `${count} релизов`;
+};
 
 // Методы для пагинации партнеров
 const nextPartnersPage = () => {
@@ -171,6 +87,69 @@ const prevPartnersPage = () => {
     currentPartnersPage.value--;
   }
 };
+
+// Загрузка данных
+const fetchData = async () => {
+  isLoading.value = true;
+  try {
+    const response = await sendRequest('get', '/ajax/getData.php', {});
+    console.log('Данные из API:', response.data);
+    
+    if (response.data && response.data.referral) {
+      referralData.value = {
+        isAgreed: response.data.referral.isAgreed || false,
+        link: response.data.referral.link || ''
+      };
+    }
+    
+    if (response.data && response.data.profile && response.data.profile.referralUsers) {
+      referralUsers.value = response.data.profile.referralUsers || [];
+    }
+  } catch (error) {
+    console.error('Ошибка при загрузке данных:', error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Принять условия партнерской программы
+const acceptAgreement = async () => {
+  isAccepting.value = true;
+  try {
+    const response = await sendRequest('post', '/auth/profile/agreeReferalProgram.php', {});
+    
+    if (response.data && response.data.success) {
+      // Обновляем данные
+      await fetchData();
+    } else {
+      alert('Ошибка при принятии условий');
+    }
+  } catch (error) {
+    console.error('Ошибка при принятии условий:', error);
+    alert('Не удалось принять условия');
+  } finally {
+    isAccepting.value = false;
+  }
+};
+
+// Копировать ссылку
+const copyReferralLink = () => {
+  if (!referralData.value.link) return;
+  
+  navigator.clipboard.writeText(referralData.value.link).then(() => {
+    copySuccess.value = true;
+    setTimeout(() => {
+      copySuccess.value = false;
+    }, 2000);
+  }).catch(err => {
+    console.error('Ошибка при копировании:', err);
+  });
+};
+
+// Загружаем данные при монтировании
+onMounted(() => {
+  fetchData();
+});
 </script>
 
 <template>
@@ -181,87 +160,115 @@ const prevPartnersPage = () => {
     <div class="personal__block">
       <div class="partner__top">
         <h3 class="partner__head">ЧТО ТАКОЕ ПАРТНЁРСКАЯ ПРОГРАММА VAUVISION?</h3>
-        <p class="partner__desc">Получайте 400 рублей за каждого друга, выкладывающего релизы через VAUVISION по вашей реферальной ссылке! А также за их каждый следующий релиз и за каждый релиз их друзей! </p>
+        <p class="partner__desc">Получайте 400 рублей за каждого друга, выкладывающего релизы через VAUVISION по вашей реферальной ссылке! А также за их каждый следующий релиз и за каждый релиз их друзей!</p>
       </div>
+      
+      <!-- Блок для пользователей, не принявших условия -->
+      <div v-if="!referralData.isAgreed" class="partner__agreement">
+        <div class="partner__agreement_info">
+          <h5 class="partner__agreement_head">Документ партнерской программы</h5>
+          <p class="partner__agreement_desc">Ознакомьтесь с условиями партнерской программы</p>
+        </div>
+        <div class="partner__agreement_buttons">
+          <a 
+            href="/auth/profile/Agree.pdf" 
+            class="partner__agreement_button button__primary"
+            target="_blank"
+          >
+            <span>Открыть документ</span>
+          </a>
+          <button 
+            class="partner__agreement_button button__red"
+            @click="acceptAgreement"
+            :disabled="isAccepting"
+          >
+            <span>{{ isAccepting ? 'Принятие...' : 'Принять условия' }}</span>
+          </button>
+        </div>
+      </div>
+      
       <div class="partner__flex">
         <div class="partner__content">
           <div class="partner__table">
             <h5 class="partner__heading">Партнеры, зарегистрировавшиеся по вашей ссылке</h5>
-            <ul class="partner__list">
-              <li class="partner__item partner__header">
-                <div class="partner__cell partner__name">Партнер</div>
-                <div class="partner__cell partner__email">E-mail</div>
-                <div class="partner__cell partner__date">Дата регистрации</div>
-                <div class="partner__cell partner__earnings">Начисления</div>
-                <div class="partner__cell partner__releases">Релизы</div>
-                <div class="partner__cell partner__actions"></div>
-              </li>
-              <li 
-                class="partner__item" 
-                v-for="partner in paginatedPartners" 
-                :key="partner.id"
-              >
-                <div class="partner__cell partner__name">
-                  <div class="partner__user">
-                    <PersonalSVG />
-                  </div>
-                  <span class="partner__name-text">{{ partner.name }}</span>
-                </div>
-                <div class="partner__cell partner__email">
-                  <span class="partner__email-text">{{ partner.email }}</span>
-                </div>
-                <div class="partner__cell partner__date">
-                  <span class="partner__date-text">{{ partner.date }}</span>
-                </div>
-                <div class="partner__cell partner__earnings">
-                  <span class="partner__earnings-text">{{ partner.earnings }}</span>
-                </div>
-                <div class="partner__cell partner__releases">
-                  <span class="partner__releases-text">{{ partner.releases }}</span>
-                </div>
-                <div class="partner__cell partner__actions">
-                  <button class="partner__more">
-                    <MoreSVG/>
-                  </button>
-                </div>
-              </li>
-            </ul>
             
-            <!-- Пагинация -->
-            <div class="pagination__buttons" v-if="showPartnersPagination">
-              <button 
-                class="pagination__buttons_button button button__pagination button__pagination_prev"
-                @click="prevPartnersPage"
-                :disabled="currentPartnersPage === 1"
-              >
-                <span><ButtonSVG /></span>
-                <span>{{ $t('button.prev') }}</span>
-              </button>
-              
-              <div class="pagination__buttons_info">
-                {{ currentPartnersPage }}/{{ totalPartnersPages }}
-              </div>
-              
-              <button 
-                class="pagination__buttons_button button button__pagination button__pagination_next"
-                @click="nextPartnersPage"
-                :disabled="currentPartnersPage === totalPartnersPages"
-              >
-                <span>{{ $t('button.next') }}</span>
-                <span><ButtonSVG /></span>
-              </button>
+            <!-- Загрузка -->
+            <div v-if="isLoading" class="partner__loading">
+              Загрузка партнеров...
             </div>
             
-            <!-- Альтернатива: кнопка "Загрузить еще" -->
-            <!--
-            <button 
-              class="partner__load button__primary"
-              @click="loadMorePartners"
-              v-if="partnersPerPage < partnersData.length"
-            >
-              <span>Загрузить еще</span>
-            </button>
-            -->
+            <!-- Нет партнеров -->
+            <div v-else-if="referralUsers.length === 0" class="partner__empty">
+              У вас пока нет приглашенных партнеров
+            </div>
+            
+            <!-- Список партнеров -->
+            <template v-else>
+              <ul class="partner__list">
+                <li class="partner__item partner__header">
+                  <div class="partner__cell partner__name">Партнер</div>
+                  <div class="partner__cell partner__email">E-mail</div>
+                  <div class="partner__cell partner__date">Дата регистрации</div>
+                  <div class="partner__cell partner__earnings">Начисления</div>
+                  <div class="partner__cell partner__releases">Релизы</div>
+                  <div class="partner__cell partner__actions"></div>
+                </li>
+                <li 
+                  class="partner__item" 
+                  v-for="partner in paginatedPartners" 
+                  :key="partner.id"
+                >
+                  <div class="partner__cell partner__name">
+                    <div class="partner__user">
+                      <PersonalSVG />
+                    </div>
+                    <span class="partner__name-text">{{ partner.name }}</span>
+                  </div>
+                  <div class="partner__cell partner__email">
+                    <span class="partner__email-text">{{ partner.email }}</span>
+                  </div>
+                  <div class="partner__cell partner__date">
+                    <span class="partner__date-text">{{ partner.date }}</span>
+                  </div>
+                  <div class="partner__cell partner__earnings">
+                    <span class="partner__earnings-text">{{ partner.earnings }}</span>
+                  </div>
+                  <div class="partner__cell partner__releases">
+                    <span class="partner__releases-text">{{ partner.releases }}</span>
+                  </div>
+                  <div class="partner__cell partner__actions">
+                    <button class="partner__more">
+                      <MoreSVG/>
+                    </button>
+                  </div>
+                </li>
+              </ul>
+              
+              <!-- Пагинация -->
+              <div class="pagination__buttons" v-if="showPartnersPagination">
+                <button 
+                  class="pagination__buttons_button button button__pagination button__pagination_prev"
+                  @click="prevPartnersPage"
+                  :disabled="currentPartnersPage === 1"
+                >
+                  <span><ButtonSVG /></span>
+                  <span>{{ $t('button.prev') }}</span>
+                </button>
+                
+                <div class="pagination__buttons_info">
+                  {{ currentPartnersPage }}/{{ totalPartnersPages }}
+                </div>
+                
+                <button 
+                  class="pagination__buttons_button button button__pagination button__pagination_next"
+                  @click="nextPartnersPage"
+                  :disabled="currentPartnersPage === totalPartnersPages"
+                >
+                  <span>{{ $t('button.next') }}</span>
+                  <span><ButtonSVG /></span>
+                </button>
+              </div>
+            </template>
           </div>
         </div>
         <div class="partner__right">
@@ -270,16 +277,46 @@ const prevPartnersPage = () => {
               <h5 class="partner__conditions_head">условия участия</h5>
               <p class="partner__conditions_desc">Детали начисления за повторные релизы и приглашенных друзей указаны ниже в разделе «Условия участия».</p>
             </div>
-            <button class="partner__conditions_button button__red"><span>стать партнером</span></button>
+            <button 
+              class="partner__conditions_button button__red"
+              :disabled="referralData.isAgreed"
+            >
+              <span>{{ referralData.isAgreed ? 'Условия приняты' : 'стать партнером' }}</span>
+            </button>
           </div>
           <div class="partner__referral">
             <div class="partner__referral_info">
               <h5 class="partner__referral_head">реферальная ссылка</h5>
-              <p class="partner__referral_desc">Зарабатывайте вместе с VAUVISION.Получайте реальные деньги за каждого вашего друга, выложевшего релиз.</p>
+              <p class="partner__referral_desc">Зарабатывайте вместе с VAUVISION. Получайте реальные деньги за каждого вашего друга, выложевшего релиз.</p>
             </div>
             <div class="partner__referral_info">
               <p class="partner__referral_heading button">ваша реферальная ссылка</p>
-              <button class="partner__conditions_copy text_very"><span>Появится после принятия условий участия</span></button>
+              
+              <!-- Если пользователь не принял условия -->
+              <div v-if="!referralData.isAgreed" class="partner__referral_notice">
+                <button class="partner__conditions_copy text_very" disabled>
+                  <span>Появится после принятия условий участия</span>
+                </button>
+              </div>
+              
+              <!-- Если условия приняты и есть ссылка -->
+              <div v-else-if="referralData.link" class="partner__referral_link">
+                <button 
+                  class="partner__conditions_copy text_very partner__conditions_copy_with-icon"
+                  @click="copyReferralLink"
+                >
+                  <span>{{ referralData.link }}</span>
+                  <ClipSVG />
+                </button>
+                <span v-if="copySuccess" class="partner__copy_success">Скопировано!</span>
+              </div>
+              
+              <!-- Если ссылка не загрузилась -->
+              <div v-else class="partner__referral_notice">
+                <button class="partner__conditions_copy text_very" disabled>
+                  <span>Загрузка ссылки...</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -293,10 +330,56 @@ const prevPartnersPage = () => {
 .personal {
   margin: 0 0 auto;
 }
+
+.partner__agreement {
+  display: flex;
+  padding: 30px 40px;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.partner__agreement_info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.partner__agreement_head {
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.partner__agreement_desc {
+  color: var(--text-gray);
+}
+
+.partner__agreement_buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.partner__agreement_button {
+  padding: 12px 24px;
+  text-transform: uppercase;
+}
+
+.partner__loading,
+.partner__empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-gray);
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+}
+
 .partner__flex {
   display: flex;
   gap: 40px;
 }
+
 .partner__content,
 .partner__top {
   display: flex;
@@ -305,28 +388,34 @@ const prevPartnersPage = () => {
   flex-direction: column;
   gap: 20px;
 }
+
 .partner__top,
 .partner__table {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
+
 .partner__table {
   padding: 40px;
   background-color: var(--bg);
   border: 1px solid var(--border);
 }
+
 .partner__head,
 .partner__heading,
-.partner__conditions_head {
+.partner__conditions_head,
+.partner__agreement_head {
   text-transform: uppercase;
 }
+
 .partner__list {
   display: flex;
   flex-direction: column;
   gap: 1px;
   background-color: var(--border);
 }
+
 .partner__item {
   display: flex;
   width: 100%;
@@ -335,43 +424,52 @@ const prevPartnersPage = () => {
   background-color: var(--bg);
   gap: 20px;
 }
+
 .partner__header,
 .partner__header .partner__earnings {
   text-transform: capitalize;
   color: var(--text-gray);
 }
+
 .partner__cell {
   display: flex;
   align-items: center;
   gap: 15px;
 }
+
 .partner__name {
   flex: 2;
   min-width: 140px;
 }
+
 .partner__email {
   flex: 2;
   min-width: 140px;
 }
+
 .partner__date {
   flex: 1;
   min-width: 140px;
 }
+
 .partner__earnings {
   flex: 1;
   min-width: 100px;
   font-weight: 500;
   color: var(--color);
 }
+
 .partner__releases {
   flex: 1;
   min-width: 100px;
 }
+
 .partner__actions {
   flex: 0 0 40px;
   min-width: 40px;
   justify-content: flex-end;
 }
+
 .partner__user {
   display: flex;
   width: 40px;
@@ -383,11 +481,13 @@ const prevPartnersPage = () => {
   color: #00000038;
   background-color: var(--bg-gray);
 }
+
 .partner__user svg {
   width: 24px;
   height: 24px;
   object-fit: cover;
 }
+
 .partner__more {
   width: 40px;
   height: 40px;
@@ -401,22 +501,27 @@ const prevPartnersPage = () => {
   border-radius: 4px;
   transition: background-color 0.2s;
 }
+
 .partner__more:hover {
   background-color: rgba(0, 0, 0, 0.05);
 }
+
 .partner__more svg {
   width: 20px;
   height: 20px;
 }
+
 .partner__load {
   margin: 30px auto 0;
 }
+
 .partner__right {
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
   gap: 20px;
 }
+
 .partner__conditions,
 .partner__referral {
   display: flex;
@@ -427,16 +532,19 @@ const prevPartnersPage = () => {
   background-color: var(--bg);
   border: 1px solid var(--border);
 }
+
 .partner__conditions_info,
 .partner__referral_info {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
+
 .partner__conditions_desc,
 .partner__referral_desc {
   color: var(--text-gray);
 }
+
 .partner__conditions_copy {
   width: 100%;
   padding: 15px 20px;
@@ -444,12 +552,20 @@ const prevPartnersPage = () => {
   background-color: var(--bg);
   border: 1px solid var(--text);
   transition: background-color 0.15s linear, border-color 0.15s linear, color 0.15s linear;
+  cursor: pointer;
 }
-.partner__conditions_copy:hover {
+
+.partner__conditions_copy:hover:not(:disabled) {
   color: var(--white);
   background-color: var(--color);
   border-color: var(--color);
 }
+
+.partner__conditions_copy:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .partner__conditions_copy span {
   display: -webkit-box;
   -webkit-line-clamp: 1;
@@ -458,6 +574,38 @@ const prevPartnersPage = () => {
   text-overflow: ellipsis;
   text-transform: uppercase;
   overflow: hidden;
+}
+
+.partner__conditions_copy_with-icon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.partner__conditions_copy_with-icon svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.partner__referral_link {
+  position: relative;
+}
+
+.partner__copy_success {
+  position: absolute;
+  top: -30px;
+  right: 0;
+  background-color: var(--color);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.partner__referral_notice {
+  width: 100%;
 }
 
 @media (max-width: 1919px) {
@@ -472,6 +620,7 @@ const prevPartnersPage = () => {
     display: none;
   }
 }
+
 @media (max-width: 1439px) {
   .partner__content,
   .partner__top {
@@ -490,7 +639,22 @@ const prevPartnersPage = () => {
   .partner__conditions {
     justify-content: space-between;
   }
+  
+  .partner__agreement {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  
+  .partner__agreement_buttons {
+    width: 100%;
+  }
+  
+  .partner__agreement_button {
+    flex: 1;
+  }
 }
+
 @media (max-width: 767px) {
   .partner__table {
     padding: 30px 15px;
@@ -547,6 +711,23 @@ const prevPartnersPage = () => {
   .partner__conditions,
   .partner__referral {
     width: 100%;
+  }
+  
+  .partner__agreement {
+    padding: 20px 15px;
+  }
+  
+  .partner__agreement_buttons {
+    flex-direction: column;
+  }
+  
+  .partner__agreement_button {
+    width: 100%;
+  }
+  
+  .partner__copy_success {
+    top: auto;
+    bottom: -25px;
   }
 }
 </style>

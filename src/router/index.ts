@@ -29,6 +29,11 @@ const router = createRouter({
           component: () => import('@/views/Auth/Reg.vue')
         },
         {
+          path: 'regsuccess',
+          name: 'regsuccess',
+          component: () => import('@/views/Auth/RegSuccess.vue')
+        },
+        {
           path: 'restore',
           name: 'restore',
           component: () => import('@/views/Auth/Restore.vue')

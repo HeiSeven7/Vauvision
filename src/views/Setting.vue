@@ -1,560 +1,6 @@
-<template>
-<Header></Header>
-<section class="personal">
-  <div class="container personal__container">
-    <Menu />
-    <div class="personal__block">
-      <div class="setting__top">
-        <h3 class="setting__head">настройки профиля</h3>
-        <p class="setting__desc">Измените данные или настройки профиля.</p>
-      </div>
-      <div class="setting__flex">
-        <div class="setting__content">
-          <div class="setting__photo">
-            <h5 class="setting__photo_heading">Фото профиля</h5>
-            <div class="setting__photo_flex">
-              <div class="setting__photo_image">
-                <img 
-                  v-if="profileImage" 
-                  :src="profileImage" 
-                  class="setting__photo_img"
-                  alt="Profile"
-                />
-                <div 
-                  class="setting__photo_img"
-                  v-else
-                >
-                  <span style="color: #909399;">No photo</span>
-                </div>
-                <div class="setting__photo_svg">
-                  <PhotoSVG/>
-                </div>
-              </div>
-              <div class="setting__photo_info">
-                <label class="setting__photo_upload button__primary" :disabled="isUploadingImage">
-                  <span v-if="!isUploadingImage"><UploadSVG/>Загрузить фото</span>
-                  <span v-else>Загрузка...</span>
-                  <input 
-                    type="file" 
-                    accept="image/*"
-                    @change="uploadProfileImage"
-                    style="display: none;"
-                    :disabled="isUploadingImage"
-                  />
-                </label>
-                <button 
-                  class="setting__photo_delete" 
-                  @click="deleteProfileImage"
-                  :disabled="!profileImage || isUploadingImage"
-                >
-                  Удалить фото
-                </button>
-              </div>
-            </div>
-          </div>
-          <div class="setting__personal">
-            <h5 class="setting__personal_heading">Личные данные</h5>
-            <div class="setting__personal_flex">
-              <div class="form__group">
-                <label for="firstName" class="form__label button">Имя</label>
-                <el-input
-                  id="firstName"
-                  v-model="formData.firstName"
-                  :class="{ 'error': errors.firstName }"
-                  placeholder="Имя"
-                  :disabled="isLoading"
-                  @blur="validateForm('firstName')"
-                  @input="errors.firstName = ''"
-                  size="large"
-                />
-                <div v-if="errors.firstName" class="error text_very">
-                  {{ errors.firstName }}
-                </div>
-              </div>
-              <div class="form__group">
-                <label for="lastName" class="form__label button">Фамилия</label>
-                <el-input
-                  id="lastName"
-                  v-model="formData.lastName"
-                  :class="{ 'error': errors.lastName }"
-                  placeholder="Фамилия"
-                  :disabled="isLoading"
-                  @blur="validateForm('lastName')"
-                  @input="errors.lastName = ''"
-                  size="large"
-                />
-                <div v-if="errors.lastName" class="error text_very">
-                  {{ errors.lastName }}
-                </div>
-              </div>
-            </div>
-            <div class="setting__personal_buttons">
-              <button 
-                class="setting__personal_button button__primary" 
-                @click="submitPersonalData"
-                :disabled="isLoading || hasFormErrors"
-              >
-                <span v-if="!isLoading">сохранить изменения</span>
-                <span v-else>Сохранение...</span>
-              </button>
-            </div>
-          </div>
-          <div class="setting__general">
-            <h5 class="setting__general_heading">Общие данные</h5>
-            <div class="setting__general_flex">
-              <div class="form__group">
-                <label for="nickname" class="form__label button">Псевдоним</label>
-                <el-input
-                  id="nickname"
-                  v-model="formData.nickname"
-                  :class="{ 'error': errors.nickname }"
-                  placeholder="Псевдоним"
-                  :disabled="isLoading"
-                  @blur="validateForm('nickname')"
-                  @input="errors.nickname = ''"
-                  size="large"
-                />
-                <div v-if="errors.nickname" class="error text_very">
-                  {{ errors.nickname }}
-                </div>
-              </div>
-              <div class="form__group">
-                <label for="email" class="form__label button">E-mail</label>
-                <el-input
-                  id="email"
-                  v-model="formData.email"
-                  type="email"
-                  :class="{ 'error': errors.email }"
-                  placeholder="e-mail"
-                  :disabled="isLoading"
-                  @blur="validateForm('email')"
-                  @input="errors.email = ''"
-                  size="large"
-                />
-                <div v-if="errors.email" class="error text_very">
-                  {{ errors.email }}
-                </div>
-              </div>
-              <div class="form__group">
-                <label for="country" class="form__label button">Страна</label>
-                <el-input
-                  id="country"
-                  v-model="formData.country"
-                  :class="{ 'error': errors.country }"
-                  placeholder="страна"
-                  :disabled="isLoading"
-                  @blur="validateForm('country')"
-                  @input="errors.country = ''"
-                  size="large"
-                />
-                <div v-if="errors.country" class="error text_very">
-                  {{ errors.country }}
-                </div>
-              </div>
-            </div>
-            <div class="setting__general_buttons">
-              <button 
-                class="setting__general_button button__primary" 
-                @click="submitGeneralData"
-                :disabled="isLoading"
-              >
-                <span v-if="!isLoading">сохранить изменения</span>
-                <span v-else>Сохранение...</span>
-              </button>
-            </div>
-          </div>
-          <div class="setting__passport">
-            <h5 class="setting__passport_heading">данные паспорта</h5>
-            <p class="setting__passport_desc">Введите данные для отображения в вашем договоре при выкладке релиза. Данные вашего паспорта скрыты для просмотра, но вы можете обновить их в любое время по кнопке «Изменить».</p>
-            <div class="setting__passport_buttons">
-              <button 
-                class="setting__passport_button button__primary" 
-                @click="openPassportModal"
-                :disabled="isLoading"
-              >
-                <span>изменить</span>
-              </button>
-            </div>
-          </div>
-          <div class="setting__password">
-            <h5 class="setting__password_heading">Смена пароля</h5>
-            <p class="setting__password_desc">Для изменения пароля мы отправим ссылку на вашу электронную почту.</p>
-            <div class="setting__password_buttons">
-              <button 
-                class="setting__password_button button__primary" 
-                @click="openPasswordModal"
-                :disabled="isLoading"
-              >
-                <span>изменить пароль</span>
-              </button>
-            </div>
-          </div>
-          <div class="setting__details">
-            <h5 class="setting__details_heading">Банковские данные</h5>
-            <p class="setting__details_description">Вы можете заполнить только раздел Физ. лица или Индивидуального предпринимателя. При заполнении одного раздела информация в другом будет удалена.</p>
-            <div class="setting__details_flex">
-              <div class="form__labels">
-                <label class="form__label">
-                  <input 
-                    type="radio" 
-                    v-model="formData.bankDetails.userType" 
-                    value="executor"
-                    class="form__label_input"
-                    :disabled="isLoading"
-                  >
-                  <span class="form__label_text">Физическое лицо</span>
-                </label>
-                <label class="form__label">
-                  <input 
-                    type="radio" 
-                    v-model="formData.bankDetails.userType" 
-                    value="label"
-                    class="form__label_input"
-                    :disabled="isLoading"
-                  >
-                  <span class="form__label_text">Индивидуальный предприниматель</span>
-                </label>
-              </div>
-              <div class="form__groups">
-                <div class="form__group">
-                  <label for="fullName" class="form__label button">ФИО</label>
-                  <el-input
-                    id="fullName"
-                    v-model="formData.bankDetails.fullName"
-                    :class="{ 'error': errors.bankDetails.fullName }"
-                    placeholder="ФИО"
-                    :disabled="isLoading"
-                    @blur="validateBankDetails"
-                    size="large"
-                  />
-                  <div v-if="errors.bankDetails.fullName" class="error text_very">
-                    {{ errors.bankDetails.fullName }}
-                  </div>
-                </div>
-                <div class="form__group">
-                  <label for="accountNumber" class="form__label button">Расчетный счет</label>
-                  <el-input
-                    id="accountNumber"
-                    v-model="formData.bankDetails.accountNumber"
-                    :class="{ 'error': errors.bankDetails.accountNumber }"
-                    placeholder="Расчетный счет"
-                    :disabled="isLoading"
-                    @blur="validateBankDetails"
-                    size="large"
-                  />
-                  <div v-if="errors.bankDetails.accountNumber" class="error text_very">
-                    {{ errors.bankDetails.accountNumber }}
-                  </div>
-                </div>
-                <div class="form__group">
-                  <label for="bik" class="form__label button">БИК банка</label>
-                  <el-input
-                    id="bik"
-                    v-model="formData.bankDetails.bik"
-                    :class="{ 'error': errors.bankDetails.bik }"
-                    placeholder="БИК банка"
-                    :disabled="isLoading"
-                    @blur="validateBankDetails"
-                    size="large"
-                  />
-                  <div v-if="errors.bankDetails.bik" class="error text_very">
-                    {{ errors.bankDetails.bik }}
-                  </div>
-                </div>
-                <div v-if="formData.bankDetails.userType === 'label'" class="form__group">
-                  <label for="inn" class="form__label button">ИНН</label>
-                  <el-input
-                    id="inn"
-                    v-model="formData.bankDetails.inn"
-                    :class="{ 'error': errors.bankDetails.inn }"
-                    placeholder="ИНН"
-                    :disabled="isLoading"
-                    @blur="validateBankDetails"
-                    size="large"
-                  />
-                  <div v-if="errors.bankDetails.inn" class="error text_very">
-                    {{ errors.bankDetails.inn }}
-                  </div>
-                </div>
-                <div v-if="formData.bankDetails.userType === 'label'" class="form__group">
-                  <label for="kpp" class="form__label button">КПП</label>
-                  <el-input
-                    id="kpp"
-                    v-model="formData.bankDetails.kpp"
-                    :class="{ 'error': errors.bankDetails.kpp }"
-                    placeholder="КПП"
-                    :disabled="isLoading"
-                    @blur="validateBankDetails"
-                    size="large"
-                  />
-                  <div v-if="errors.bankDetails.kpp" class="error text_very">
-                    {{ errors.bankDetails.kpp }}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="setting__details_buttons">
-              <button 
-                class="setting__details_button button__primary" 
-                @click="submitBankDetails"
-                :disabled="isLoading"
-              >
-                <span v-if="!isLoading">сохранить изменения</span>
-                <span v-else>Сохранение...</span>
-              </button>
-            </div>
-          </div>
-          <div class="setting__delete">
-            <h5 class="setting__delete_heading">удаление аккаунта</h5>
-            <p class="setting__delete_desc">Если захочешь восстановить аккаунт, можешь написать нам в группу VK или Телеграмм.</p>
-            <div class="setting__delete_buttons">
-              <button 
-                class="setting__delete_button button__primary" 
-                @click="openDeleteModal"
-                :disabled="isLoading"
-                style="background-color: #f56c6c; border-color: #f56c6c;"
-              >
-                <span>удалить</span>
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="setting__right">
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Модальное окно паспортных данных (оригинальное, без изменений) -->
-<Teleport to="body">
-  <div v-if="showPassportModal" class="passport-modal-overlay" @click.self="closePassportModal">
-    <div class="passport-modal">
-      <div class="passport-modal__header">
-        <h3 class="passport-modal__title">Паспортные данные</h3>
-        <button class="passport-modal__close" @click="closePassportModal">×</button>
-      </div>
-      
-      <div class="passport-modal__content">
-        <div class="passport-modal__grid">
-          <!-- Левая колонка -->
-          <div class="passport-modal__column">
-            <div class="form__group">
-              <label class="form__label button">Гражданство</label>
-              <el-select
-                v-model="passportForm.citizenship"
-                placeholder="Выберите гражданство"
-                :disabled="isLoading"
-                size="large"
-                class="passport-select"
-                clearable
-              >
-                <el-option label="Россия" value="Россия" />
-                <el-option label="Беларусь" value="Беларусь" />
-                <el-option label="Казахстан" value="Казахстан" />
-                <el-option label="Армения" value="Армения" />
-                <el-option label="Кыргызстан" value="Кыргызстан" />
-                <el-option label="Другое" value="Другое" />
-              </el-select>
-            </div>
-
-            <div class="form__group">
-              <label class="form__label button">Кем выдан</label>
-              <el-input
-                v-model="passportForm.issuedBy"
-                placeholder="Кем выдан паспорт"
-                :disabled="isLoading"
-                size="large"
-              />
-            </div>
-
-            <div class="form__group">
-              <label class="form__label button">Фамилия</label>
-              <el-input
-                v-model="passportForm.fam"
-                placeholder="Фамилия"
-                :disabled="isLoading"
-                size="large"
-              />
-            </div>
-
-            <div class="form__group">
-              <label class="form__label button">Имя</label>
-              <el-input
-                v-model="passportForm.imya"
-                placeholder="Имя"
-                :disabled="isLoading"
-                size="large"
-              />
-            </div>
-          </div>
-
-          <!-- Правая колонка -->
-          <div class="passport-modal__column">
-            <div class="form__group">
-              <label class="form__label button">Отчество</label>
-              <el-input
-                v-model="passportForm.otch"
-                placeholder="Отчество"
-                :disabled="isLoading"
-                size="large"
-              />
-            </div>
-
-            <div class="form__group">
-              <label class="form__label button">Серия и номер паспорта</label>
-              <el-input
-                v-model="passportForm.number"
-                placeholder="0000 000000"
-                :disabled="isLoading"
-                size="large"
-              />
-            </div>
-
-            <div class="form__group">
-              <label class="form__label button">Дата выдачи</label>
-              <el-date-picker
-                v-model="passportForm.date"
-                type="date"
-                placeholder="Выберите дату"
-                format="DD.MM.YYYY"
-                value-format="DD.MM.YYYY"
-                :disabled="isLoading"
-                size="large"
-                class="passport-datepicker"
-              />
-            </div>
-
-            <div class="form__group">
-              <label class="form__label button">Адрес регистрации</label>
-              <el-input
-                v-model="passportForm.adress"
-                placeholder="Адрес регистрации"
-                :disabled="isLoading"
-                size="large"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="passport-modal__footer">
-        <button 
-          class="passport-modal__button passport-modal__button--clear"
-          @click="clearPassportForm"
-          :disabled="isLoading"
-        >
-          очистить
-        </button>
-        <button 
-          class="passport-modal__button passport-modal__button--save"
-          @click="savePassportData"
-          :disabled="isLoading"
-        >
-          <span v-if="!isLoading">сохранить изменения</span>
-          <span v-else>Сохранение...</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</Teleport>
-
-<!-- Модальное окно смены пароля (новое) -->
-<Teleport to="body">
-  <div v-if="showPasswordModal" class="modal-overlay" @click.self="closePasswordModal">
-    <div class="modal modal--small">
-      <div class="modal__header">
-        <h3 class="modal__title">Смена пароля</h3>
-        <button class="modal__close" @click="closePasswordModal">×</button>
-      </div>
-      
-      <div class="modal__content">
-        <div class="modal__info">
-          <p>Ссылка для изменения пароля будет отправлена на вашу электронную почту:</p>
-          <p class="modal__email">{{ formData.email || 'не указан' }}</p>
-          <p class="modal__hint">Письмо придет в течение нескольких минут. Проверьте папку "Спам", если не видите письмо во входящих.</p>
-        </div>
-      </div>
-
-      <div class="modal__footer">
-        <button 
-          class="modal__button modal__button--clear"
-          @click="closePasswordModal"
-          :disabled="isLoading"
-        >
-          отмена
-        </button>
-        <button 
-          class="modal__button modal__button--save"
-          @click="submitPasswordChange"
-          :disabled="isLoading"
-        >
-          <span v-if="!isLoading">отправить ссылку</span>
-          <span v-else>Отправка...</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</Teleport>
-
-<!-- Модальное окно удаления аккаунта (новое) -->
-<Teleport to="body">
-  <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
-    <div class="modal modal--small">
-      <div class="modal__header">
-        <h3 class="modal__title">Удаление аккаунта</h3>
-        <button class="modal__close" @click="closeDeleteModal">×</button>
-      </div>
-      
-      <div class="modal__content">
-        <div class="modal__warning">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#f56c6c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 8V12" stroke="#f56c6c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 16H12.01" stroke="#f56c6c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <div class="modal__warning-text">
-            <h4>Внимание! Это действие нельзя отменить</h4>
-            <p>Все ваши данные будут удалены без возможности восстановления.</p>
-          </div>
-        </div>
-        
-        <div class="form__group">
-          <label class="form__label button">Подтверждение</label>
-          <el-input
-            v-model="deleteConfirmText"
-            placeholder="Введите 'УДАЛИТЬ' для подтверждения"
-            :disabled="isLoading"
-            size="large"
-          />
-        </div>
-      </div>
-
-      <div class="modal__footer">
-        <button 
-          class="modal__button modal__button--clear"
-          @click="closeDeleteModal"
-          :disabled="isLoading"
-        >
-          отмена
-        </button>
-        <button 
-          class="modal__button modal__button--delete"
-          @click="confirmDeleteAccount"
-          :disabled="isLoading || deleteConfirmText !== 'УДАЛИТЬ'"
-        >
-          <span v-if="!isLoading">удалить аккаунт</span>
-          <span v-else>Удаление...</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</Teleport>
-</template>
-
 <script lang="ts" setup>
-import { ref, reactive, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { sendRequest, FileRequest } from '@/utils/api';
 import { useRouter } from 'vue-router';
 import Tr from "@/i18n/translation";
@@ -565,6 +11,9 @@ import PhotoSVG from "@/uikit/icon/PhotoSVG.vue";
 import UploadSVG from "@/uikit/icon/UploadSVG.vue";
 
 const router = useRouter();
+
+// Тип банковских данных
+const bankDetailsType = ref<'individual' | 'entrepreneur'>('individual');
 
 // Основная форма данных
 const formData = reactive({
@@ -580,16 +29,25 @@ const formData = reactive({
     issueDate: '',
     birthDate: '',
     registrationAddress: ''
-  },
-  bankDetails: {
-    userType: 'executor',
+  }
+})
+
+// Банковские данные
+const bankDetails = reactive({
+  individual: {
     fullName: '',
-    accountNumber: '',
-    bik: '',
+    account: '',
+    bik: ''
+  },
+  entrepreneur: {
+    fullName: '',
+    ogrnip: '',
+    address: '',
     inn: '',
-    kpp: '',
-    bankName: '',
-    correspondentAccount: ''
+    account: '',
+    bik: '',
+    correspondentAccount: '',
+    email: ''
   }
 })
 
@@ -603,7 +61,10 @@ const errors = reactive({
   password: '',
   confirmPassword: '',
   passport: {} as Record<string, string>,
-  bankDetails: {} as Record<string, string>
+  bankDetails: {
+    individual: {} as Record<string, string>,
+    entrepreneur: {} as Record<string, string>
+  }
 })
 
 // Загрузочное состояние
@@ -670,20 +131,38 @@ const validateForm = (field?: string) => {
 
 // Валидация банковских данных
 const validateBankDetails = () => {
-  const bankErrors: Record<string, string> = {}
+  // Очищаем ошибки
+  errors.bankDetails.individual = {}
+  errors.bankDetails.entrepreneur = {}
   
-  if (!formData.bankDetails.fullName) bankErrors.fullName = 'ФИО обязательно'
-  if (!formData.bankDetails.accountNumber) bankErrors.accountNumber = 'Расчетный счет обязателен'
-  if (!formData.bankDetails.bik) bankErrors.bik = 'БИК банка обязателен'
-  
-  if (formData.bankDetails.userType === 'label') {
-    if (!formData.bankDetails.inn) bankErrors.inn = 'ИНН обязательно для ИП'
-    if (!formData.bankDetails.kpp) bankErrors.kpp = 'КПП обязательно для ИП'
-    if (!formData.bankDetails.bankName) bankErrors.bankName = 'Название банка обязательно'
+  if (bankDetailsType.value === 'individual') {
+    const indErrors: Record<string, string> = {}
+    
+    if (!bankDetails.individual.fullName) indErrors.fullName = 'ФИО обязательно'
+    if (!bankDetails.individual.account) indErrors.account = 'Расчетный счет обязателен'
+    if (!bankDetails.individual.bik) indErrors.bik = 'БИК обязателен'
+    
+    errors.bankDetails.individual = indErrors
+    return Object.keys(indErrors).length === 0
+  } else {
+    const entErrors: Record<string, string> = {}
+    
+    if (!bankDetails.entrepreneur.fullName) entErrors.fullName = 'ФИО обязательно'
+    if (!bankDetails.entrepreneur.ogrnip) entErrors.ogrnip = 'ОГРНИП обязателен'
+    if (!bankDetails.entrepreneur.address) entErrors.address = 'Адрес обязателен'
+    if (!bankDetails.entrepreneur.inn) entErrors.inn = 'ИНН обязателен'
+    if (!bankDetails.entrepreneur.account) entErrors.account = 'Расчетный счет обязателен'
+    if (!bankDetails.entrepreneur.bik) entErrors.bik = 'БИК обязателен'
+    if (!bankDetails.entrepreneur.correspondentAccount) entErrors.correspondentAccount = 'Корреспондентский счет обязателен'
+    if (!bankDetails.entrepreneur.email) {
+      entErrors.email = 'Email обязателен'
+    } else if (!validateEmail(bankDetails.entrepreneur.email)) {
+      entErrors.email = 'Введите корректный email'
+    }
+    
+    errors.bankDetails.entrepreneur = entErrors
+    return Object.keys(entErrors).length === 0
   }
-  
-  errors.bankDetails = bankErrors
-  return Object.keys(bankErrors).length === 0
 }
 
 // Проверка, есть ли ошибки в основной форме
@@ -692,6 +171,12 @@ const hasFormErrors = computed(() => {
     typeof error === 'string' ? error.length > 0 : false
   )
 })
+
+// Переключение типа банковских данных
+const switchBankDetailsType = () => {
+  // Очищаем ошибки при переключении
+  validateBankDetails()
+}
 
 // Открытие модальных окон
 const openPassportModal = () => {
@@ -741,18 +226,9 @@ const clearPassportForm = () => {
   ElMessage.success('Форма очищена')
 }
 
-// Загрузка данных паспорта (пример)
+// Загрузка данных паспорта
 const loadPassportData = () => {
   // Здесь должен быть запрос к API для получения текущих данных
-  // Пример заполнения:
-  passportForm.citizenship = 'Россия'
-  passportForm.issuedBy = 'УФМС России по г. Москва'
-  passportForm.fam = 'Иванов'
-  passportForm.imya = 'Иван'
-  passportForm.otch = 'Иванович'
-  passportForm.number = '1234 567890'
-  passportForm.date = '15.05.2015'
-  passportForm.adress = 'г. Москва, ул. Примерная, д. 1, кв. 1'
 }
 
 // Сохранение паспортных данных
@@ -982,8 +458,8 @@ const submitGeneralData = async () => {
   }
 }
 
-// Сохранение банковских данных
-const submitBankDetails = async () => {
+// Сохранение банковских данных физического лица
+const submitIndividualBankDetails = async () => {
   if (!validateBankDetails()) {
     ElMessage.error('Исправьте ошибки в банковских данных')
     return
@@ -991,11 +467,87 @@ const submitBankDetails = async () => {
   
   isLoading.value = true
   try {
-    // Здесь будет API запрос
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    const individualData = {
+      'sp-profile': bankDetails.individual.fullName,
+      'rs-sp-profile': bankDetails.individual.account,
+      'b-sp-profile': bankDetails.individual.bik
+    }
+    
+    const response = await sendRequest(
+      "post",
+      '/ajax/profile/updateRek1.php',
+      individualData
+    )
+    
+    console.log('Банковские данные физлица сохранены:', response.data)
     ElMessage.success('Банковские данные сохранены успешно')
-  } catch (error) {
-    ElMessage.error('Ошибка при сохранении банковских данных')
+    
+  } catch (error: any) {
+    console.error('Ошибка при сохранении банковских данных:', error)
+    
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      if (errorData.error) {
+        ElMessage.error(errorData.error)
+      } else if (errorData.message) {
+        ElMessage.error(errorData.message)
+      } else {
+        ElMessage.error('Ошибка при сохранении банковских данных')
+      }
+    } else {
+      ElMessage.error('Ошибка при сохранении банковских данных')
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Сохранение банковских данных ИП
+const submitEntrepreneurBankDetails = async () => {
+  if (!validateBankDetails()) {
+    ElMessage.error('Исправьте ошибки в банковских данных')
+    return
+  }
+  
+  isLoading.value = true
+  try {
+    const entrepreneurData = {
+      'sp-profile': bankDetails.entrepreneur.fullName,
+      'num-ogr-profile': bankDetails.entrepreneur.ogrnip,
+      'addr-sp-profile': bankDetails.entrepreneur.address,
+      'in-sp-profile': bankDetails.entrepreneur.inn,
+      'rs-sp-profile': bankDetails.entrepreneur.account,
+      'b-sp-profile': bankDetails.entrepreneur.bik,
+      'ks-sp-profile': bankDetails.entrepreneur.correspondentAccount,
+      'email-sp-profile': bankDetails.entrepreneur.email
+    }
+    
+    const response = await sendRequest(
+      "post",
+      '/ajax/profile/updateRek2.php',
+      entrepreneurData
+    )
+    
+    console.log('Банковские данные ИП сохранены:', response.data)
+    ElMessage.success('Банковские данные сохранены успешно')
+    
+  } catch (error: any) {
+    console.error('Ошибка при сохранении банковских данных:', error)
+    
+    if (error.response && error.response.data) {
+      const errorData = error.response.data
+      
+      if (errorData.error) {
+        ElMessage.error(errorData.error)
+      } else if (errorData.message) {
+        ElMessage.error(errorData.message)
+      } else {
+        ElMessage.error('Ошибка при сохранении банковских данных')
+      }
+    } else {
+      ElMessage.error('Ошибка при сохранении банковских данных')
+    }
   } finally {
     isLoading.value = false
   }
@@ -1031,17 +583,11 @@ const uploadProfileImage = async (event: Event) => {
     
     console.log('Фото загружено:', response.data)
     
-    if (response.data && response.data.url) {
-      profileImage.value = response.data.url
-    } else {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        profileImage.value = e.target?.result as string
-      }
-      reader.readAsDataURL(file)
-    }
-    
     ElMessage.success('Фото профиля загружено успешно')
+    
+    // Обновляем данные с сервера, чтобы получить новое фото
+    await refreshUserData()
+    
   } catch (error: any) {
     console.error('Ошибка при загрузке фото:', error)
     
@@ -1064,33 +610,756 @@ const uploadProfileImage = async (event: Event) => {
   }
 }
 
-// Удаление фото профиля
-const deleteProfileImage = () => {
-  ElMessageBox.confirm(
-    'Вы уверены, что хотите удалить фото профиля?',
-    'Удаление фото',
-    {
-      confirmButtonText: 'Удалить',
-      cancelButtonText: 'Отмена',
-      type: 'warning',
+// Функция для обновления данных с сервера
+const refreshUserData = async () => {
+  try {
+    const response = await sendRequest('get', '/ajax/getData.php', {});
+    console.log('Данные обновлены с сервера:', response.data);
+    
+    if (response.data && response.data.user) {
+      // Обновляем фото профиля из ответа API
+      if (response.data.user.personalPhoto) {
+        profileImage.value = response.data.user.personalPhoto;
+      }
+      
+      // Обновляем остальные данные пользователя
+      formData.firstName = response.data.user.name || '';
+      formData.lastName = response.data.user.lastName || '';
+      formData.nickname = response.data.user.login || '';
+      formData.email = response.data.user.email || '';
+      
+      // Обновляем страну из профиля если есть
+      if (response.data.profile && response.data.profile.region) {
+        formData.country = response.data.profile.region;
+      }
+      
+      // Загружаем банковские данные
+      if (response.data.settings && response.data.settings.requisites) {
+        const requisites = response.data.settings.requisites;
+        
+        // Данные физлица
+        if (requisites.individual) {
+          bankDetails.individual.fullName = requisites.individual.fullName || '';
+          bankDetails.individual.account = requisites.individual.account || '';
+          bankDetails.individual.bik = requisites.individual.bik || '';
+        }
+        
+        // Данные ИП
+        if (requisites.entrepreneur) {
+          bankDetails.entrepreneur.fullName = requisites.entrepreneur.fullName || '';
+          bankDetails.entrepreneur.ogrnip = requisites.entrepreneur.ogrnip || '';
+          bankDetails.entrepreneur.address = requisites.entrepreneur.address || '';
+          bankDetails.entrepreneur.inn = requisites.entrepreneur.inn || '';
+          bankDetails.entrepreneur.account = requisites.entrepreneur.account || '';
+          bankDetails.entrepreneur.bik = requisites.entrepreneur.bik || '';
+          bankDetails.entrepreneur.correspondentAccount = requisites.entrepreneur.correspondentAccount || '';
+          bankDetails.entrepreneur.email = requisites.entrepreneur.email || '';
+        }
+        
+        // Определяем, какой тип данных заполнен
+        if (requisites.entrepreneur?.fullName || requisites.entrepreneur?.ogrnip) {
+          bankDetailsType.value = 'entrepreneur';
+        } else {
+          bankDetailsType.value = 'individual';
+        }
+      }
     }
-  ).then(() => {
-    profileImage.value = null
-    ElMessage.success('Фото профиля удалено')
-  }).catch(() => {})
-}
+  } catch (error) {
+    console.error('Ошибка при обновлении данных:', error);
+  }
+};
 
-// Инициализация данных
-const initializeData = () => {
-  formData.firstName = 'Иван'
-  formData.lastName = 'Иванов'
-  formData.nickname = 'artist123'
-  formData.email = 'user@example.com'
-  formData.country = 'Россия'
-}
-
-initializeData()
+// Загрузка начальных данных при монтировании компонента
+onMounted(() => {
+  refreshUserData();
+})
 </script>
+
+<template>
+<Header></Header>
+<section class="personal">
+  <div class="container personal__container">
+    <Menu />
+    <div class="personal__block">
+      <div class="setting__top">
+        <h3 class="setting__head">настройки профиля</h3>
+        <p class="setting__desc">Измените данные или настройки профиля.</p>
+      </div>
+      <div class="setting__flex">
+        <div class="setting__content">
+          <div class="setting__photo">
+            <h5 class="setting__photo_heading">Фото профиля</h5>
+            <div class="setting__photo_flex">
+              <div class="setting__photo_image">
+                <img 
+                  v-if="profileImage" 
+                  :src="profileImage" 
+                  class="setting__photo_img"
+                  alt="Profile"
+                />
+                <div 
+                  class="setting__photo_img"
+                  v-else
+                >
+                  <span style="color: #909399;">No photo</span>
+                </div>
+                <div class="setting__photo_svg">
+                  <PhotoSVG/>
+                </div>
+              </div>
+              <div class="setting__photo_info">
+                <label class="setting__photo_upload button__primary" :class="{ 'button__disabled': isUploadingImage }">
+                  <span v-if="!isUploadingImage"><UploadSVG/>Загрузить фото</span>
+                  <span v-else>Загрузка...</span>
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    @change="uploadProfileImage"
+                    style="display: none;"
+                    :disabled="isUploadingImage"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="setting__personal">
+            <h5 class="setting__personal_heading">Личные данные</h5>
+            <div class="setting__personal_flex">
+              <div class="form__group">
+                <label for="firstName" class="form__label button">Имя</label>
+                <el-input
+                  id="firstName"
+                  v-model="formData.firstName"
+                  :class="{ 'error': errors.firstName }"
+                  placeholder="Имя"
+                  :disabled="isLoading"
+                  @blur="validateForm('firstName')"
+                  @input="errors.firstName = ''"
+                  size="large"
+                />
+                <div v-if="errors.firstName" class="error text_very">
+                  {{ errors.firstName }}
+                </div>
+              </div>
+              <div class="form__group">
+                <label for="lastName" class="form__label button">Фамилия</label>
+                <el-input
+                  id="lastName"
+                  v-model="formData.lastName"
+                  :class="{ 'error': errors.lastName }"
+                  placeholder="Фамилия"
+                  :disabled="isLoading"
+                  @blur="validateForm('lastName')"
+                  @input="errors.lastName = ''"
+                  size="large"
+                />
+                <div v-if="errors.lastName" class="error text_very">
+                  {{ errors.lastName }}
+                </div>
+              </div>
+            </div>
+            <div class="setting__personal_buttons">
+              <button 
+                class="setting__personal_button button__primary" 
+                @click="submitPersonalData"
+                :disabled="isLoading || hasFormErrors"
+              >
+                <span v-if="!isLoading">сохранить изменения</span>
+                <span v-else>Сохранение...</span>
+              </button>
+            </div>
+          </div>
+          <div class="setting__general">
+            <h5 class="setting__general_heading">Общие данные</h5>
+            <div class="setting__general_flex">
+              <div class="form__group">
+                <label for="nickname" class="form__label button">Псевдоним</label>
+                <el-input
+                  id="nickname"
+                  v-model="formData.nickname"
+                  :class="{ 'error': errors.nickname }"
+                  placeholder="Псевдоним"
+                  :disabled="isLoading"
+                  @blur="validateForm('nickname')"
+                  @input="errors.nickname = ''"
+                  size="large"
+                />
+                <div v-if="errors.nickname" class="error text_very">
+                  {{ errors.nickname }}
+                </div>
+              </div>
+              <div class="form__group">
+                <label for="email" class="form__label button">E-mail</label>
+                <el-input
+                  id="email"
+                  v-model="formData.email"
+                  type="email"
+                  :class="{ 'error': errors.email }"
+                  placeholder="e-mail"
+                  :disabled="isLoading"
+                  @blur="validateForm('email')"
+                  @input="errors.email = ''"
+                  size="large"
+                />
+                <div v-if="errors.email" class="error text_very">
+                  {{ errors.email }}
+                </div>
+              </div>
+              <div class="form__group">
+                <label for="country" class="form__label button">Страна</label>
+                <el-input
+                  id="country"
+                  v-model="formData.country"
+                  :class="{ 'error': errors.country }"
+                  placeholder="страна"
+                  :disabled="isLoading"
+                  @blur="validateForm('country')"
+                  @input="errors.country = ''"
+                  size="large"
+                />
+                <div v-if="errors.country" class="error text_very">
+                  {{ errors.country }}
+                </div>
+              </div>
+            </div>
+            <div class="setting__general_buttons">
+              <button 
+                class="setting__general_button button__primary" 
+                @click="submitGeneralData"
+                :disabled="isLoading"
+              >
+                <span v-if="!isLoading">сохранить изменения</span>
+                <span v-else>Сохранение...</span>
+              </button>
+            </div>
+          </div>
+          <div class="setting__passport">
+            <h5 class="setting__passport_heading">данные паспорта</h5>
+            <p class="setting__passport_desc">Введите данные для отображения в вашем договоре при выкладке релиза. Данные вашего паспорта скрыты для просмотра, но вы можете обновить их в любое время по кнопке «Изменить».</p>
+            <div class="setting__passport_buttons">
+              <button 
+                class="setting__passport_button button__primary" 
+                @click="openPassportModal"
+                :disabled="isLoading"
+              >
+                <span>изменить</span>
+              </button>
+            </div>
+          </div>
+          <div class="setting__password">
+            <h5 class="setting__password_heading">Смена пароля</h5>
+            <p class="setting__password_desc">Для изменения пароля мы отправим ссылку на вашу электронную почту.</p>
+            <div class="setting__password_buttons">
+              <button 
+                class="setting__password_button button__primary" 
+                @click="openPasswordModal"
+                :disabled="isLoading"
+              >
+                <span>изменить пароль</span>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Банковские данные - Физическое лицо -->
+          <div class="setting__details" v-if="bankDetailsType === 'individual'">
+            <h5 class="setting__details_heading">Банковские данные (Физ. лицо)</h5>
+            <p class="setting__details_description">Заполните реквизиты для выплат на карту физического лица.</p>
+            <div class="setting__details_flex">
+              <div class="form__labels">
+                <label class="form__label">
+                  <input 
+                    type="radio" 
+                    v-model="bankDetailsType" 
+                    value="individual"
+                    class="form__label_input"
+                    :disabled="isLoading"
+                    @change="switchBankDetailsType"
+                  >
+                  <span class="form__label_text">Физическое лицо</span>
+                </label>
+                <label class="form__label">
+                  <input 
+                    type="radio" 
+                    v-model="bankDetailsType" 
+                    value="entrepreneur"
+                    class="form__label_input"
+                    :disabled="isLoading"
+                    @change="switchBankDetailsType"
+                  >
+                  <span class="form__label_text">Индивидуальный предприниматель</span>
+                </label>
+              </div>
+              <div class="form__groups">
+                <div class="form__group">
+                  <label for="individualFullName" class="form__label button">ФИО</label>
+                  <el-input
+                    id="individualFullName"
+                    v-model="bankDetails.individual.fullName"
+                    :class="{ 'error': errors.bankDetails.individual?.fullName }"
+                    placeholder="Иванов Иван Иванович"
+                    :disabled="isLoading"
+                    @blur="validateBankDetails"
+                    size="large"
+                  />
+                  <div v-if="errors.bankDetails.individual?.fullName" class="error text_very">
+                    {{ errors.bankDetails.individual?.fullName }}
+                  </div>
+                </div>
+                <div class="form__group">
+                  <label for="individualAccount" class="form__label button">Расчетный счет</label>
+                  <el-input
+                    id="individualAccount"
+                    v-model="bankDetails.individual.account"
+                    :class="{ 'error': errors.bankDetails.individual?.account }"
+                    placeholder="408028102544110556789"
+                    :disabled="isLoading"
+                    @blur="validateBankDetails"
+                    size="large"
+                  />
+                  <div v-if="errors.bankDetails.individual?.account" class="error text_very">
+                    {{ errors.bankDetails.individual?.account }}
+                  </div>
+                </div>
+                <div class="form__group">
+                  <label for="individualBik" class="form__label button">БИК банка</label>
+                  <el-input
+                    id="individualBik"
+                    v-model="bankDetails.individual.bik"
+                    :class="{ 'error': errors.bankDetails.individual?.bik }"
+                    placeholder="044513655"
+                    :disabled="isLoading"
+                    @blur="validateBankDetails"
+                    size="large"
+                  />
+                  <div v-if="errors.bankDetails.individual?.bik" class="error text_very">
+                    {{ errors.bankDetails.individual?.bik }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="setting__details_buttons">
+              <button 
+                class="setting__details_button button__primary" 
+                @click="submitIndividualBankDetails"
+                :disabled="isLoading"
+              >
+                <span v-if="!isLoading">сохранить изменения</span>
+                <span v-else>Сохранение...</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Банковские данные - Индивидуальный предприниматель -->
+          <div class="setting__details" v-if="bankDetailsType === 'entrepreneur'">
+            <h5 class="setting__details_heading">Банковские данные (ИП)</h5>
+            <p class="setting__details_description">Заполните реквизиты для выплат на расчетный счет ИП.</p>
+            <div class="setting__details_flex">
+              <div class="form__labels">
+                <label class="form__label">
+                  <input 
+                    type="radio" 
+                    v-model="bankDetailsType" 
+                    value="individual"
+                    class="form__label_input"
+                    :disabled="isLoading"
+                    @change="switchBankDetailsType"
+                  >
+                  <span class="form__label_text">Физическое лицо</span>
+                </label>
+                <label class="form__label">
+                  <input 
+                    type="radio" 
+                    v-model="bankDetailsType" 
+                    value="entrepreneur"
+                    class="form__label_input"
+                    :disabled="isLoading"
+                    @change="switchBankDetailsType"
+                  >
+                  <span class="form__label_text">Индивидуальный предприниматель</span>
+                </label>
+              </div>
+              <div class="form__groups">
+                <div class="form__group">
+                  <label for="entrepreneurFullName" class="form__label button">ФИО Предпринимателя</label>
+                  <el-input
+                    id="entrepreneurFullName"
+                    v-model="bankDetails.entrepreneur.fullName"
+                    :class="{ 'error': errors.bankDetails.entrepreneur?.fullName }"
+                    placeholder="Иванов Иван Иванович"
+                    :disabled="isLoading"
+                    @blur="validateBankDetails"
+                    size="large"
+                  />
+                  <div v-if="errors.bankDetails.entrepreneur?.fullName" class="error text_very">
+                    {{ errors.bankDetails.entrepreneur?.fullName }}
+                  </div>
+                </div>
+                <div class="form__group">
+                  <label for="entrepreneurOgrnip" class="form__label button">ОГРНИП</label>
+                  <el-input
+                    id="entrepreneurOgrnip"
+                    v-model="bankDetails.entrepreneur.ogrnip"
+                    :class="{ 'error': errors.bankDetails.entrepreneur?.ogrnip }"
+                    placeholder="318000000100730"
+                    :disabled="isLoading"
+                    @blur="validateBankDetails"
+                    size="large"
+                  />
+                  <div v-if="errors.bankDetails.entrepreneur?.ogrnip" class="error text_very">
+                    {{ errors.bankDetails.entrepreneur?.ogrnip }}
+                  </div>
+                </div>
+                <div class="form__group">
+                  <label for="entrepreneurAddress" class="form__label button">Адрес</label>
+                  <el-input
+                    id="entrepreneurAddress"
+                    v-model="bankDetails.entrepreneur.address"
+                    :class="{ 'error': errors.bankDetails.entrepreneur?.address }"
+                    placeholder="г. Москва, ул. Примерная, д. 1"
+                    :disabled="isLoading"
+                    @blur="validateBankDetails"
+                    size="large"
+                  />
+                  <div v-if="errors.bankDetails.entrepreneur?.address" class="error text_very">
+                    {{ errors.bankDetails.entrepreneur?.address }}
+                  </div>
+                </div>
+                <div class="form__group">
+                  <label for="entrepreneurInn" class="form__label button">ИНН</label>
+                  <el-input
+                    id="entrepreneurInn"
+                    v-model="bankDetails.entrepreneur.inn"
+                    :class="{ 'error': errors.bankDetails.entrepreneur?.inn }"
+                    placeholder="840000001004"
+                    :disabled="isLoading"
+                    @blur="validateBankDetails"
+                    size="large"
+                  />
+                  <div v-if="errors.bankDetails.entrepreneur?.inn" class="error text_very">
+                    {{ errors.bankDetails.entrepreneur?.inn }}
+                  </div>
+                </div>
+                <div class="form__group">
+                  <label for="entrepreneurAccount" class="form__label button">Расчетный счет ИП</label>
+                  <el-input
+                    id="entrepreneurAccount"
+                    v-model="bankDetails.entrepreneur.account"
+                    :class="{ 'error': errors.bankDetails.entrepreneur?.account }"
+                    placeholder="408028102544110556789"
+                    :disabled="isLoading"
+                    @blur="validateBankDetails"
+                    size="large"
+                  />
+                  <div v-if="errors.bankDetails.entrepreneur?.account" class="error text_very">
+                    {{ errors.bankDetails.entrepreneur?.account }}
+                  </div>
+                </div>
+                <div class="form__group">
+                  <label for="entrepreneurBik" class="form__label button">БИК</label>
+                  <el-input
+                    id="entrepreneurBik"
+                    v-model="bankDetails.entrepreneur.bik"
+                    :class="{ 'error': errors.bankDetails.entrepreneur?.bik }"
+                    placeholder="123456789"
+                    :disabled="isLoading"
+                    @blur="validateBankDetails"
+                    size="large"
+                  />
+                  <div v-if="errors.bankDetails.entrepreneur?.bik" class="error text_very">
+                    {{ errors.bankDetails.entrepreneur?.bik }}
+                  </div>
+                </div>
+                <div class="form__group">
+                  <label for="entrepreneurKs" class="form__label button">Корреспондентский счет</label>
+                  <el-input
+                    id="entrepreneurKs"
+                    v-model="bankDetails.entrepreneur.correspondentAccount"
+                    :class="{ 'error': errors.bankDetails.entrepreneur?.correspondentAccount }"
+                    placeholder="30101810640004000068"
+                    :disabled="isLoading"
+                    @blur="validateBankDetails"
+                    size="large"
+                  />
+                  <div v-if="errors.bankDetails.entrepreneur?.correspondentAccount" class="error text_very">
+                    {{ errors.bankDetails.entrepreneur?.correspondentAccount }}
+                  </div>
+                </div>
+                <div class="form__group">
+                  <label for="entrepreneurEmail" class="form__label button">E-mail</label>
+                  <el-input
+                    id="entrepreneurEmail"
+                    v-model="bankDetails.entrepreneur.email"
+                    :class="{ 'error': errors.bankDetails.entrepreneur?.email }"
+                    placeholder="test@test.ru"
+                    :disabled="isLoading"
+                    @blur="validateBankDetails"
+                    size="large"
+                  />
+                  <div v-if="errors.bankDetails.entrepreneur?.email" class="error text_very">
+                    {{ errors.bankDetails.entrepreneur?.email }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="setting__details_buttons">
+              <button 
+                class="setting__details_button button__primary" 
+                @click="submitEntrepreneurBankDetails"
+                :disabled="isLoading"
+              >
+                <span v-if="!isLoading">сохранить изменения</span>
+                <span v-else>Сохранение...</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="setting__delete">
+            <h5 class="setting__delete_heading">удаление аккаунта</h5>
+            <p class="setting__delete_desc">Если захочешь восстановить аккаунт, можешь написать нам в группу VK или Телеграмм.</p>
+            <div class="setting__delete_buttons">
+              <button 
+                class="setting__delete_button button__primary" 
+                @click="openDeleteModal"
+                :disabled="isLoading"
+                style="background-color: #f56c6c; border-color: #f56c6c;"
+              >
+                <span>удалить</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="setting__right">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Модальное окно паспортных данных -->
+<Teleport to="body">
+  <div v-if="showPassportModal" class="passport-modal-overlay" @click.self="closePassportModal">
+    <div class="passport-modal">
+      <div class="passport-modal__header">
+        <h3 class="passport-modal__title">Паспортные данные</h3>
+        <button class="passport-modal__close" @click="closePassportModal">×</button>
+      </div>
+      
+      <div class="passport-modal__content">
+        <div class="passport-modal__grid">
+          <!-- Левая колонка -->
+          <div class="passport-modal__column">
+            <div class="form__group">
+              <label class="form__label button">Гражданство</label>
+              <el-select
+                v-model="passportForm.citizenship"
+                placeholder="Выберите гражданство"
+                :disabled="isLoading"
+                size="large"
+                class="passport-select"
+                clearable
+              >
+                <el-option label="Россия" value="Россия" />
+                <el-option label="Беларусь" value="Беларусь" />
+                <el-option label="Казахстан" value="Казахстан" />
+                <el-option label="Армения" value="Армения" />
+                <el-option label="Кыргызстан" value="Кыргызстан" />
+                <el-option label="Другое" value="Другое" />
+              </el-select>
+            </div>
+
+            <div class="form__group">
+              <label class="form__label button">Кем выдан</label>
+              <el-input
+                v-model="passportForm.issuedBy"
+                placeholder="Кем выдан паспорт"
+                :disabled="isLoading"
+                size="large"
+              />
+            </div>
+
+            <div class="form__group">
+              <label class="form__label button">Фамилия</label>
+              <el-input
+                v-model="passportForm.fam"
+                placeholder="Фамилия"
+                :disabled="isLoading"
+                size="large"
+              />
+            </div>
+
+            <div class="form__group">
+              <label class="form__label button">Имя</label>
+              <el-input
+                v-model="passportForm.imya"
+                placeholder="Имя"
+                :disabled="isLoading"
+                size="large"
+              />
+            </div>
+          </div>
+
+          <!-- Правая колонка -->
+          <div class="passport-modal__column">
+            <div class="form__group">
+              <label class="form__label button">Отчество</label>
+              <el-input
+                v-model="passportForm.otch"
+                placeholder="Отчество"
+                :disabled="isLoading"
+                size="large"
+              />
+            </div>
+
+            <div class="form__group">
+              <label class="form__label button">Серия и номер паспорта</label>
+              <el-input
+                v-model="passportForm.number"
+                placeholder="0000 000000"
+                :disabled="isLoading"
+                size="large"
+              />
+            </div>
+
+            <div class="form__group">
+              <label class="form__label button">Дата выдачи</label>
+              <el-date-picker
+                v-model="passportForm.date"
+                type="date"
+                placeholder="Выберите дату"
+                format="DD.MM.YYYY"
+                value-format="DD.MM.YYYY"
+                :disabled="isLoading"
+                size="large"
+                class="passport-datepicker"
+              />
+            </div>
+
+            <div class="form__group">
+              <label class="form__label button">Адрес регистрации</label>
+              <el-input
+                v-model="passportForm.adress"
+                placeholder="Адрес регистрации"
+                :disabled="isLoading"
+                size="large"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="passport-modal__footer">
+        <button 
+          class="passport-modal__button passport-modal__button--clear"
+          @click="clearPassportForm"
+          :disabled="isLoading"
+        >
+          очистить
+        </button>
+        <button 
+          class="passport-modal__button passport-modal__button--save"
+          @click="savePassportData"
+          :disabled="isLoading"
+        >
+          <span v-if="!isLoading">сохранить изменения</span>
+          <span v-else>Сохранение...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
+<!-- Модальное окно смены пароля -->
+<Teleport to="body">
+  <div v-if="showPasswordModal" class="modal-overlay" @click.self="closePasswordModal">
+    <div class="modal modal--small">
+      <div class="modal__header">
+        <h3 class="modal__title">Смена пароля</h3>
+        <button class="modal__close" @click="closePasswordModal">×</button>
+      </div>
+      
+      <div class="modal__content">
+        <div class="modal__info">
+          <p>Ссылка для изменения пароля будет отправлена на вашу электронную почту:</p>
+          <p class="modal__email">{{ formData.email || 'не указан' }}</p>
+          <p class="modal__hint">Письмо придет в течение нескольких минут. Проверьте папку "Спам", если не видите письмо во входящих.</p>
+        </div>
+      </div>
+
+      <div class="modal__footer">
+        <button 
+          class="modal__button modal__button--clear"
+          @click="closePasswordModal"
+          :disabled="isLoading"
+        >
+          отмена
+        </button>
+        <button 
+          class="modal__button modal__button--save"
+          @click="submitPasswordChange"
+          :disabled="isLoading"
+        >
+          <span v-if="!isLoading">отправить ссылку</span>
+          <span v-else>Отправка...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
+<!-- Модальное окно удаления аккаунта -->
+<Teleport to="body">
+  <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
+    <div class="modal modal--small">
+      <div class="modal__header">
+        <h3 class="modal__title">Удаление аккаунта</h3>
+        <button class="modal__close" @click="closeDeleteModal">×</button>
+      </div>
+      
+      <div class="modal__content">
+        <div class="modal__warning">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#f56c6c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 8V12" stroke="#f56c6c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 16H12.01" stroke="#f56c6c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="modal__warning-text">
+            <h4>Внимание! Это действие нельзя отменить</h4>
+            <p>Все ваши данные будут удалены без возможности восстановления.</p>
+          </div>
+        </div>
+        
+        <div class="form__group">
+          <label class="form__label button">Подтверждение</label>
+          <el-input
+            v-model="deleteConfirmText"
+            placeholder="Введите 'УДАЛИТЬ' для подтверждения"
+            :disabled="isLoading"
+            size="large"
+          />
+        </div>
+      </div>
+
+      <div class="modal__footer">
+        <button 
+          class="modal__button modal__button--clear"
+          @click="closeDeleteModal"
+          :disabled="isLoading"
+        >
+          отмена
+        </button>
+        <button 
+          class="modal__button modal__button--delete"
+          @click="confirmDeleteAccount"
+          :disabled="isLoading || deleteConfirmText !== 'УДАЛИТЬ'"
+        >
+          <span v-if="!isLoading">удалить аккаунт</span>
+          <span v-else>Удаление...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</Teleport>
+</template>
 
 <style lang="css" scoped>
 .personal {
@@ -1303,7 +1572,7 @@ initializeData()
   color: var(--text-gray);
 }
 
-/* Стили для оригинального модального окна паспорта (без изменений) */
+/* Стили для модального окна паспорта */
 .passport-modal-overlay {
   position: fixed;
   top: 0;
@@ -1428,7 +1697,7 @@ initializeData()
   cursor: not-allowed;
 }
 
-/* Стили для новых модальных окон (смена пароля и удаление) */
+/* Стили для модальных окон */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1677,6 +1946,12 @@ initializeData()
   background-color: var(--text);
   color: var(--bg);
   font-weight: normal;
+}
+
+.button__disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 @media (max-width: 1919px) {

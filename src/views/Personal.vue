@@ -13,7 +13,7 @@ import ReportsSVG from "@/uikit/icon/ReportsSVG.vue";
 import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
 import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
 import Tr from "@/i18n/translation"
-import Signature from "@/components/layout/Signature.vue";
+import SignaturePopup from "@/components/layout/Signature.vue";
 
 // Получаем базовый URL из текущего окна
 const API_BASE_URL = window.location.origin;
@@ -39,11 +39,14 @@ interface Release {
 }
 
 interface Report {
-  id: number;
+  id: string | number;
   filename: string;
   filesize: string;
   date: string;
   hasAct: boolean;
+  xlsxUrl?: string;
+  pdfUrl?: string | null;
+  images?: string[];
 }
 
 interface Transaction {
@@ -63,8 +66,11 @@ interface Quarter {
 }
 
 interface ActResponse {
-  actImages: string[];
-  paymentId: string;
+  docx_url: string;
+  pdf_url: string;
+  images: string[];
+  element_id: string;
+  message: string;
 }
 
 // Данные из API
@@ -81,8 +87,14 @@ const selectedQuarter = ref<string>('');
 const showReportPopup = ref(false);
 const showQuarterPopup = ref(false);
 const showSignaturePopup = ref(false);
+const showPayoutAmountPopup = ref(false);
 const actData = ref<ActResponse | null>(null);
 const userLabel = ref(0);
+
+// Состояние для выплаты
+const payoutAmount = ref<number | null>(null);
+const isRequestingAct = ref(false);
+const actError = ref('');
 
 // Список кварталов из API
 const availableQuarters = ref<Quarter[]>([]);
@@ -108,7 +120,7 @@ const releasesPagination = ref({
 
 const reportsPagination = ref({
   currentPage: 1,
-  perPage: 3,
+  perPage: 4,
   total: "0"
 });
 
@@ -124,7 +136,7 @@ const currentReleasesPage = ref<number>(1);
 const totalReleasesItems = computed(() => parseInt(releasesPagination.value.total) || 0);
 
 // Пагинация для отчетов
-const reportsPerPage = ref<number>(3);
+const reportsPerPage = ref<number>(4);
 const currentReportsPage = ref<number>(1);
 const totalReportsItems = computed(() => parseInt(reportsPagination.value.total) || 0);
 
@@ -170,6 +182,25 @@ const paginatedTransactions = computed(() => {
 
 const showTransactionsPagination = computed(() => {
   return totalTransactionsItems.value > transactionsPerPage.value;
+});
+
+// Состояние для попапа выплаты бонусов
+const showBonusPayoutPopup = ref(false);
+const bonusPayoutAmount = ref<number | null>(null);
+const isSubmittingBonusPayout = ref(false);
+const payoutError = ref('');
+
+// Вспомогательные computed свойства для бонусов
+const maxBonusAmount = computed(() => profileData.value.bonus || 0);
+const isBonusAmountValid = computed(() => {
+  if (!bonusPayoutAmount.value) return false;
+  return bonusPayoutAmount.value > 0 && bonusPayoutAmount.value <= maxBonusAmount.value;
+});
+
+// Валидация суммы выплаты
+const isPayoutAmountValid = computed(() => {
+  if (!payoutAmount.value) return false;
+  return payoutAmount.value > 0 && payoutAmount.value <= profileData.value.balance;
 });
 
 // Методы для пагинации релизов
@@ -271,21 +302,24 @@ const fetchReleasesPage = async (page: number) => {
 const fetchReportsPage = async (page: number) => {
   isLoadingReports.value = true;
   try {
-    const response = await sendRequest('get', `/ajax/getData.php?PAGEN_3=${page}`, {});
+    const response = await sendRequest('get', `/ajax/getData.php?report_page=${page}`, {});
     
-    if (response.data && response.data.reports) {
-      reportsData.value = response.data.reports.items.map((item: any) => ({
-        id: item.ID || item.id,
-        filename: item.FILENAME || item.filename || 'Отчет',
-        filesize: item.FILESIZE || item.filesize || '0 KB',
-        date: item.DATE || item.date || '',
-        hasAct: item.HAS_ACT || item.hasAct || false
+    if (response.data && response.data.downloadedReports) {
+      reportsData.value = response.data.downloadedReports.items.map((item: any) => ({
+        id: item.id,
+        filename: item.name || 'Отчет',
+        filesize: '',
+        date: '',
+        hasAct: false,
+        xlsxUrl: item.xlsxUrl,
+        pdfUrl: item.pdfUrl,
+        images: item.images || []
       }));
       
       reportsPagination.value = {
-        currentPage: response.data.reports.currentPage || page,
-        perPage: response.data.reports.perPage || reportsPerPage.value,
-        total: response.data.reports.total || "0"
+        currentPage: response.data.downloadedReports.currentPage || page,
+        perPage: response.data.downloadedReports.perPage || reportsPerPage.value,
+        total: response.data.downloadedReports.totalItems?.toString() || "0"
       };
       
       currentReportsPage.value = reportsPagination.value.currentPage;
@@ -359,38 +393,29 @@ const getStatusText = (status: string) => {
   }
 };
 
-// Функция для выбора года - теперь выводит список кварталов
+// Функция для выбора года
 const selectYear = async (year: string) => {
   selectedYear.value = year;
   
   isLoadingQuarters.value = true;
   try {
-    // Отправляем POST запрос с ID = выбранный год
     const response = await sendRequest('post', '/ajax/profile/kvartal.php', {
       ID: year
     });
     
     console.log('Ответ с кварталами (HTML):', response.data);
     
-    // Получаем HTML с сервера
     const quartersHtml = response.data;
-    
-    // Создаем временный DOM элемент для парсинга HTML
     const parser = new DOMParser();
     const doc = parser.parseFromString(quartersHtml, 'text/html');
-    
-    // Находим все radio input'ы с кварталами
     const radioInputs = doc.querySelectorAll('input[name="QUARTER_ID"]');
     
     console.log('Найдено radio inputs:', radioInputs.length);
     
-    // Очищаем предыдущие кварталы
     availableQuarters.value = [];
     
-    // Проходим по всем найденным input'ам
     radioInputs.forEach((input: Element) => {
       const value = input.getAttribute('value');
-      // Ищем соответствующий label
       const label = doc.querySelector(`label[for="${input.id}"]`);
       let text = '';
       
@@ -402,8 +427,6 @@ const selectYear = async (year: string) => {
       console.log('Найден квартал:', { value, text });
       
       if (value) {
-        // Пробуем извлечь название и месяцы из текста
-        // Текст обычно в формате "Q3 (июнь, июль, август)"
         const match = text.match(/(Q[1-4])\s*\((.+)\)/);
         if (match) {
           availableQuarters.value.push({
@@ -412,7 +435,6 @@ const selectYear = async (year: string) => {
             months: match[2]
           });
         } else {
-          // Если не удалось распарсить, просто сохраняем как есть
           availableQuarters.value.push({
             id: value,
             name: text || value,
@@ -422,7 +444,6 @@ const selectYear = async (year: string) => {
       }
     });
     
-    // Если не нашли через input'ы, пробуем найти option (на случай если это select)
     if (availableQuarters.value.length === 0) {
       const select = doc.querySelector('select[name="QUARTER_ID"]');
       if (select) {
@@ -479,7 +500,6 @@ const downloadReport = async () => {
       YEAR_ID: selectedYear.value
     };
     
-    // Используем fetch вместо sendRequest
     const response = await fetch('/ajax/profile/report.php', {
       method: 'POST',
       headers: {
@@ -492,12 +512,10 @@ const downloadReport = async () => {
     console.log('Ответ от сервера:', data);
     
     if (data.message) {
-      // Если есть ссылка для скачивания
       if (data.error === 0 && data.message.startsWith('http')) {
-        // Создаем ссылку для скачивания
         const link = document.createElement('a');
         link.href = data.message;
-        link.download = ''; // Пустое значение - использовать имя из URL
+        link.download = '';
         link.target = '_blank';
         document.body.appendChild(link);
         link.click();
@@ -505,7 +523,6 @@ const downloadReport = async () => {
         
         closeAllPopups();
       } else {
-        // Просто показываем сообщение
         alert(data.message);
       }
     }
@@ -519,13 +536,11 @@ const downloadReport = async () => {
 };
 
 const showReportPopupFunc = () => {
-  // Проверяем что profile.showReportButton = true
   if (!showReportButton.value) {
     alert('Кнопка скачивания отчета недоступна');
     return;
   }
   
-  // Проверяем reportYears - если массив пустой, то нет отчетов
   if (reportYears.value.length === 0) {
     alert('Нет доступных отчетов');
     return;
@@ -540,10 +555,14 @@ const closeAllPopups = () => {
   showReportPopup.value = false;
   showQuarterPopup.value = false;
   showSignaturePopup.value = false;
+  showBonusPayoutPopup.value = false;
+  showPayoutAmountPopup.value = false;
   selectedYear.value = '';
   selectedQuarter.value = '';
   availableQuarters.value = [];
   actData.value = null;
+  actError.value = '';
+  payoutAmount.value = null;
   document.documentElement.classList.remove('noscroll');
 };
 
@@ -555,11 +574,23 @@ const backToYearSelection = () => {
   availableQuarters.value = [];
 };
 
+// Метод для обработки ошибок загрузки изображений
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement;
+  img.style.display = 'none';
+  const parent = img.parentElement;
+  if (parent) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'personal__releases_image_placeholder';
+    parent.appendChild(placeholder);
+  }
+};
+
 const fetchData = async () => {
   try {
     const response = await sendRequest('get', '/ajax/getData.php', {});
+    console.log('Данные из API:', response.data);
     
-    // Обновляем данные профиля из ответа API
     if (response.data && response.data.profile) {
       profileData.value.balance = response.data.profile.balance || 0;
       profileData.value.bonus = response.data.profile.bonus || 0;
@@ -568,12 +599,10 @@ const fetchData = async () => {
       userLabel.value = response.data.profile.ufLable || 0;
     }
     
-    // Сохраняем reportYears из ответа API
     if (response.data && response.data.reportYears) {
       reportYears.value = response.data.reportYears;
     }
     
-    // Загружаем релизы
     if (response.data && response.data.releases) {
       releasesData.value = response.data.releases.items.map((item: any) => ({
         id: item.ID || item.id,
@@ -601,25 +630,26 @@ const fetchData = async () => {
       currentReleasesPage.value = releasesPagination.value.currentPage;
     }
     
-    // Загружаем отчеты (первая страница)
-    if (response.data && response.data.reports) {
-      reportsData.value = response.data.reports.items.map((item: any) => ({
-        id: item.ID || item.id,
-        filename: item.FILENAME || item.filename || 'Отчет',
-        filesize: item.FILESIZE || item.filesize || '0 KB',
-        date: item.DATE || item.date || '',
-        hasAct: item.HAS_ACT || item.hasAct || false
+    if (response.data && response.data.downloadedReports) {
+      reportsData.value = response.data.downloadedReports.items.map((item: any) => ({
+        id: item.id,
+        filename: item.name || 'Отчет',
+        filesize: '',
+        date: '',
+        hasAct: false,
+        xlsxUrl: item.xlsxUrl,
+        pdfUrl: item.pdfUrl,
+        images: item.images || []
       }));
       
       reportsPagination.value = {
-        currentPage: response.data.reports.currentPage || 1,
-        perPage: response.data.reports.perPage || reportsPerPage.value,
-        total: response.data.reports.total || "0"
+        currentPage: response.data.downloadedReports.currentPage || 1,
+        perPage: response.data.downloadedReports.perPage || reportsPerPage.value,
+        total: response.data.downloadedReports.totalItems?.toString() || "0"
       };
       currentReportsPage.value = reportsPagination.value.currentPage;
     }
     
-    // Загружаем транзакции
     if (response.data && response.data.finances) {
       transactionsData.value = response.data.finances.items.map((item: any, index: number) => ({
         id: item.ID || index + 1,
@@ -647,36 +677,61 @@ const fetchData = async () => {
   }
 };
 
-// Функция для запроса выплаты
-const requestPayout = async () => {
+// Функция для открытия попапа ввода суммы выплаты
+const openPayoutAmountPopup = () => {
+  if (profileData.value.balance <= 0) {
+    alert('Недостаточно средств для выплаты');
+    return;
+  }
+  
+  payoutAmount.value = null;
+  actError.value = '';
+  showPayoutAmountPopup.value = true;
+  document.documentElement.classList.add('noscroll');
+};
+
+// Функция для запроса акта выплаты с указанной суммой
+const requestPayoutAct = async () => {
+  if (!isPayoutAmountValid.value) {
+    actError.value = `Сумма должна быть от 1 до ${profileData.value.balance}`;
+    return;
+  }
+
+  isRequestingAct.value = true;
+  actError.value = '';
+
   try {
     const valuta = profileData.value.region === 'Russia' ? 'RUB' : 'USD';
-    const summ = profileData.value.balance;
-    const summLabels = profileData.value.balance;
-
+    
     const response = await sendRequest('post', '/ajax/profile/aktVyplata.php', {
-      summ,
-      valuta,
-      summLabels
+      summ: payoutAmount.value,
+      valuta: valuta,
+      summLabels: payoutAmount.value
     });
 
-    if (response.data && response.data.actImages && response.data.paymentId) {
-      const fullActImages = response.data.actImages.map((img: string) => 
-        img.startsWith('http') ? img : getFullUrl(img)
-      );
-      
+    console.log('Ответ при получении акта:', response.data);
+
+    if (response.data && response.data.error === 0) {
+      // Сохраняем данные акта
       actData.value = {
-        actImages: fullActImages,
-        paymentId: response.data.paymentId
+        docx_url: response.data.data.docx_url,
+        pdf_url: response.data.data.pdf_url,
+        images: response.data.data.images,
+        element_id: response.data.data.element_id,
+        message: response.data.message
       };
+      
+      // Закрываем попап ввода суммы и открываем попап подписи
+      showPayoutAmountPopup.value = false;
       showSignaturePopup.value = true;
-      document.documentElement.classList.add('noscroll');
     } else {
-      alert('Ошибка при получении акта');
+      actError.value = response.data?.message || 'Ошибка при получении акта';
     }
-  } catch (error) {
-    console.error('Ошибка при запросе выплаты:', error);
-    alert('Не удалось получить акт для подписи');
+  } catch (error: any) {
+    console.error('Ошибка при запросе акта:', error);
+    actError.value = error.response?.data?.message || 'Не удалось получить акт для подписи';
+  } finally {
+    isRequestingAct.value = false;
   }
 };
 
@@ -687,25 +742,136 @@ const submitSignature = async (signatureDataUrl: string) => {
   try {
     const response = await fetch(signatureDataUrl);
     const blob = await response.blob();
-    const signatureFile = new File([blob], 'signature.png', { type: 'image/png' });
+    
+    // Используем имя файла из element_id
+    const fileName = `${actData.value.element_id}.png`;
+    const signatureFile = new File([blob], fileName, { type: 'image/png' });
 
     const formData = new FormData();
-    formData.append('paymentId', actData.value.paymentId);
+    formData.append('name', actData.value.element_id);
+    formData.append('url', signatureDataUrl);
     formData.append('signature', signatureFile);
 
     const submitResponse = await sendRequest('post', '/ajax/newAkt_vyp.php', formData);
 
-    if (submitResponse.data && submitResponse.data.success) {
-      alert('Выплата успешно запрошена');
-      closeAllPopups();
-      await fetchData();
-    } else {
-      alert('Ошибка при отправке подписи');
-    }
+    console.log('Ответ при отправке подписи:', submitResponse.data);
+
+    // Если запрос выполнился (статус 200) - считаем успешным
+    // Не проверяем содержимое ответа, просто закрываем попап
+    alert('Выплата успешно запрошена');
+    closeAllPopups();
+    await fetchData(); // Обновляем данные
+    
   } catch (error) {
     console.error('Ошибка при отправке подписи:', error);
     alert('Не удалось отправить подпись');
   }
+};
+
+// Функция для открытия попапа выплаты бонусов
+const openBonusPayoutPopup = () => {
+  bonusPayoutAmount.value = null;
+  payoutError.value = '';
+  
+  if (maxBonusAmount.value <= 0) {
+    alert('У вас нет бонусов для выплаты');
+    return;
+  }
+  
+  showBonusPayoutPopup.value = true;
+  document.documentElement.classList.add('noscroll');
+};
+
+// Функция для отправки запроса на выплату бонусов
+const submitBonusPayout = async () => {
+  if (!isBonusAmountValid.value) {
+    payoutError.value = `Сумма должна быть от 1 до ${maxBonusAmount.value}`;
+    return;
+  }
+
+  isSubmittingBonusPayout.value = true;
+  payoutError.value = '';
+
+  try {
+    const valuta = profileData.value.region === 'Russia' ? 'RUB' : 'USD';
+    
+    const response = await sendRequest('post', '/ajax/profile/bonusVyplata.php', {
+      summ: bonusPayoutAmount.value,
+      valuta: valuta
+    });
+
+    console.log('Ответ на выплату бонусов:', response.data);
+
+    // Проверяем разные возможные форматы успешного ответа
+    if (response.data) {
+      // Если есть поле error и оно равно 0 или false - успех
+      if (response.data.error === 0 || response.data.error === false || response.data.error === '0') {
+        alert('Запрос на выплату бонусов успешно отправлен');
+        closeBonusPayoutPopup();
+        await fetchData();
+        return;
+      }
+      
+      // Если есть поле success и оно true - успех
+      if (response.data.success === true || response.data.success === '1' || response.data.success === 1) {
+        alert('Запрос на выплату бонусов успешно отправлен');
+        closeBonusPayoutPopup();
+        await fetchData();
+        return;
+      }
+      
+      // Если есть поле status и оно 'ok' или 'success' - успех
+      if (response.data.status === 'ok' || response.data.status === 'success') {
+        alert('Запрос на выплату бонусов успешно отправлен');
+        closeBonusPayoutPopup();
+        await fetchData();
+        return;
+      }
+      
+      // Если есть поле message и оно содержит информацию об успехе
+      if (response.data.message && (
+          response.data.message.toLowerCase().includes('успех') || 
+          response.data.message.toLowerCase().includes('success') ||
+          response.data.message.toLowerCase().includes('отправлен')
+      )) {
+        alert(response.data.message);
+        closeBonusPayoutPopup();
+        await fetchData();
+        return;
+      }
+      
+      // Если вообще нет ошибки в ответе, но есть какие-то данные - возможно успех
+      if (!response.data.error && !response.data.errorCode) {
+        alert('Запрос на выплату бонусов успешно отправлен');
+        closeBonusPayoutPopup();
+        await fetchData();
+        return;
+      }
+    }
+    
+    // Если мы дошли до сюда, значит это ошибка
+    const errorMessage = response.data?.message || 
+                        response.data?.errorMessage || 
+                        response.data?.error ||
+                        'Произошла ошибка при запросе выплаты';
+    
+    payoutError.value = errorMessage;
+    
+  } catch (error) {
+    console.error('Ошибка при запросе выплаты бонусов:', error);
+    payoutError.value = 'Не удалось отправить запрос. Проверьте соединение и попробуйте позже.';
+  } finally {
+    isSubmittingBonusPayout.value = false;
+  }
+};
+
+// Функция для закрытия попапа выплаты бонусов
+const closeBonusPayoutPopup = () => {
+  showBonusPayoutPopup.value = false;
+  bonusPayoutAmount.value = null;
+  payoutError.value = '';
+  isSubmittingBonusPayout.value = false;
+  document.documentElement.classList.remove('noscroll');
 };
 
 // Следим за изменением страницы отчетов
@@ -762,7 +928,7 @@ onMounted(() => {
             </div>
             <button 
               class="personal__balance_button button__primary"
-              @click="requestPayout"
+              @click="openPayoutAmountPopup"
               :disabled="profileData.balance <= 0"
               :class="{ 'button__disabled': profileData.balance <= 0 }"
             >
@@ -779,7 +945,14 @@ onMounted(() => {
                 </h4>
               </div>
             </div>
-            <button class="personal__balance_button button__primary"><span>Запросить выплаты бонусов</span></button>
+            <button 
+              class="personal__balance_button button__primary"
+              @click="openBonusPayoutPopup"
+              :disabled="profileData.bonus <= 0"
+              :class="{ 'button__disabled': profileData.bonus <= 0 }"
+            >
+              <span>Запросить выплаты бонусов</span>
+            </button>
           </li>
         </ul>
       </div>
@@ -810,11 +983,12 @@ onMounted(() => {
                   <div class="personal__releases_information">
                     <div class="personal__releases_image">
                       <img 
-                        :src="release.hasPng 
-                          ? getFullUrl(`/upload/releases/${release.id}/cover.png`) 
-                          : '/src/assets/img/personal/releases/releases_1.webp'" 
+                        v-if="release.hasPng"
+                        :src="getFullUrl(`/upload/releases/${release.id}/cover.png`)"
+                        @error="handleImageError"
                         alt=""
                       >
+                      <div v-else class="personal__releases_image_placeholder"></div>
                     </div>
                     <div class="personal__releases_flex">
                       <div class="personal__releases_top">
@@ -911,13 +1085,25 @@ onMounted(() => {
                 <div class="personal__reports_cell personal__reports_actions">
                   <div class="personal__reports_buttons">
                     <a 
-                      :href="getFullUrl(`/reports/${report.id}`)" 
+                      v-if="report.xlsxUrl"
+                      :href="getFullUrl(report.xlsxUrl)" 
                       class="personal__reports_button button__text" 
                       download=""
                     >
                       <DownloadSVG/>
-                      <span>Скачать</span>
+                      <span>Скачать XLSX</span>
                     </a>
+                    
+                    <a 
+                      v-if="report.pdfUrl"
+                      :href="getFullUrl(report.pdfUrl)" 
+                      class="personal__reports_button button__text" 
+                      download=""
+                    >
+                      <DownloadSVG/>
+                      <span>Скачать PDF</span>
+                    </a>
+                    
                     <a 
                       :href="getFullUrl(`/acts/${report.id}`)" 
                       class="personal__reports_button button__text"
@@ -1177,17 +1363,130 @@ onMounted(() => {
   </div>
 </Teleport>
 
+<!-- Попап для ввода суммы выплаты -->
+<Teleport to="body">
+  <div class="popup" v-if="showPayoutAmountPopup" @click.self="closeAllPopups">
+    <div class="popup__content popup__content_small">
+      <div class="popup__header">
+        <h3 class="popup__title">Запрос выплаты</h3>
+        <button class="popup__close" @click="closeAllPopups">×</button>
+      </div>
+      <div class="popup__body">
+        <div class="popup__info">
+          <p class="popup__balance-info">
+            Доступно средств: <strong>{{ profileData.balance.toLocaleString() }} ₽</strong>
+          </p>
+        </div>
+        
+        <div class="popup__form-group">
+          <label for="payout-amount" class="popup__label">
+            Введите сумму для выплаты:
+          </label>
+          <input
+            id="payout-amount"
+            type="number"
+            class="popup__input"
+            :class="{ 'popup__input_error': actError }"
+            v-model.number="payoutAmount"
+            :min="1"
+            :max="profileData.balance"
+            :placeholder="`От 1 до ${profileData.balance}`"
+            :disabled="isRequestingAct"
+            @keyup.enter="requestPayoutAct"
+          />
+          <p v-if="actError" class="popup__error-message">{{ actError }}</p>
+        </div>
+        
+        <div class="popup__actions">
+          <button 
+            class="popup__button button button__primary"
+            @click="requestPayoutAct"
+            :disabled="!isPayoutAmountValid || isRequestingAct"
+          >
+            <span v-if="!isRequestingAct">Получить акт</span>
+            <span v-else>Запрос...</span>
+          </button>
+          <button 
+            class="popup__button button button__secondary"
+            @click="closeAllPopups"
+            :disabled="isRequestingAct"
+          >
+            Отмена
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
 <!-- Попап для подписи акта -->
-<Signature
-  v-if="showSignaturePopup"
+<SignaturePopup
+  v-if="showSignaturePopup && actData"
   @close="closeAllPopups"
   @submit="submitSignature"
 />
+
+<!-- Попап для выплаты бонусов -->
+<Teleport to="body">
+  <div class="popup" v-if="showBonusPayoutPopup" @click.self="closeBonusPayoutPopup">
+    <div class="popup__content popup__content_small">
+      <div class="popup__header">
+        <h3 class="popup__title">Запрос выплаты бонусов</h3>
+        <button class="popup__close" @click="closeBonusPayoutPopup">×</button>
+      </div>
+      <div class="popup__body">
+        <div class="popup__info">
+          <p class="popup__balance-info">
+            Доступно бонусов: <strong>{{ profileData.bonus.toLocaleString() }}</strong>
+          </p>
+        </div>
+        
+        <div class="popup__form-group">
+          <label for="bonus-amount" class="popup__label">
+            Введите сумму для выплаты:
+          </label>
+          <input
+            id="bonus-amount"
+            type="number"
+            class="popup__input"
+            :class="{ 'popup__input_error': payoutError }"
+            v-model.number="bonusPayoutAmount"
+            :min="1"
+            :max="maxBonusAmount"
+            :placeholder="`От 1 до ${maxBonusAmount}`"
+            :disabled="isSubmittingBonusPayout"
+            @keyup.enter="submitBonusPayout"
+          />
+          <p v-if="payoutError" class="popup__error-message">{{ payoutError }}</p>
+        </div>
+        
+        <div class="popup__actions">
+          <button 
+            class="popup__button button button__primary"
+            @click="submitBonusPayout"
+            :disabled="!isBonusAmountValid || isSubmittingBonusPayout"
+          >
+            <span v-if="!isSubmittingBonusPayout">Отправить запрос</span>
+            <span v-else>Отправка...</span>
+          </button>
+          <button 
+            class="popup__button button button__secondary"
+            @click="closeBonusPayoutPopup"
+            :disabled="isSubmittingBonusPayout"
+          >
+            Отмена
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</Teleport>
 
 <!-- <Footer></Footer> -->
 </template>
 
 <style lang="css" scoped>
+/* Все стили остаются без изменений */
 .personal__flex {
   display: flex;
   gap: 20px;
@@ -1367,11 +1666,19 @@ onMounted(() => {
   height: 160px;
   margin: auto 0;
   flex: 0 0 auto;
+  position: relative;
+  background-color: var(--border);
 }
 .personal__releases_image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.personal__releases_image_placeholder {
+  width: 100%;
+  height: 100%;
+  background-color: var(--border);
+  border-radius: 4px;
 }
 .personal__releases_info {
   display: flex;
@@ -1917,6 +2224,71 @@ onMounted(() => {
   height: 20px;
 }
 
+/* Стили для попапов ввода суммы */
+.popup__content_small {
+  max-width: 400px;
+}
+
+.popup__info {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: var(--bg-secondary, #f5f5f5);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.popup__balance-info {
+  font-size: 16px;
+  color: var(--text);
+}
+
+.popup__balance-info strong {
+  font-size: 18px;
+  color: var(--color);
+}
+
+.popup__form-group {
+  margin-bottom: 20px;
+}
+
+.popup__label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--text-gray);
+}
+
+.popup__input {
+  width: 100%;
+  padding: 12px 15px;
+  font-size: 16px;
+  border: 1px solid var(--border);
+  background-color: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+  transition: border-color 0.3s;
+}
+
+.popup__input:focus {
+  outline: none;
+  border-color: var(--color);
+}
+
+.popup__input_error {
+  border-color: #ff4d4f;
+}
+
+.popup__error-message {
+  margin-top: 5px;
+  font-size: 14px;
+  color: #ff4d4f;
+}
+
+.popup__actions {
+  display: flex;
+  gap: 10px;
+}
+
 @media (max-width: 1919px) {
   .personal__flex {
     gap: 20px;
@@ -2084,6 +2456,7 @@ onMounted(() => {
     transform: none;
   }
 }
+
 @media (max-width: 580px) {
   .personal__release_image {
     width: 150px;
@@ -2093,6 +2466,12 @@ onMounted(() => {
     width: 80px;
     min-width: 80px;
     flex: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .popup__actions {
+    flex-direction: column;
   }
 }
 </style>

@@ -42,6 +42,12 @@ import ArticlesSVG from "@/uikit/menu/ArticlesSVG.vue";
           </RouterLink>
         </li>
         <li class="home__item">
+          <RouterLink class="home__link" :to="Tr.i18nRoute({ name: 'regsuccess' })">
+            <span><ArticlesSVG /></span>
+            <span>Регистрация успешна</span>
+          </RouterLink>
+        </li>
+        <li class="home__item">
           <RouterLink class="home__link" :to="Tr.i18nRoute({ name: 'restore' })">
             <span><ArticlesSVG /></span>
             <span>Восстановление</span>

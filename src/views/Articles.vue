@@ -1,217 +1,102 @@
 <script lang="ts" setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
 import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
+import { sendRequest } from '@/utils/api';
 
-// Интерфейс для статьи
+// Интерфейс для статьи из API
 interface Article {
-  id: number;
-  title: string;
-  description: string;
-  date: string;
-  image: string;
-  category?: string;
-  readTime?: string;
+  img: string;
+  name: string;
+  url: string;
 }
 
-// Объект для списка статей
-const articlesData = ref<Article[]>([
-  {
-    id: 1,
-    title: "Продвижение артиста. Абсурдный прием, который работает.",
-    description: "Lorem ipsum dolor sit amet consectetur. Ultricies nunc vel vitae aliquam natoque adipiscing. Adipiscing ultricies adipiscing hendrerit ut tempor. Et volutpat sagittis rutrum tellus mauris. Amet mi volutpat nec nam. Blandit facilisis felis cursus dictumst eget facilisis.",
-    date: "10.10.2025",
-    image: "articles_6.webp",
-    category: "Маркетинг",
-    readTime: "5 мин"
-  },
-  {
-    id: 2,
-    title: "Стоит ли выкладывать треки в пятницу.",
-    description: "Lorem ipsum dolor sit amet consectetur. Ultricies nunc vel vitae aliquam natoque adipiscing. Adipiscing ultricies adipiscing hendrerit ut tempor. Et volutpat sagittis rutrum",
-    date: "09.10.2025",
-    image: "articles_1.webp",
-    category: "Стратегия",
-    readTime: "3 мин"
-  },
-  {
-    id: 3,
-    title: "Топ-чарты. Как туда попасть? Что получает артист?",
-    description: "Lorem ipsum dolor sit amet consectetur. Ultricies nunc vel vitae aliquam natoque adipiscing. Adipiscing ultricies",
-    date: "08.10.2025",
-    image: "articles_2.webp",
-    category: "Музыка",
-    readTime: "7 мин"
-  },
-  {
-    id: 4,
-    title: "Как создать успешный музыкальный бренд",
-    description: "Lorem ipsum dolor sit amet consectetur. Ultricies nunc vel vitae aliquam natoque adipiscing. Adipiscing ultricies",
-    date: "07.10.2025",
-    image: "articles_3.webp",
-    category: "Брендинг",
-    readTime: "8 мин"
-  },
-  {
-    id: 5,
-    title: "Монетизация музыки в 2025 году",
-    description: "Lorem ipsum dolor sit amet consectetur. Ultricies nunc vel vitae aliquam natoque adipiscing. Adipiscing ultricies adipiscing hendrerit ut tempor. Et volutpat sagittis rutrum tellus mauris. Amet mi volutpat nec nam. Blandit facilisis",
-    date: "06.10.2025",
-    image: "articles_4.webp",
-    category: "Финансы",
-    readTime: "6 мин"
-  },
-  {
-    id: 6,
-    title: "Основы звукозаписи для начинающих",
-    description: "Lorem ipsum dolor sit amet consectetur. Ultricies nunc vel",
-    date: "05.10.2025",
-    image: "articles_5.webp",
-    category: "Обучение",
-    readTime: "10 мин"
-  },
-  {
-    id: 7,
-    title: "Как организовать успешный концерт",
-    description: "Практические советы по организации музыкальных мероприятий. От поиска площадки до продажи билетов.",
-    date: "04.10.2025",
-    image: "articles_6.webp",
-    category: "События",
-    readTime: "12 мин"
-  },
-  {
-    id: 8,
-    title: "Социальные сети для музыкантов",
-    description: "Как эффективно использовать соцсети для продвижения музыки и взаимодействия с аудиторией.",
-    date: "03.10.2025",
-    image: "articles_1.webp",
-    category: "Соцсети",
-    readTime: "9 мин"
-  },
-  {
-    id: 9,
-    title: "Работа с лейблами: что нужно знать",
-    description: "Разбираемся в контрактах, роялти и условиях сотрудничества с музыкальными лейблами.",
-    date: "02.10.2025",
-    image: "articles_2.webp",
-    category: "Индустрия",
-    readTime: "15 мин"
-  },
-  {
-    id: 10,
-    title: "Создание музыкального видео",
-    description: "От идеи до реализации: как создать качественное музыкальное видео с ограниченным бюджетом.",
-    date: "01.10.2025",
-    image: "articles_3.webp",
-    category: "Видео",
-    readTime: "11 мин"
-  },
-  {
-    id: 11,
-    title: "Продюсирование треков: основные ошибки",
-    description: "Какие ошибки чаще всего допускают начинающие продюсеры и как их избежать.",
-    date: "30.09.2025",
-    image: "articles_4.webp",
-    category: "Продюсирование",
-    readTime: "8 мин"
-  },
-  {
-    id: 12,
-    title: "Музыкальные фестивали 2025",
-    description: "Обзор самых ожидаемых музыкальных фестивалей в 2025 году и как туда попасть.",
-    date: "29.09.2025",
-    image: "articles_5.webp",
-    category: "Фестивали",
-    readTime: "6 мин"
-  },
-  {
-    id: 13,
-    title: "Коллаборации в музыке",
-    description: "Как найти подходящего артиста для коллаборации и сделать совместный проект успешным.",
-    date: "28.09.2025",
-    image: "articles_6.webp",
-    category: "Сотрудничество",
-    readTime: "7 мин"
-  },
-  {
-    id: 14,
-    title: "Авторское право для музыкантов",
-    description: "Основы авторского права: как защитить свою музыку и избежать нарушений.",
-    date: "27.09.2025",
-    image: "articles_1.webp",
-    category: "Право",
-    readTime: "14 мин"
-  },
-  {
-    id: 15,
-    title: "Современные тренды в музыке",
-    description: "Какие музыкальные направления будут популярны в ближайшие годы и как им следовать.",
-    date: "26.09.2025",
-    image: "articles_2.webp",
-    category: "Тренды",
-    readTime: "9 мин"
-  },
-  {
-    id: 16,
-    title: "Оборудование для домашней студии",
-    description: "Какое оборудование необходимо для создания качественной музыки дома.",
-    date: "25.09.2025",
-    image: "articles_3.webp",
-    category: "Оборудование",
-    readTime: "13 мин"
-  },
-  {
-    id: 17,
-    title: "Психология творчества",
-    description: "Как преодолеть творческий кризис и сохранять мотивацию для создания музыки.",
-    date: "24.09.2025",
-    image: "articles_4.webp",
-    category: "Психология",
-    readTime: "10 мин"
-  },
-  {
-    id: 18,
-    title: "Музыка и технологии",
-    description: "Как новые технологии изменяют музыкальную индустрию и творческий процесс.",
-    date: "23.09.2025",
-    image: "articles_5.webp",
-    category: "Технологии",
-    readTime: "11 мин"
-  }
-]);
+// Данные из API
+const articles = ref<Article[]>([]);
+const isLoading = ref(false);
 
 // Пагинация для статей
-const articlesPerPage = ref<number>(6);
+const articlesPerPage = ref<number>(9); // Показываем по 9 статей на странице
 const currentArticlesPage = ref<number>(1);
 
 // Вычисляемые свойства для статей
 const totalArticlesPages = computed(() => {
-  return Math.ceil(articlesData.value.length / articlesPerPage.value);
+  return Math.ceil(articles.value.length / articlesPerPage.value);
 });
 
 const paginatedArticles = computed(() => {
   const start = (currentArticlesPage.value - 1) * articlesPerPage.value;
   const end = start + articlesPerPage.value;
-  return articlesData.value.slice(start, end);
+  return articles.value.slice(start, end);
 });
 
 const showArticlesPagination = computed(() => {
-  return articlesData.value.length > articlesPerPage.value;
+  return articles.value.length > articlesPerPage.value;
 });
 
 // Методы для пагинации статей
 const nextArticlesPage = () => {
   if (currentArticlesPage.value < totalArticlesPages.value) {
     currentArticlesPage.value++;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 };
 
 const prevArticlesPage = () => {
   if (currentArticlesPage.value > 1) {
     currentArticlesPage.value--;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 };
+
+// Получаем базовый URL из текущего окна
+const API_BASE_URL = window.location.origin;
+
+// Функция для формирования полного URL
+const getFullUrl = (path: string) => {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${API_BASE_URL}${cleanPath}`;
+};
+
+// Загрузка данных
+const fetchData = async () => {
+  isLoading.value = true;
+  try {
+    const response = await sendRequest('get', '/ajax/getData.php', {});
+    console.log('Данные из API:', response.data);
+    
+    if (response.data && response.data.articles) {
+      articles.value = response.data.articles || [];
+    }
+  } catch (error) {
+    console.error('Ошибка при загрузке данных:', error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Обработка ошибок загрузки изображений
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement;
+  img.style.display = 'none';
+  // Добавляем плейсхолдер
+  const parent = img.parentElement;
+  if (parent) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'articles__image_placeholder';
+    parent.appendChild(placeholder);
+  }
+};
+
+// Загружаем данные при монтировании
+onMounted(() => {
+  fetchData();
+});
 </script>
 
 <template>
@@ -220,177 +105,304 @@ const prevArticlesPage = () => {
   <div class="container personal__container">
     <Menu />
     <div class="personal__block">
-      <ul class="articles__list">
-        <li 
-          class="articles__item" 
-          v-for="article in paginatedArticles" 
-          :key="article.id"
-        >
-          <div class="articles__top">
-            <a href="" class="articles__link">
-              <div class="articles__image">
-                <img :src="`/src/assets/img/personal/articles/${article.image}`" alt="article.title">
-              </div>
-            </a>
-            <h5 class="articles__head">{{ article.title }}</h5>
-            <p class="articles__desc text_small">
-              {{ article.description }}
-            </p>
-          </div>
-          <div class="articles__bottom">
-            <div class="articles__meta">
-              <p class="articles__date text_very">{{ article.date }}</p>
-              <div class="articles__info" v-if="article.category || article.readTime">
-                <span class="articles__category text_very" v-if="article.category">{{ article.category }}</span>
-                <span class="articles__readtime text_very" v-if="article.readTime">• {{ article.readTime }}</span>
-              </div>
-            </div>
-            <button class="articles__button button__black"><span>Подробнее</span></button>
-          </div>
-        </li>
-      </ul>
-      
-      <!-- Пагинация -->
-      <div class="pagination__buttons" v-if="showArticlesPagination">
-        <button 
-          class="pagination__buttons_button button button__pagination button__pagination_prev"
-          @click="prevArticlesPage"
-          :disabled="currentArticlesPage === 1"
-        >
-          <span><ButtonSVG /></span>
-          <span>{{ $t('button.prev') }}</span>
-        </button>
-        
-        <div class="pagination__buttons_info">
-          {{ currentArticlesPage }}/{{ totalArticlesPages }}
-        </div>
-        
-        <button 
-          class="pagination__buttons_button button button__pagination button__pagination_next"
-          @click="nextArticlesPage"
-          :disabled="currentArticlesPage === totalArticlesPages"
-        >
-          <span>{{ $t('button.next') }}</span>
-          <span><ButtonSVG /></span>
-        </button>
+      <div class="articles__top">
+        <h3 class="articles__head">Статьи</h3>
+        <p class="articles__desc">Полезные статьи о музыке, продвижении и работе с VAUVISION</p>
       </div>
       
-      <!-- Альтернатива: кнопка "Загрузить еще" -->
-      <!--
-      <button 
-        class="articles__load button__primary"
-        @click="loadMoreArticles"
-        v-if="articlesPerPage < articlesData.length"
-      >
-        <span>Загрузить еще</span>
-      </button>
-      -->
+      <div class="articles__content">
+        <!-- Загрузка -->
+        <div v-if="isLoading" class="articles__loading">
+          Загрузка статей...
+        </div>
+        
+        <!-- Нет статей -->
+        <div v-else-if="articles.length === 0" class="articles__empty">
+          Статьи временно недоступны
+        </div>
+        
+        <!-- Список статей -->
+        <template v-else>
+          <ul class="articles__list">
+            <li 
+              class="articles__item" 
+              v-for="article in paginatedArticles" 
+              :key="article.url"
+            >
+              <a :href="article.url" class="articles__link">
+                <div class="articles__image">
+                  <img 
+                    :src="getFullUrl(article.img)" 
+                    :alt="article.name"
+                    @error="handleImageError"
+                  >
+                </div>
+                <div class="articles__info">
+                  <h5 class="articles__title">{{ article.name }}</h5>
+                  <span class="articles__read">Читать статью →</span>
+                </div>
+              </a>
+            </li>
+          </ul>
+          
+          <!-- Пагинация -->
+          <div class="pagination__buttons" v-if="showArticlesPagination">
+            <button 
+              class="pagination__buttons_button button button__pagination button__pagination_prev"
+              @click="prevArticlesPage"
+              :disabled="currentArticlesPage === 1"
+            >
+              <span><ButtonSVG /></span>
+              <span>{{ $t('button.prev') }}</span>
+            </button>
+            
+            <div class="pagination__buttons_info">
+              {{ currentArticlesPage }}/{{ totalArticlesPages }}
+            </div>
+            
+            <button 
+              class="pagination__buttons_button button button__pagination button__pagination_next"
+              @click="nextArticlesPage"
+              :disabled="currentArticlesPage === totalArticlesPages"
+            >
+              <span>{{ $t('button.next') }}</span>
+              <span><ButtonSVG /></span>
+            </button>
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 </section>
-<!-- <Footer></Footer> -->
 </template>
 
 <style lang="css" scoped>
 .personal {
   margin: 0 0 auto;
 }
-.articles__list {
+
+.articles__top {
   display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-.articles__item {
-  display: flex;
-  width: calc(33.333% - 14px);
-  padding: 40px;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 30px;
+  gap: 15px;
+  padding: 0 0 30px;
+}
+
+.articles__head {
+  text-transform: uppercase;
+  font-size: 32px;
+}
+
+.articles__desc {
+  color: var(--text-gray);
+  max-width: 600px;
+}
+
+.articles__loading,
+.articles__empty {
+  padding: 60px;
+  text-align: center;
+  color: var(--text-gray);
   background-color: var(--bg);
   border: 1px solid var(--border);
+  border-radius: 8px;
 }
-.articles__image {
+
+.articles__list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.articles__item {
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.articles__item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.articles__link {
   display: flex;
-  width: 100%;
-  height: 230px;
-  margin: 0 0 15px;
+  flex-direction: column;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
 }
+
+.articles__image {
+  position: relative;
+  width: 100%;
+  padding-top: 60%; /* Соотношение сторон 5:3 */
+  background-color: var(--border);
+  overflow: hidden;
+}
+
 .articles__image img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.3s;
 }
-.articles__head {
-  padding: 0 0 10px;
+
+.articles__item:hover .articles__image img {
+  transform: scale(1.05);
 }
-.articles__desc {
-  color: var(--text-gray);
+
+.articles__image_placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--border);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='2' width='20' height='20' rx='2.18' ry='2.18'%3E%3C/rect%3E%3Cline x1='23' y1='19' x2='1' y2='19'%3E%3C/line%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 40px;
 }
-.articles__bottom {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.articles__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.articles__date {
-  color: var(--text-gray);
-}
+
 .articles__info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  flex: 1;
+}
+
+.articles__title {
+  font-size: 16px;
+  line-height: 1.4;
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.articles__read {
+  color: var(--color);
+  font-size: 14px;
+  text-transform: uppercase;
+  margin-top: auto;
+}
+
+.articles__read:hover {
+  text-decoration: underline;
+}
+
+.pagination__buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 40px;
+}
+
+.pagination__buttons_button {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--text-gray);
-  font-size: 12px;
-}
-.articles__category {
-  color: var(--color);
-}
-.articles__readtime {
-  color: var(--text-gray);
-}
-.articles__load {
-  margin: 60px auto 0;
+  padding: 10px 20px;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-@media (max-width: 1919px) {
-  .articles__item {
-    padding: 30px;
-    gap: 15px;
-  }
-  .articles__image {
-    height: 180px;
-  }
-  .articles__load {
-    margin: 50px auto 0;
-  }
+.pagination__buttons_button:hover:not(:disabled) {
+  background-color: var(--color);
+  color: var(--white);
+  border-color: var(--color);
 }
+
+.pagination__buttons_button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination__buttons_button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pagination__buttons_info {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Адаптивность */
 @media (max-width: 1439px) {
-  .articles__item {
-    width: calc(50% - 10px);
-    padding: 20px;
-    gap: 15px;
-  }
-  .articles__image {
-    height: 200px;
-  }
-  .articles__head {
-    padding: 0 0 5px;
-  }
-  .articles__load {
-    margin: 40px auto 0;
+  .articles__list {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
-@media (max-width: 767px) {
-  .articles__item {
-    width: 100%;
+
+@media (max-width: 1023px) {
+  .articles__list {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
   }
-  .articles__load {
-    margin: 40px 0 0;
+}
+
+@media (max-width: 767px) {
+  .articles__top {
+    padding: 0 0 20px;
+  }
+  
+  .articles__head {
+    font-size: 24px;
+  }
+  
+  .articles__list {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .articles__info {
+    padding: 15px;
+  }
+  
+  .articles__title {
+    font-size: 14px;
+  }
+  
+  .pagination__buttons {
+    gap: 10px;
+  }
+  
+  .pagination__buttons_button {
+    padding: 8px 12px;
+  }
+  
+  .pagination__buttons_button span:last-child {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .articles__top {
+    padding: 0 0 15px;
+  }
+  
+  .articles__head {
+    font-size: 20px;
+  }
+  
+  .pagination__buttons_info {
+    font-size: 14px;
   }
 }
 </style>
