@@ -17,6 +17,39 @@ const STORAGE_KEY = 'quiz3_state';
 // Состояние для отображения важной информации
 const showImportantBlock = ref(false);
 
+// Флаг для отслеживания первой загрузки
+const isInitialLoad = ref(true);
+
+// Функция для конвертации File в base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
+
+// Функция для конвертации base64 в File
+const base64ToFile = (base64: string, filename: string, mimeType: string): File => {
+  const arr = base64.split(',');
+  const bstr = atob(arr[1] || arr[0]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  
+  return new File([u8arr], filename, { type: mimeType });
+};
+
+// Функция для извлечения MIME типа из base64
+const getMimeTypeFromBase64 = (base64: string): string => {
+  const match = base64.match(/^data:(.*?);base64,/);
+  return match ? match[1] : 'image/jpeg';
+};
+
 // Данные формы с инициализацией из localStorage
 const formData = reactive({
   performerName: '',
@@ -27,6 +60,9 @@ const formData = reactive({
   hasProfanity: '',
   profanityTracks: '',
   coverFile: null as File | null,
+  coverFileBase64: '',
+  coverFileName: '',
+  coverFileSize: 0,
   vkLink: '',
   email: ''
 });
@@ -47,9 +83,7 @@ const errors = reactive({
 
 // Состояния для загрузки файлов
 const isLoading = ref(false);
-const coverFileName = ref('');
-const coverFileSize = ref(0);
-const dragOver = ref(false); // Состояние для drag-and-drop
+const dragOver = ref(false);
 
 // Опции для выбора
 const platformOptions = [
@@ -92,53 +126,93 @@ const isReadyForNextStep = computed(() => {
 // Сохранение состояния в localStorage
 const saveStateToLocalStorage = () => {
   try {
-    // Преобразуем File в объект для хранения (можно сохранить только имя и размер)
     const stateToSave = {
       formData: {
-        ...formData,
-        coverFile: formData.coverFile ? {
-          name: formData.coverFile.name,
-          size: formData.coverFile.size,
-          type: formData.coverFile.type
-        } : null
+        performerName: formData.performerName,
+        releaseName: formData.releaseName,
+        platforms: formData.platforms,
+        otherPlatform: formData.otherPlatform,
+        releaseDate: formData.releaseDate,
+        hasProfanity: formData.hasProfanity,
+        profanityTracks: formData.profanityTracks,
+        coverFileBase64: formData.coverFileBase64 || '',
+        coverFileName: formData.coverFileName || '',
+        coverFileSize: formData.coverFileSize || 0,
+        vkLink: formData.vkLink,
+        email: formData.email
       },
-      coverFileName: coverFileName.value,
-      coverFileSize: coverFileSize.value,
       showImportantBlock: showImportantBlock.value
     };
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+    console.log('Quiz3 state saved to localStorage:', {
+      performerName: formData.performerName,
+      hasCover: !!formData.coverFileBase64,
+      coverFileName: formData.coverFileName
+    });
   } catch (error) {
     console.error('Error saving state to localStorage:', error);
   }
 };
 
 // Загрузка состояния из localStorage
-const loadStateFromLocalStorage = () => {
+const loadStateFromLocalStorage = async () => {
   try {
     const savedState = localStorage.getItem(STORAGE_KEY);
     if (savedState) {
       const parsedState = JSON.parse(savedState);
+      console.log('Loading Quiz3 state from localStorage:', parsedState);
       
-      // Восстанавливаем основные данные формы
-      Object.assign(formData, parsedState.formData);
-      formData.coverFile = null; // Нельзя восстановить File объект из localStorage
+      if (parsedState.formData) {
+        // Восстанавливаем основные данные
+        formData.performerName = parsedState.formData.performerName || '';
+        formData.releaseName = parsedState.formData.releaseName || '';
+        formData.platforms = parsedState.formData.platforms || [];
+        formData.otherPlatform = parsedState.formData.otherPlatform || '';
+        formData.releaseDate = parsedState.formData.releaseDate || '';
+        formData.hasProfanity = parsedState.formData.hasProfanity || '';
+        formData.profanityTracks = parsedState.formData.profanityTracks || '';
+        formData.vkLink = parsedState.formData.vkLink || '';
+        formData.email = parsedState.formData.email || '';
+        
+        // Восстанавливаем информацию о файле
+        formData.coverFileName = parsedState.formData.coverFileName || '';
+        formData.coverFileSize = parsedState.formData.coverFileSize || 0;
+        
+        // Восстанавливаем base64 файла
+        formData.coverFileBase64 = parsedState.formData.coverFileBase64 || '';
+        
+        // Восстанавливаем файл из base64 если он есть
+        if (formData.coverFileBase64 && formData.coverFileName) {
+          try {
+            const mimeType = getMimeTypeFromBase64(formData.coverFileBase64);
+            formData.coverFile = base64ToFile(
+              formData.coverFileBase64,
+              formData.coverFileName,
+              mimeType
+            );
+            console.log('Cover file restored from base64:', formData.coverFileName);
+          } catch (error) {
+            console.error('Error converting cover file from base64:', error);
+          }
+        }
+      }
       
-      // Восстанавливаем информацию о файле
-      coverFileName.value = parsedState.coverFileName || '';
-      coverFileSize.value = parsedState.coverFileSize || 0;
-      
-      // НЕ восстанавливаем showImportantBlock - всегда показываем форму
-      showImportantBlock.value = false;
+      showImportantBlock.value = parsedState.showImportantBlock || false;
+    } else {
+      console.log('No saved state found for Quiz3');
     }
   } catch (error) {
     console.error('Error loading state from localStorage:', error);
+  } finally {
+    isInitialLoad.value = false;
   }
 };
 
 // Очистка состояния в localStorage
 const clearLocalStorage = () => {
   localStorage.removeItem(STORAGE_KEY);
+  console.log('Quiz3 state cleared from localStorage');
 };
 
 // Валидация URL
@@ -223,7 +297,7 @@ const validateForm = () => {
   }
   
   // Валидация обложки
-  if (!formData.coverFile) {
+  if (!formData.coverFile && !formData.coverFileBase64) {
     errors.coverFile = 'Обложка релиза обязательна для загрузки';
     isValid = false;
   }
@@ -253,7 +327,7 @@ const validateForm = () => {
 };
 
 // Общая функция для обработки файла
-const processCoverFile = (file: File) => {
+const processCoverFile = async (file: File) => {
   // Валидация типа файла
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
   if (!allowedTypes.includes(file.type)) {
@@ -263,7 +337,7 @@ const processCoverFile = (file: File) => {
   }
   
   // Валидация размера файла (макс 12MB)
-  const maxSize = 12 * 1024 * 1024; // 12MB в байтах
+  const maxSize = 12 * 1024 * 1024;
   if (file.size > maxSize) {
     errors.coverFile = 'Файл слишком большой. Максимальный размер: 12MB';
     ElMessage.error('Файл превышает максимальный допустимый размер');
@@ -272,7 +346,7 @@ const processCoverFile = (file: File) => {
   
   // Проверка размеров изображения
   const img = new Image();
-  img.onload = () => {
+  img.onload = async () => {
     if (img.width < 1500 || img.height < 1500) {
       errors.coverFile = 'Изображение слишком маленькое. Минимальный размер: 1500x1500 пикселей';
       ElMessage.error('Изображение не соответствует требованиям по размеру');
@@ -291,16 +365,26 @@ const processCoverFile = (file: File) => {
       return;
     }
     
-    // Очистка ошибок и установка файла
-    errors.coverFile = '';
-    formData.coverFile = file;
-    coverFileName.value = file.name;
-    coverFileSize.value = file.size;
-    
-    // Сохраняем состояние
-    saveStateToLocalStorage();
-    
-    ElMessage.success('Обложка успешно загружена');
+    try {
+      // Конвертируем файл в base64
+      const base64 = await fileToBase64(file);
+      
+      // Очистка ошибок и установка файла
+      errors.coverFile = '';
+      formData.coverFile = file;
+      formData.coverFileBase64 = base64;
+      formData.coverFileName = file.name;
+      formData.coverFileSize = file.size;
+      
+      // Сохраняем состояние
+      saveStateToLocalStorage();
+      
+      ElMessage.success('Обложка успешно загружена');
+    } catch (error) {
+      console.error('Error converting file to base64:', error);
+      errors.coverFile = 'Ошибка при обработке файла';
+      ElMessage.error('Ошибка при загрузке файла');
+    }
   };
   
   img.onerror = () => {
@@ -312,12 +396,12 @@ const processCoverFile = (file: File) => {
 };
 
 // Обработка загрузки обложки через input
-const handleCoverUpload = (event: Event) => {
+const handleCoverUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
   
   if (!file) return;
-  processCoverFile(file);
+  await processCoverFile(file);
 };
 
 // Обработка клика по блоку загрузки обложки
@@ -345,7 +429,7 @@ const handleDragLeave = (event: DragEvent) => {
 };
 
 // Обработка drop файла
-const handleDrop = (event: DragEvent) => {
+const handleDrop = async (event: DragEvent) => {
   event.preventDefault();
   dragOver.value = false;
   
@@ -353,14 +437,15 @@ const handleDrop = (event: DragEvent) => {
   if (!files || files.length === 0) return;
   
   const file = files[0];
-  processCoverFile(file);
+  await processCoverFile(file);
 };
 
 // Удаление загруженной обложки
 const removeUploadedCover = () => {
   formData.coverFile = null;
-  coverFileName.value = '';
-  coverFileSize.value = 0;
+  formData.coverFileBase64 = '';
+  formData.coverFileName = '';
+  formData.coverFileSize = 0;
   errors.coverFile = '';
   
   // Сохраняем состояние
@@ -383,42 +468,79 @@ const disabledDate = (time: Date) => {
   return time.getTime() < Date.now() - 24 * 60 * 60 * 1000;
 };
 
+// Функция для полной очистки формы
+const resetForm = () => {
+  formData.performerName = '';
+  formData.releaseName = '';
+  formData.platforms = [];
+  formData.otherPlatform = '';
+  formData.releaseDate = '';
+  formData.hasProfanity = '';
+  formData.profanityTracks = '';
+  formData.coverFile = null;
+  formData.coverFileBase64 = '';
+  formData.coverFileName = '';
+  formData.coverFileSize = 0;
+  formData.vkLink = '';
+  formData.email = '';
+  
+  // Очищаем localStorage
+  clearLocalStorage();
+  
+  // Сбрасываем ошибки
+  Object.keys(errors).forEach(key => {
+    errors[key as keyof typeof errors] = '';
+  });
+  
+  console.log('Form reset and localStorage cleared');
+};
+
+// Экспортируем функции для использования в родительском компоненте
+defineExpose({
+  resetForm,
+  clearLocalStorage
+});
+
 const goBack = () => {
   if (showImportantBlock.value) {
-    // Если показываем блок important, возвращаемся к форме
     showImportantBlock.value = false;
     saveStateToLocalStorage();
   } else {
-    // Если показываем форму, возвращаемся ко второму шагу
+    // Сохраняем состояние перед уходом
+    saveStateToLocalStorage();
     emit('go-back');
   }
 };
 
 const handleContinue = () => {
   if (validateForm()) {
-    // Если форма валидна, показываем блок с важной информацией
     showImportantBlock.value = true;
     saveStateToLocalStorage();
   }
 };
 
 const handleAccept = () => {
-  // Очищаем localStorage после успешного завершения
-  clearLocalStorage();
+  // Очищаем localStorage после успешного завершения (опционально)
+  // clearLocalStorage();
   
-  // Принимаем условия и переходим к следующему шагу (четвертому)
+  // Принимаем условия и переходим к следующему шагу
   emit('go-next');
 };
 
 // Сохранение состояния при изменении данных формы
 watch(() => formData, () => {
-  saveStateToLocalStorage();
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
+  }
 }, { deep: true });
 
 // Следим за изменением поля с матом
 watch(() => formData.hasProfanity, (newValue) => {
   if (newValue === 'no') {
     formData.profanityTracks = '';
+  }
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
   }
 });
 
@@ -427,19 +549,25 @@ watch(() => formData.platforms, (newValue) => {
   if (!newValue.includes('other')) {
     formData.otherPlatform = '';
   }
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
+  }
+});
+
+// Сохраняем состояние при уходе со страницы
+onUnmounted(() => {
+  saveStateToLocalStorage();
 });
 
 // Загрузка состояния при монтировании компонента
-onMounted(() => {
-  loadStateFromLocalStorage();
-  // Всегда показываем форму при загрузке компонента
-  showImportantBlock.value = false;
-});
-
-// Очистка при размонтировании (опционально, можно оставить для будущих шагов)
-onUnmounted(() => {
-  // Если нужно очищать при переходе на другие шаги
-  // clearLocalStorage();
+onMounted(async () => {
+  console.log('Quiz3 mounted, loading state...');
+  await loadStateFromLocalStorage();
+  console.log('Quiz3 state loaded:', {
+    performerName: formData.performerName,
+    hasCover: !!formData.coverFileName,
+    coverFileName: formData.coverFileName
+  });
 });
 </script>
 
@@ -657,10 +785,10 @@ onUnmounted(() => {
         </div>
         
         <!-- Информация о загруженном файле -->
-        <div v-if="formData.coverFile" class="quiz__form_single_name">
+        <div v-if="formData.coverFileName" class="quiz__form_single_name">
           <div class="quiz__form_single_name_left">
-            <p class="quiz__form_single_name_text">{{ coverFileName }}</p>
-            <p class="quiz__form_single_name_size text_small">{{ formatFileSize(coverFileSize) }}</p>
+            <p class="quiz__form_single_name_text">{{ formData.coverFileName }}</p>
+            <p class="quiz__form_single_name_size text_small">{{ formatFileSize(formData.coverFileSize) }}</p>
           </div>
           <div class="quiz__form_single_name_svg" @click="removeUploadedCover">
             <CloseSVG />

@@ -1,9 +1,9 @@
 <script lang="ts" setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import ClipSVG from "@/uikit/icon/ClipSVG.vue";
 import CloseSVG from "@/uikit/icon/CloseSVG.vue";
-import { ElInput, ElSelect, ElOption } from 'element-plus';
+import { ElInput, ElSelect, ElOption, ElMessage } from 'element-plus';
 
 const emit = defineEmits<{
   'go-back': [];
@@ -14,9 +14,15 @@ interface FormData {
   genre: string;
   tiktokStartSeconds: string;
   appleMusicTextFile: File | null;
+  appleMusicTextFileBase64: string;
+  appleMusicFileName: string;
+  appleMusicFileSize: number;
   hasDrugsMention: string;
   drugsTracks: string;
   karaokeFile: File | null;
+  karaokeFileBase64: string;
+  karaokeFileName: string;
+  karaokeFileSize: number;
   appleMusicLinks: string;
   spotifyLinks: string;
   vkLinks: string;
@@ -42,13 +48,49 @@ interface Errors {
 // Ключи для localStorage
 const STORAGE_KEY = 'quiz5_state';
 
+// Функция для конвертации File в base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
+
+// Функция для конвертации base64 в File
+const base64ToFile = (base64: string, filename: string, mimeType: string): File => {
+  const arr = base64.split(',');
+  const bstr = atob(arr[1] || arr[0]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  
+  return new File([u8arr], filename, { type: mimeType });
+};
+
+// Функция для извлечения MIME типа из base64
+const getMimeTypeFromBase64 = (base64: string): string => {
+  const match = base64.match(/^data:(.*?);base64,/);
+  return match ? match[1] : 'application/octet-stream';
+};
+
 const formData = ref<FormData>({
   genre: '',
   tiktokStartSeconds: '',
   appleMusicTextFile: null,
+  appleMusicTextFileBase64: '',
+  appleMusicFileName: '',
+  appleMusicFileSize: 0,
   hasDrugsMention: '',
   drugsTracks: '',
   karaokeFile: null,
+  karaokeFileBase64: '',
+  karaokeFileName: '',
+  karaokeFileSize: 0,
   appleMusicLinks: '',
   spotifyLinks: '',
   vkLinks: '',
@@ -82,71 +124,121 @@ const drugsOptions = [
   { value: 'no', label: 'Нет' }
 ];
 
-// Состояния для файлов (нужны для отображения)
-const appleMusicFileName = ref('');
-const appleMusicFileSize = ref(0);
-const karaokeFileName = ref('');
-const karaokeFileSize = ref(0);
+// Флаг для отслеживания первой загрузки
+const isInitialLoad = ref(true);
 
 // Сохранение состояния в localStorage
 const saveStateToLocalStorage = () => {
   try {
     const stateToSave = {
       formData: {
-        ...formData.value,
-        // Файлы не сохраняем в localStorage, только информацию о них
-        appleMusicTextFile: formData.value.appleMusicTextFile ? {
-          name: formData.value.appleMusicTextFile.name,
-          size: formData.value.appleMusicTextFile.size,
-          type: formData.value.appleMusicTextFile.type
-        } : null,
-        karaokeFile: formData.value.karaokeFile ? {
-          name: formData.value.karaokeFile.name,
-          size: formData.value.karaokeFile.size,
-          type: formData.value.karaokeFile.type
-        } : null
-      },
-      appleMusicFileName: appleMusicFileName.value,
-      appleMusicFileSize: appleMusicFileSize.value,
-      karaokeFileName: karaokeFileName.value,
-      karaokeFileSize: karaokeFileSize.value
+        genre: formData.value.genre,
+        tiktokStartSeconds: formData.value.tiktokStartSeconds,
+        hasDrugsMention: formData.value.hasDrugsMention,
+        drugsTracks: formData.value.drugsTracks,
+        appleMusicLinks: formData.value.appleMusicLinks,
+        spotifyLinks: formData.value.spotifyLinks,
+        vkLinks: formData.value.vkLinks,
+        yandexMusicLinks: formData.value.yandexMusicLinks,
+        socialLinks: formData.value.socialLinks,
+        appleMusicTextFileBase64: formData.value.appleMusicTextFileBase64 || '',
+        appleMusicFileName: formData.value.appleMusicFileName || '',
+        appleMusicFileSize: formData.value.appleMusicFileSize || 0,
+        karaokeFileBase64: formData.value.karaokeFileBase64 || '',
+        karaokeFileName: formData.value.karaokeFileName || '',
+        karaokeFileSize: formData.value.karaokeFileSize || 0
+      }
     };
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+    console.log('Quiz5 state saved to localStorage:', {
+      genre: formData.value.genre,
+      hasDrugsMention: formData.value.hasDrugsMention,
+      hasAppleMusic: !!formData.value.appleMusicTextFileBase64,
+      hasKaraoke: !!formData.value.karaokeFileBase64
+    });
   } catch (error) {
     console.error('Error saving state to localStorage:', error);
   }
 };
 
 // Загрузка состояния из localStorage
-const loadStateFromLocalStorage = () => {
+const loadStateFromLocalStorage = async () => {
   try {
     const savedState = localStorage.getItem(STORAGE_KEY);
     if (savedState) {
       const parsedState = JSON.parse(savedState);
+      console.log('Loading Quiz5 state from localStorage:', parsedState);
       
-      // Восстанавливаем основные данные формы
-      const { appleMusicTextFile, karaokeFile, ...otherFormData } = parsedState.formData;
-      formData.value = {
-        ...otherFormData,
-        appleMusicTextFile: null, // Нельзя восстановить File объект из localStorage
-        karaokeFile: null
-      };
+      if (parsedState.formData) {
+        // Восстанавливаем основные данные
+        formData.value.genre = parsedState.formData.genre || '';
+        formData.value.tiktokStartSeconds = parsedState.formData.tiktokStartSeconds || '';
+        formData.value.hasDrugsMention = parsedState.formData.hasDrugsMention || '';
+        formData.value.drugsTracks = parsedState.formData.drugsTracks || '';
+        formData.value.appleMusicLinks = parsedState.formData.appleMusicLinks || '';
+        formData.value.spotifyLinks = parsedState.formData.spotifyLinks || '';
+        formData.value.vkLinks = parsedState.formData.vkLinks || '';
+        formData.value.yandexMusicLinks = parsedState.formData.yandexMusicLinks || '';
+        formData.value.socialLinks = parsedState.formData.socialLinks || '';
+        
+        // Восстанавливаем информацию о файлах
+        formData.value.appleMusicFileName = parsedState.formData.appleMusicFileName || '';
+        formData.value.appleMusicFileSize = parsedState.formData.appleMusicFileSize || 0;
+        formData.value.karaokeFileName = parsedState.formData.karaokeFileName || '';
+        formData.value.karaokeFileSize = parsedState.formData.karaokeFileSize || 0;
+        
+        // Восстанавливаем base64 файлов
+        formData.value.appleMusicTextFileBase64 = parsedState.formData.appleMusicTextFileBase64 || '';
+        formData.value.karaokeFileBase64 = parsedState.formData.karaokeFileBase64 || '';
+        
+        // Восстанавливаем файл Apple Music из base64 если он есть
+        if (formData.value.appleMusicTextFileBase64 && formData.value.appleMusicFileName) {
+          try {
+            const mimeType = getMimeTypeFromBase64(formData.value.appleMusicTextFileBase64);
+            formData.value.appleMusicTextFile = base64ToFile(
+              formData.value.appleMusicTextFileBase64,
+              formData.value.appleMusicFileName,
+              mimeType
+            );
+            console.log('Apple Music file restored from base64:', formData.value.appleMusicFileName);
+          } catch (error) {
+            console.error('Error converting Apple Music file from base64:', error);
+          }
+        }
+        
+        // Восстанавливаем караоке файл из base64 если он есть
+        if (formData.value.karaokeFileBase64 && formData.value.karaokeFileName) {
+          try {
+            const mimeType = getMimeTypeFromBase64(formData.value.karaokeFileBase64);
+            formData.value.karaokeFile = base64ToFile(
+              formData.value.karaokeFileBase64,
+              formData.value.karaokeFileName,
+              mimeType
+            );
+            console.log('Karaoke file restored from base64:', formData.value.karaokeFileName);
+          } catch (error) {
+            console.error('Error converting karaoke file from base64:', error);
+          }
+        }
+      }
       
-      // Восстанавливаем информацию о файлах
-      appleMusicFileName.value = parsedState.appleMusicFileName || '';
-      appleMusicFileSize.value = parsedState.appleMusicFileSize || 0;
-      karaokeFileName.value = parsedState.karaokeFileName || '';
-      karaokeFileSize.value = parsedState.karaokeFileSize || 0;
+      // После восстановления проверяем консистентность файлов
+      validateFileConsistency();
+    } else {
+      console.log('No saved state found for Quiz5');
     }
   } catch (error) {
     console.error('Error loading state from localStorage:', error);
+  } finally {
+    isInitialLoad.value = false;
   }
 };
 
 // Очистка состояния в localStorage
 const clearLocalStorage = () => {
   localStorage.removeItem(STORAGE_KEY);
+  console.log('Quiz5 state cleared from localStorage');
 };
 
 // Проверка всех обязательных полей
@@ -189,25 +281,25 @@ const isContinueButtonEnabled = computed(() => {
   }
   
   // 6. Проверка файлов (если загружены)
-  if (formData.value.appleMusicTextFile) {
+  if (formData.value.appleMusicTextFile || formData.value.appleMusicTextFileBase64) {
+    const fileName = formData.value.appleMusicFileName.toLowerCase();
     const allowedExtensions = ['.docx'];
-    const fileName = formData.value.appleMusicTextFile.name.toLowerCase();
     const isValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
     if (!isValidExtension) return false;
-    if (formData.value.appleMusicTextFile.size > 10 * 1024 * 1024) return false;
+    if (formData.value.appleMusicFileSize > 10 * 1024 * 1024) return false;
   }
   
-  if (formData.value.karaokeFile) {
+  if (formData.value.karaokeFile || formData.value.karaokeFileBase64) {
+    const fileName = formData.value.karaokeFileName.toLowerCase();
     const allowedExtensions = ['.ttml'];
-    const fileName = formData.value.karaokeFile.name.toLowerCase();
     const isValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
     if (!isValidExtension) return false;
-    if (formData.value.karaokeFile.size > 10 * 1024 * 1024) return false;
+    if (formData.value.karaokeFileSize > 10 * 1024 * 1024) return false;
   }
   
   // 7. Проверка консистентности файлов
-  const hasAppleMusicFile = !!formData.value.appleMusicTextFile;
-  const hasKaraokeFile = !!formData.value.karaokeFile;
+  const hasAppleMusicFile = !!(formData.value.appleMusicTextFile || formData.value.appleMusicTextFileBase64);
+  const hasKaraokeFile = !!(formData.value.karaokeFile || formData.value.karaokeFileBase64);
   if ((hasAppleMusicFile && !hasKaraokeFile) || (!hasAppleMusicFile && hasKaraokeFile)) {
     return false;
   }
@@ -335,13 +427,16 @@ const validateField = (fieldName: keyof FormData) => {
   }
   
   validateFileConsistency();
-  // Сохраняем состояние после валидации
-  saveStateToLocalStorage();
+  
+  // Сохраняем состояние после валидации, но не при первой загрузке
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
+  }
 };
 
 const validateFileConsistency = () => {
-  const hasAppleMusicFile = !!formData.value.appleMusicTextFile;
-  const hasKaraokeFile = !!formData.value.karaokeFile;
+  const hasAppleMusicFile = !!(formData.value.appleMusicTextFile || formData.value.appleMusicTextFileBase64);
+  const hasKaraokeFile = !!(formData.value.karaokeFile || formData.value.karaokeFileBase64);
   
   if ((hasAppleMusicFile && !hasKaraokeFile) || (!hasAppleMusicFile && hasKaraokeFile)) {
     errors.value.fileConsistency = 'Для добавления текста трека необходимо прикрепить оба файла: docx и ttml';
@@ -361,14 +456,14 @@ const validateForm = (): boolean => {
   validateField('yandexMusicLinks');
   validateField('socialLinks');
   
-  if (formData.value.appleMusicTextFile) {
+  if (formData.value.appleMusicTextFile || formData.value.appleMusicTextFileBase64) {
+    const fileName = formData.value.appleMusicFileName.toLowerCase();
     const allowedExtensions = ['.docx'];
-    const fileName = formData.value.appleMusicTextFile.name.toLowerCase();
     const isValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
     
     if (!isValidExtension) {
       errors.value.appleMusicTextFile = 'Неверный формат файла. Разрешены только файлы .docx';
-    } else if (formData.value.appleMusicTextFile.size > 10 * 1024 * 1024) {
+    } else if (formData.value.appleMusicFileSize > 10 * 1024 * 1024) {
       errors.value.appleMusicTextFile = 'Размер файла не должен превышать 10 МБ';
     } else {
       errors.value.appleMusicTextFile = '';
@@ -377,14 +472,14 @@ const validateForm = (): boolean => {
     errors.value.appleMusicTextFile = '';
   }
   
-  if (formData.value.karaokeFile) {
+  if (formData.value.karaokeFile || formData.value.karaokeFileBase64) {
+    const fileName = formData.value.karaokeFileName.toLowerCase();
     const allowedExtensions = ['.ttml'];
-    const fileName = formData.value.karaokeFile.name.toLowerCase();
     const isValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
     
     if (!isValidExtension) {
       errors.value.karaokeFile = 'Неверный формат файла. Разрешены только файлы .ttml';
-    } else if (formData.value.karaokeFile.size > 10 * 1024 * 1024) {
+    } else if (formData.value.karaokeFileSize > 10 * 1024 * 1024) {
       errors.value.karaokeFile = 'Размер файла не должен превышать 10 МБ';
     } else {
       errors.value.karaokeFile = '';
@@ -400,16 +495,64 @@ const validateForm = (): boolean => {
 };
 
 const goBack = () => {
+  // Сохраняем состояние перед уходом
+  saveStateToLocalStorage();
   emit('go-back');
 };
 
 const goNext = () => {
   if (validateForm()) {
-    // Очищаем localStorage после успешного завершения
-    clearLocalStorage();
+    // Сохраняем состояние перед переходом
+    saveStateToLocalStorage();
+    
+    // Если нужно очистить данные после успешной отправки (например, если это последний шаг)
+    // Раскомментируйте следующую строку:
+    // clearLocalStorage();
+    
     emit('go-next', formData.value);
+  } else {
+    ElMessage.error('Пожалуйста, заполните все обязательные поля корректно');
   }
 };
+
+// Функция для полной очистки формы (можно вызвать из родительского компонента)
+const resetForm = () => {
+  formData.value = {
+    genre: '',
+    tiktokStartSeconds: '',
+    appleMusicTextFile: null,
+    appleMusicTextFileBase64: '',
+    appleMusicFileName: '',
+    appleMusicFileSize: 0,
+    hasDrugsMention: '',
+    drugsTracks: '',
+    karaokeFile: null,
+    karaokeFileBase64: '',
+    karaokeFileName: '',
+    karaokeFileSize: 0,
+    appleMusicLinks: '',
+    spotifyLinks: '',
+    vkLinks: '',
+    yandexMusicLinks: '',
+    socialLinks: ''
+  };
+  
+  // Очищаем localStorage
+  clearLocalStorage();
+  
+  // Сбрасываем ошибки
+  Object.keys(errors.value).forEach(key => {
+    errors.value[key as keyof Errors] = '';
+  });
+  
+  console.log('Form reset and localStorage cleared');
+};
+
+// Экспортируем функции для использования в родительском компоненте
+defineExpose({
+  resetForm,
+  clearLocalStorage
+});
 
 const handleAppleMusicFileClick = () => {
   appleMusicTextFileRef.value?.click();
@@ -419,37 +562,62 @@ const handleKaraokeFileClick = () => {
   karaokeFileRef.value?.click();
 };
 
-const handleAppleMusicFileChange = (event: Event) => {
+const handleAppleMusicFileChange = async (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files[0]) {
     const file = input.files[0];
-    formData.value.appleMusicTextFile = file;
-    appleMusicFileName.value = file.name;
-    appleMusicFileSize.value = file.size;
     
-    validateField('appleMusicTextFile');
-    validateFileConsistency();
-    saveStateToLocalStorage();
+    // Конвертируем файл в base64
+    try {
+      const base64 = await fileToBase64(file);
+      formData.value.appleMusicTextFile = file;
+      formData.value.appleMusicTextFileBase64 = base64;
+      formData.value.appleMusicFileName = file.name;
+      formData.value.appleMusicFileSize = file.size;
+      
+      validateField('appleMusicTextFile');
+      validateFileConsistency();
+      saveStateToLocalStorage();
+      
+      ElMessage.success('Файл успешно загружен');
+      console.log('Apple Music file saved:', file.name);
+    } catch (error) {
+      console.error('Error converting file to base64:', error);
+      errors.value.appleMusicTextFile = 'Ошибка при обработке файла';
+      ElMessage.error('Ошибка при загрузке файла');
+    }
   }
 };
 
-const handleKaraokeFileChange = (event: Event) => {
+const handleKaraokeFileChange = async (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files[0]) {
     const file = input.files[0];
-    formData.value.karaokeFile = file;
-    karaokeFileName.value = file.name;
-    karaokeFileSize.value = file.size;
     
-    validateField('karaokeFile');
-    validateFileConsistency();
-    saveStateToLocalStorage();
+    // Конвертируем файл в base64
+    try {
+      const base64 = await fileToBase64(file);
+      formData.value.karaokeFile = file;
+      formData.value.karaokeFileBase64 = base64;
+      formData.value.karaokeFileName = file.name;
+      formData.value.karaokeFileSize = file.size;
+      
+      validateField('karaokeFile');
+      validateFileConsistency();
+      saveStateToLocalStorage();
+      
+      ElMessage.success('Файл успешно загружен');
+      console.log('Karaoke file saved:', file.name);
+    } catch (error) {
+      console.error('Error converting file to base64:', error);
+      errors.value.karaokeFile = 'Ошибка при обработке файла';
+      ElMessage.error('Ошибка при загрузке файла');
+    }
   }
 };
 
 const handleDragOver = (event: DragEvent) => {
   event.preventDefault();
-  // Определяем, над какой областью происходит drag
   const target = event.currentTarget as HTMLElement;
   if (target.classList.contains('apple-music-upload')) {
     appleMusicDragOver.value = true;
@@ -468,7 +636,7 @@ const handleDragLeave = (event: DragEvent) => {
   }
 };
 
-const handleDrop = (event: DragEvent) => {
+const handleDrop = async (event: DragEvent) => {
   event.preventDefault();
   
   if (event.dataTransfer?.files.length) {
@@ -483,18 +651,31 @@ const handleDrop = (event: DragEvent) => {
       
       if (!isValidExtension) {
         errors.value.appleMusicTextFile = 'Неверный формат файла. Разрешены только файлы .docx';
+        ElMessage.error('Неверный формат файла');
         return;
       }
       
       if (file.size > 10 * 1024 * 1024) {
         errors.value.appleMusicTextFile = 'Размер файла не должен превышать 10 МБ';
+        ElMessage.error('Файл слишком большой');
         return;
       }
       
-      formData.value.appleMusicTextFile = file;
-      appleMusicFileName.value = file.name;
-      appleMusicFileSize.value = file.size;
-      errors.value.appleMusicTextFile = '';
+      try {
+        const base64 = await fileToBase64(file);
+        formData.value.appleMusicTextFile = file;
+        formData.value.appleMusicTextFileBase64 = base64;
+        formData.value.appleMusicFileName = file.name;
+        formData.value.appleMusicFileSize = file.size;
+        errors.value.appleMusicTextFile = '';
+        ElMessage.success('Файл успешно загружен');
+        console.log('Apple Music file dropped and saved:', file.name);
+      } catch (error) {
+        console.error('Error converting file to base64:', error);
+        errors.value.appleMusicTextFile = 'Ошибка при обработке файла';
+        ElMessage.error('Ошибка при загрузке файла');
+      }
+      
     } else if (target.classList.contains('karaoke-upload')) {
       karaokeDragOver.value = false;
       const allowedExtensions = ['.ttml'];
@@ -503,18 +684,30 @@ const handleDrop = (event: DragEvent) => {
       
       if (!isValidExtension) {
         errors.value.karaokeFile = 'Неверный формат файла. Разрешены только файлы .ttml';
+        ElMessage.error('Неверный формат файла');
         return;
       }
       
       if (file.size > 10 * 1024 * 1024) {
         errors.value.karaokeFile = 'Размер файла не должен превышать 10 МБ';
+        ElMessage.error('Файл слишком большой');
         return;
       }
       
-      formData.value.karaokeFile = file;
-      karaokeFileName.value = file.name;
-      karaokeFileSize.value = file.size;
-      errors.value.karaokeFile = '';
+      try {
+        const base64 = await fileToBase64(file);
+        formData.value.karaokeFile = file;
+        formData.value.karaokeFileBase64 = base64;
+        formData.value.karaokeFileName = file.name;
+        formData.value.karaokeFileSize = file.size;
+        errors.value.karaokeFile = '';
+        ElMessage.success('Файл успешно загружен');
+        console.log('Karaoke file dropped and saved:', file.name);
+      } catch (error) {
+        console.error('Error converting file to base64:', error);
+        errors.value.karaokeFile = 'Ошибка при обработке файла';
+        ElMessage.error('Ошибка при загрузке файла');
+      }
     }
     
     validateFileConsistency();
@@ -524,26 +717,32 @@ const handleDrop = (event: DragEvent) => {
 
 const removeUploadedAppleMusicFile = () => {
   formData.value.appleMusicTextFile = null;
-  appleMusicFileName.value = '';
-  appleMusicFileSize.value = 0;
+  formData.value.appleMusicTextFileBase64 = '';
+  formData.value.appleMusicFileName = '';
+  formData.value.appleMusicFileSize = 0;
   if (appleMusicTextFileRef.value) {
     appleMusicTextFileRef.value.value = '';
   }
   errors.value.appleMusicTextFile = '';
   validateFileConsistency();
   saveStateToLocalStorage();
+  ElMessage.info('Файл удален');
+  console.log('Apple Music file removed');
 };
 
 const removeUploadedKaraokeFile = () => {
   formData.value.karaokeFile = null;
-  karaokeFileName.value = '';
-  karaokeFileSize.value = 0;
+  formData.value.karaokeFileBase64 = '';
+  formData.value.karaokeFileName = '';
+  formData.value.karaokeFileSize = 0;
   if (karaokeFileRef.value) {
     karaokeFileRef.value.value = '';
   }
   errors.value.karaokeFile = '';
   validateFileConsistency();
   saveStateToLocalStorage();
+  ElMessage.info('Файл удален');
+  console.log('Karaoke file removed');
 };
 
 const formatFileSize = (bytes: number): string => {
@@ -556,9 +755,11 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-// Сохранение состояния при изменении данных формы
+// Сохранение состояния при изменении данных формы (с задержкой, чтобы избежать лишних сохранений)
 watch(() => formData.value, () => {
-  saveStateToLocalStorage();
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
+  }
 }, { deep: true });
 
 watch(() => formData.value.hasDrugsMention, (newValue) => {
@@ -568,12 +769,26 @@ watch(() => formData.value.hasDrugsMention, (newValue) => {
   }
   validateField('hasDrugsMention');
   validateField('drugsTracks');
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
+  }
+});
+
+// Сохраняем состояние при уходе со страницы
+onUnmounted(() => {
   saveStateToLocalStorage();
 });
 
 // Загрузка состояния при монтировании компонента
-onMounted(() => {
-  loadStateFromLocalStorage();
+onMounted(async () => {
+  console.log('Quiz5 mounted, loading state...');
+  await loadStateFromLocalStorage();
+  console.log('Quiz5 state loaded:', {
+    genre: formData.value.genre,
+    hasDrugsMention: formData.value.hasDrugsMention,
+    hasAppleMusicFile: !!formData.value.appleMusicFileName,
+    hasKaraokeFile: !!formData.value.karaokeFileName
+  });
 });
 </script>
 
@@ -670,10 +885,10 @@ onMounted(() => {
             </p>
           </div>
         </div>
-        <div v-if="formData.appleMusicTextFile" class="quiz__form_single_name">
+        <div v-if="formData.appleMusicFileName" class="quiz__form_single_name">
           <div class="quiz__form_single_name_left">
-            <p class="quiz__form_single_name_text">{{ appleMusicFileName }}</p>
-            <p class="quiz__form_single_name_size text_small">{{ formatFileSize(appleMusicFileSize) }}</p>
+            <p class="quiz__form_single_name_text">{{ formData.appleMusicFileName }}</p>
+            <p class="quiz__form_single_name_size text_small">{{ formatFileSize(formData.appleMusicFileSize) }}</p>
           </div>
           <div class="quiz__form_single_name_svg" @click="removeUploadedAppleMusicFile">
             <CloseSVG />
@@ -762,10 +977,10 @@ onMounted(() => {
             </p>
           </div>
         </div>
-        <div v-if="formData.karaokeFile" class="quiz__form_single_name">
+        <div v-if="formData.karaokeFileName" class="quiz__form_single_name">
           <div class="quiz__form_single_name_left">
-            <p class="quiz__form_single_name_text">{{ karaokeFileName }}</p>
-            <p class="quiz__form_single_name_size text_small">{{ formatFileSize(karaokeFileSize) }}</p>
+            <p class="quiz__form_single_name_text">{{ formData.karaokeFileName }}</p>
+            <p class="quiz__form_single_name_size text_small">{{ formatFileSize(formData.karaokeFileSize) }}</p>
           </div>
           <div class="quiz__form_single_name_svg" @click="removeUploadedKaraokeFile">
             <CloseSVG />

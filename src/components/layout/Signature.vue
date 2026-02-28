@@ -1,9 +1,14 @@
 <script lang="ts" setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
+
+const props = defineProps<{
+  initialName?: string;
+  initialSignature?: string;
+}>();
 
 const emit = defineEmits<{
   close: [];
-  submit: [signatureData: string];
+  submit: [signatureData: string]; // Оставляем как было - только строка
 }>();
 
 // Ключ для сохранения подписи в localStorage
@@ -21,7 +26,6 @@ const saveSignatureToLocalStorage = () => {
   if (!signatureCanvas.value) return;
   
   try {
-    // Получаем данные подписи в формате base64
     const dataUrl = signatureCanvas.value.toDataURL('image/png');
     localStorage.setItem(SIGNATURE_STORAGE_KEY, dataUrl);
   } catch (error) {
@@ -44,6 +48,24 @@ const loadSignatureFromLocalStorage = () => {
     }
   } catch (error) {
     console.error('Error loading signature from localStorage:', error);
+  }
+};
+
+// Загрузка переданной подписи из пропсов
+const loadInitialSignature = () => {
+  if (!props.initialSignature || !canvasContext || !signatureCanvas.value) return;
+  
+  try {
+    const img = new Image();
+    img.onload = () => {
+      canvasContext!.clearRect(0, 0, signatureCanvas.value!.width, signatureCanvas.value!.height);
+      canvasContext!.drawImage(img, 0, 0);
+      signatureDrawn.value = true;
+      console.log('Initial signature loaded from props');
+    };
+    img.src = props.initialSignature;
+  } catch (error) {
+    console.error('Error loading initial signature:', error);
   }
 };
 
@@ -83,8 +105,14 @@ const initCanvas = () => {
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
-  // Загружаем сохраненную подпись
-  loadSignatureFromLocalStorage();
+  // Загружаем подпись в порядке приоритета:
+  // 1. Из пропсов (если есть)
+  // 2. Из localStorage (если нет пропсов)
+  if (props.initialSignature) {
+    loadInitialSignature();
+  } else {
+    loadSignatureFromLocalStorage();
+  }
 };
 
 // Начало рисования (мышь)
@@ -156,7 +184,6 @@ const drawTouch = (e: TouchEvent) => {
 // Остановка рисования
 const stopDrawing = () => {
   isDrawing.value = false;
-  // Сохраняем финальную версию подписи
   saveSignatureToLocalStorage();
 };
 
@@ -181,18 +208,16 @@ const clearSignature = () => {
 const submitSignature = () => {
   if (!signatureCanvas.value) return;
   
-  // Получаем данные подписи в формате base64
   const dataUrl = signatureCanvas.value.toDataURL('image/png');
   
   // Очищаем localStorage после успешной отправки
   clearSignatureFromLocalStorage();
   
-  emit('submit', dataUrl);
+  emit('submit', dataUrl); // Отправляем только строку, как было
 };
 
 // Закрытие попапа
 const closePopup = () => {
-  // Не очищаем localStorage при закрытии, чтобы сохранить черновик подписи
   emit('close');
 };
 
@@ -201,10 +226,17 @@ const handleResize = () => {
   initCanvas();
 };
 
-// Автосохранение подписи при размонтировании компонента (на всякий случай)
+// Автосохранение подписи при размонтировании компонента
 const handleBeforeUnload = () => {
   saveSignatureToLocalStorage();
 };
+
+// Следим за изменением пропсов
+watch(() => props.initialSignature, (newVal) => {
+  if (newVal && canvasContext && signatureCanvas.value) {
+    loadInitialSignature();
+  }
+});
 
 onMounted(() => {
   nextTick(() => {

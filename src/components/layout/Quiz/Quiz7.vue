@@ -81,6 +81,7 @@
     <!-- Кастомный попап для подписи -->
     <SignaturePopup
       v-if="showSignaturePopup"
+      :initialSignature="savedSignature"
       @close="closeSignaturePopup"
       @submit="handleSignatureSubmit"
     />
@@ -88,7 +89,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
 import { ElCheckbox, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import SignaturePopup from '@/components/layout/Signature.vue';
@@ -100,9 +101,13 @@ const emit = defineEmits<{
 
 // Ключи для localStorage
 const STORAGE_KEY = 'quiz7_state';
+const SIGNATURE_KEY = 'quiz7_signature';
 
 // Состояние попапа
 const showSignaturePopup = ref(false);
+
+// Флаг для отслеживания первой загрузки
+const isInitialLoad = ref(true);
 
 // Типы для формы
 interface FormData {
@@ -124,6 +129,9 @@ const formData = reactive<FormData>({
   acceptMarketing: false
 });
 
+// Сохраненная подпись (base64)
+const savedSignature = ref<string>('');
+
 // Ошибки валидации
 const errors = reactive<FormErrors>({
   acceptTerms: '',
@@ -135,33 +143,64 @@ const errors = reactive<FormErrors>({
 const saveStateToLocalStorage = () => {
   try {
     const stateToSave = {
-      formData
+      formData: {
+        acceptTerms: formData.acceptTerms,
+        acceptPrivacy: formData.acceptPrivacy,
+        acceptMarketing: formData.acceptMarketing
+      }
     };
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+    console.log('Quiz7 state saved to localStorage');
   } catch (error) {
     console.error('Error saving state to localStorage:', error);
+  }
+};
+
+// Сохранение подписи в localStorage
+const saveSignatureToLocalStorage = (signatureData: string) => {
+  try {
+    localStorage.setItem(SIGNATURE_KEY, signatureData);
+    console.log('Signature saved to localStorage');
+  } catch (error) {
+    console.error('Error saving signature to localStorage:', error);
   }
 };
 
 // Загрузка состояния из localStorage
 const loadStateFromLocalStorage = () => {
   try {
+    // Загружаем состояние формы
     const savedState = localStorage.getItem(STORAGE_KEY);
     if (savedState) {
       const parsedState = JSON.parse(savedState);
+      console.log('Loading Quiz7 state from localStorage');
       
-      // Восстанавливаем данные формы
-      Object.assign(formData, parsedState.formData);
+      if (parsedState.formData) {
+        formData.acceptTerms = parsedState.formData.acceptTerms || false;
+        formData.acceptPrivacy = parsedState.formData.acceptPrivacy || false;
+        formData.acceptMarketing = parsedState.formData.acceptMarketing || false;
+      }
+    }
+    
+    // Загружаем подпись
+    const savedSignatureData = localStorage.getItem(SIGNATURE_KEY);
+    if (savedSignatureData) {
+      savedSignature.value = savedSignatureData;
+      console.log('Signature loaded from localStorage');
     }
   } catch (error) {
     console.error('Error loading state from localStorage:', error);
+  } finally {
+    isInitialLoad.value = false;
   }
 };
 
 // Очистка состояния в localStorage
 const clearLocalStorage = () => {
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(SIGNATURE_KEY);
+  console.log('Quiz7 state cleared from localStorage');
 };
 
 // Правила валидации
@@ -175,7 +214,7 @@ const validationRules = {
     return '';
   },
   acceptMarketing: (_: boolean) => {
-    return ''; // Это поле необязательное
+    return '';
   }
 };
 
@@ -218,7 +257,6 @@ const isReadyForNextStep = computed(() => {
 const handleCheckboxChange = (fieldName: keyof FormData) => {
   validateField(fieldName as keyof FormErrors);
   
-  // Если это обязательное поле и оно стало true, очищаем ошибку
   if (fieldName === 'acceptTerms' && formData.acceptTerms) {
     errors.acceptTerms = '';
   }
@@ -228,45 +266,83 @@ const handleCheckboxChange = (fieldName: keyof FormData) => {
   if (fieldName === 'acceptMarketing') {
     errors.acceptMarketing = '';
   }
+  
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
+  }
 };
 
+// Функция для получения IP-адреса (имитация)
+const getIpAddress = async (): Promise<string> => {
+  return '192.168.1.' + Math.floor(Math.random() * 255);
+};
+
+// Функция для полной очистки формы
+const resetForm = () => {
+  formData.acceptTerms = false;
+  formData.acceptPrivacy = false;
+  formData.acceptMarketing = false;
+  savedSignature.value = '';
+  
+  clearLocalStorage();
+  
+  Object.keys(errors).forEach(key => {
+    errors[key as keyof FormErrors] = '';
+  });
+  
+  console.log('Form reset and localStorage cleared');
+};
+
+// Экспортируем функции для использования в родительском компоненте
+defineExpose({
+  resetForm,
+  clearLocalStorage,
+  hasSignature: () => !!savedSignature.value
+});
+
 const goBack = () => {
-  emit('go-back');
+  if (showSignaturePopup.value) {
+    showSignaturePopup.value = false;
+    document.documentElement.classList.remove('noscroll');
+  } else {
+    saveStateToLocalStorage();
+    emit('go-back');
+  }
 };
 
 const handleContinue = () => {
+  console.log('handleContinue called');
   const formValid = validateForm();
+  console.log('Form valid:', formValid);
   
   if (formValid) {
-    // Проверяем, что пользователь действительно проскроллил вниз (опционально)
     const agreementSection = document.querySelector('.quiz__form_agreement');
     if (agreementSection) {
       const sectionBottom = agreementSection.getBoundingClientRect().bottom;
       const viewportHeight = window.innerHeight;
       
       if (sectionBottom > viewportHeight + 100) {
-        // Если пользователь не проскроллил достаточно далеко, показываем предупреждение
         ElMessage.warning({
           message: 'Пожалуйста, просмотрите договор полностью перед продолжением',
           duration: 3000
         });
         
-        // Прокручиваем к договору
         agreementSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
     }
     
-    // Показываем попап для подписи
+    // Показываем попап с подписью
+    console.log('Showing signature popup with saved signature:', !!savedSignature.value);
     showSignaturePopup.value = true;
     document.documentElement.classList.add('noscroll');
+    
   } else {
     ElMessage.warning({
       message: 'Пожалуйста, примите обязательные условия договора',
       duration: 3000
     });
     
-    // Прокручиваем к первому полю с ошибкой
     const firstErrorField = document.querySelector('.error');
     if (firstErrorField) {
       firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -275,50 +351,54 @@ const handleContinue = () => {
 };
 
 const closeSignaturePopup = () => {
+  console.log('Closing signature popup');
   showSignaturePopup.value = false;
   document.documentElement.classList.remove('noscroll');
 };
 
-const handleSignatureSubmit = (signatureData: string) => {
-  // Здесь можно обработать подпись (например, отправить на сервер)
-  console.log('Подпись получена:', signatureData);
+const handleSignatureSubmit = async (signatureDataFromPopup: string) => {
+  console.log('Signature submit received');
+  
+  const ip = await getIpAddress();
+  
+  // Сохраняем подпись
+  savedSignature.value = signatureDataFromPopup;
+  saveSignatureToLocalStorage(signatureDataFromPopup);
+  
   closeSignaturePopup();
   
-  // Собираем данные для отправки
   const dataToSend = {
     acceptTerms: formData.acceptTerms,
     acceptPrivacy: formData.acceptPrivacy,
     acceptMarketing: formData.acceptMarketing,
-    signature: signatureData,
-    timestamp: new Date().toISOString()
+    signature: {
+      data: signatureDataFromPopup,
+      timestamp: new Date().toISOString(),
+      ip: ip
+    }
   };
   
-  // В реальном приложении здесь можно сохранить данные в store или отправить на сервер
-  console.log('Данные договора с подписью:', dataToSend);
-  
-  // Очищаем localStorage после успешного завершения
-  clearLocalStorage();
-  
+  console.log('Emitting go-next with data');
   emit('go-next', dataToSend);
 };
 
-// Функция для прокрутки к чекбоксам (может быть вызвана из родительского компонента)
-const scrollToCheckboxes = () => {
-  const checkboxesSection = document.querySelector('.quiz__form_checkboxes');
-  if (checkboxesSection) {
-    checkboxesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+// Сохранение состояния при изменении данных формы
+watch(() => formData, () => {
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
   }
-};
+}, { deep: true });
 
-// Экспортируем функции, если нужно использовать извне
-defineExpose({
-  validateForm,
-  scrollToCheckboxes
+// Сохраняем состояние при уходе со страницы
+onUnmounted(() => {
+  saveStateToLocalStorage();
 });
 
 // Загрузка состояния при монтировании компонента
 onMounted(() => {
+  console.log('Quiz7 mounted, loading state...');
   loadStateFromLocalStorage();
+  console.log('Quiz7 state loaded, has signature:', !!savedSignature.value);
 });
 </script>
 
@@ -365,18 +445,12 @@ onMounted(() => {
   flex-direction: column;
   gap: 10px;
 }
-.quiz__form_description {
-  padding: 20px 0 0;
-}
 .form__checkbox_group .el-checkbox {
   display: flex;
   min-height: auto;
   align-items: center;
   gap: 10px;
   color: var(--text-gray);
-}
-.form__group .form__checkbox_group .el-checkbox {
-  padding: 10px 0 0;
 }
 .checkbox__link {
   color: var(--color);

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
 import { ElInput, ElMessage, ElSelect, ElOption, ElDatePicker } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import dayjs from 'dayjs';
@@ -11,6 +11,9 @@ const emit = defineEmits<{
 
 // Ключи для localStorage
 const STORAGE_KEY = 'quiz4_state';
+
+// Флаг для отслеживания первой загрузки
+const isInitialLoad = ref(true);
 
 // Данные формы с инициализацией из localStorage
 const formData = reactive({
@@ -75,11 +78,36 @@ const showOtherCitizenshipInput = ref(false);
 const saveStateToLocalStorage = () => {
   try {
     const stateToSave = {
-      formData,
+      formData: {
+        userType: formData.userType,
+        legalAddress: formData.legalAddress,
+        inn: formData.inn,
+        ogrn: formData.ogrn,
+        accountNumber: formData.accountNumber,
+        bankName: formData.bankName,
+        bankInn: formData.bankInn,
+        bankBik: formData.bankBik,
+        correspondentAccount: formData.correspondentAccount,
+        bankLegalAddress: formData.bankLegalAddress,
+        citizenship: formData.citizenship,
+        otherCitizenship: formData.otherCitizenship,
+        lastName: formData.lastName,
+        firstName: formData.firstName,
+        middleName: formData.middleName,
+        passportNumber: formData.passportNumber,
+        passportIssuedBy: formData.passportIssuedBy,
+        passportIssueDate: formData.passportIssueDate,
+        registrationAddress: formData.registrationAddress
+      },
       showOtherCitizenshipInput: showOtherCitizenshipInput.value
     };
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+    console.log('Quiz4 state saved to localStorage:', {
+      userType: formData.userType,
+      lastName: formData.lastName,
+      firstName: formData.firstName
+    });
   } catch (error) {
     console.error('Error saving state to localStorage:', error);
   }
@@ -91,9 +119,30 @@ const loadStateFromLocalStorage = () => {
     const savedState = localStorage.getItem(STORAGE_KEY);
     if (savedState) {
       const parsedState = JSON.parse(savedState);
+      console.log('Loading Quiz4 state from localStorage:', parsedState);
       
-      // Восстанавливаем основные данные формы
-      Object.assign(formData, parsedState.formData);
+      if (parsedState.formData) {
+        // Восстанавливаем все поля формы
+        formData.userType = parsedState.formData.userType || 'individual';
+        formData.legalAddress = parsedState.formData.legalAddress || '';
+        formData.inn = parsedState.formData.inn || '';
+        formData.ogrn = parsedState.formData.ogrn || '';
+        formData.accountNumber = parsedState.formData.accountNumber || '';
+        formData.bankName = parsedState.formData.bankName || '';
+        formData.bankInn = parsedState.formData.bankInn || '';
+        formData.bankBik = parsedState.formData.bankBik || '';
+        formData.correspondentAccount = parsedState.formData.correspondentAccount || '';
+        formData.bankLegalAddress = parsedState.formData.bankLegalAddress || '';
+        formData.citizenship = parsedState.formData.citizenship || '';
+        formData.otherCitizenship = parsedState.formData.otherCitizenship || '';
+        formData.lastName = parsedState.formData.lastName || '';
+        formData.firstName = parsedState.formData.firstName || '';
+        formData.middleName = parsedState.formData.middleName || '';
+        formData.passportNumber = parsedState.formData.passportNumber || '';
+        formData.passportIssuedBy = parsedState.formData.passportIssuedBy || '';
+        formData.passportIssueDate = parsedState.formData.passportIssueDate || '';
+        formData.registrationAddress = parsedState.formData.registrationAddress || '';
+      }
       
       // Восстанавливаем состояние поля для другого гражданства
       showOtherCitizenshipInput.value = parsedState.showOtherCitizenshipInput || false;
@@ -102,15 +151,20 @@ const loadStateFromLocalStorage = () => {
       if (formData.citizenship === 'other' && !showOtherCitizenshipInput.value) {
         showOtherCitizenshipInput.value = true;
       }
+    } else {
+      console.log('No saved state found for Quiz4');
     }
   } catch (error) {
     console.error('Error loading state from localStorage:', error);
+  } finally {
+    isInitialLoad.value = false;
   }
 };
 
 // Очистка состояния в localStorage
 const clearLocalStorage = () => {
   localStorage.removeItem(STORAGE_KEY);
+  console.log('Quiz4 state cleared from localStorage');
 };
 
 // Вычисляемое свойство для проверки готовности к продолжению
@@ -315,6 +369,47 @@ const validateForm = (): boolean => {
   return isValid;
 };
 
+// Функция для полной очистки формы
+const resetForm = () => {
+  formData.userType = 'individual';
+  formData.legalAddress = '';
+  formData.inn = '';
+  formData.ogrn = '';
+  formData.accountNumber = '';
+  formData.bankName = '';
+  formData.bankInn = '';
+  formData.bankBik = '';
+  formData.correspondentAccount = '';
+  formData.bankLegalAddress = '';
+  formData.citizenship = '';
+  formData.otherCitizenship = '';
+  formData.lastName = '';
+  formData.firstName = '';
+  formData.middleName = '';
+  formData.passportNumber = '';
+  formData.passportIssuedBy = '';
+  formData.passportIssueDate = '';
+  formData.registrationAddress = '';
+  
+  showOtherCitizenshipInput.value = false;
+  
+  // Очищаем localStorage
+  clearLocalStorage();
+  
+  // Сбрасываем ошибки
+  Object.keys(errors).forEach(key => {
+    errors[key as keyof typeof errors] = '';
+  });
+  
+  console.log('Form reset and localStorage cleared');
+};
+
+// Экспортируем функции для использования в родительском компоненте
+defineExpose({
+  resetForm,
+  clearLocalStorage
+});
+
 // Обработчик изменения типа лица
 const handleUserTypeChange = () => {
   // Сбрасываем ошибку типа
@@ -345,7 +440,9 @@ const handleUserTypeChange = () => {
   }
   
   // Сохраняем состояние
-  saveStateToLocalStorage();
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
+  }
 };
 
 // Обработчик изменения гражданства
@@ -367,17 +464,26 @@ const handleCitizenshipChange = () => {
   validateField('middleName');
   
   // Сохраняем состояние
-  saveStateToLocalStorage();
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
+  }
 };
 
 const goBack = () => {
+  // Сохраняем состояние перед уходом
+  saveStateToLocalStorage();
   emit('go-back');
 };
 
 const goNext = () => {
   if (validateForm()) {
-    // Очищаем localStorage после успешного завершения
-    clearLocalStorage();
+    // Сохраняем состояние перед переходом
+    saveStateToLocalStorage();
+    
+    // Если нужно очистить данные после успешной отправки (например, если это последний шаг)
+    // Раскомментируйте следующую строку:
+    // clearLocalStorage();
+    
     emit('go-next');
   } else {
     ElMessage.error('Пожалуйста, заполните все обязательные поля правильно');
@@ -386,7 +492,9 @@ const goNext = () => {
 
 // Сохранение состояния при изменении данных формы
 watch(() => formData, () => {
-  saveStateToLocalStorage();
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
+  }
 }, { deep: true });
 
 // Следим за изменениями в полях для автоматической валидации
@@ -395,6 +503,9 @@ watch(() => formData.userType, () => {
     validateField('legalAddress');
     validateField('inn');
     validateField('ogrn');
+  }
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
   }
 });
 
@@ -405,6 +516,9 @@ watch(() => formData.citizenship, () => {
     validateField('firstName');
     validateField('middleName');
   }
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
+  }
 });
 
 // Наблюдаем за полем otherCitizenship для валидации
@@ -412,11 +526,25 @@ watch(() => formData.otherCitizenship, (newValue) => {
   if (newValue && formData.citizenship === 'other') {
     validateField('otherCitizenship');
   }
+  if (!isInitialLoad.value) {
+    saveStateToLocalStorage();
+  }
+});
+
+// Сохраняем состояние при уходе со страницы
+onUnmounted(() => {
+  saveStateToLocalStorage();
 });
 
 // Загрузка состояния при монтировании компонента
 onMounted(() => {
+  console.log('Quiz4 mounted, loading state...');
   loadStateFromLocalStorage();
+  console.log('Quiz4 state loaded:', {
+    userType: formData.userType,
+    lastName: formData.lastName,
+    firstName: formData.firstName
+  });
 });
 </script>
 
