@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { sendRequest } from '@/utils/api';
 import { ElMessage } from 'element-plus';
@@ -8,31 +8,78 @@ import Logo from "@/uikit/Logo.vue";
 
 const route = useRoute()
 
-// Если нужно подтверждение через токен в URL
-onMounted(async () => {
-  const token = route.query.token
-  
-  if (token) {
-    try {
-      await sendRequest(
-        "post",
-        '/ajax/auth/confirm-email.php',
-        { token: token }
-      )
-      // Если подтверждение прошло успешно, показываем сообщение
+// Состояния для UI
+const isLoading = ref(true)
+const isSuccess = ref(false)
+const errorMessage = ref('')
+
+// Функция для отправки данных на /ajax/auth/regFin.php
+const confirmRegistration = async (id: string, confirmCode: string) => {
+  try {
+    isLoading.value = true
+    
+    const response = await sendRequest(
+      "post",
+      '/ajax/auth/regFin.php',
+      { 
+        id: id,
+        confirm_code: confirmCode 
+      }
+    )
+    
+    // Если код 200 - успех
+    if (response.status === 200 || response.data?.success) {
+      isSuccess.value = true
+      errorMessage.value = ''
+      
       ElMessage({
-        message: 'Email успешно подтвержден!',
+        message: 'Регистрация успешно подтверждена!',
         type: 'success',
       });
-    } catch (error) {
-      console.error('Ошибка подтверждения email:', error)
-      ElMessage({
-        message: 'Не удалось подтвердить email. Возможно, ссылка устарела.',
-        type: 'error',
-      });
-      // Можно редиректить на страницу с ошибкой
-      // router.push(Tr.i18nRoute({ name: 'confirmation-error' }))
+    } else {
+      // Если ответ не 200, но и не ошибка
+      throw new Error('Неизвестный ответ от сервера')
     }
+    
+  } catch (error: any) {
+    console.error('Ошибка подтверждения регистрации:', error)
+    
+    isSuccess.value = false
+    
+    // Получаем сообщение об ошибке из ответа или используем стандартное
+    if (error.response?.data?.message) {
+      errorMessage.value = error.response.data.message
+    } else if (error.message) {
+      errorMessage.value = error.message
+    } else {
+      errorMessage.value = 'Не удалось подтвердить регистрацию. Возможно, ссылка устарела или данные неверны.'
+    }
+    
+    ElMessage({
+      message: errorMessage.value,
+      type: 'error',
+    });
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// При монтировании компонента получаем параметры из URL
+onMounted(async () => {
+  const id = route.query.id as string
+  const confirmCode = route.query.confirm_code as string
+  
+  if (id && confirmCode) {
+    await confirmRegistration(id, confirmCode)
+  } else {
+    isLoading.value = false
+    isSuccess.value = false
+    errorMessage.value = 'Отсутствуют параметры подтверждения в ссылке'
+    
+    ElMessage({
+      message: 'Неверная ссылка подтверждения',
+      type: 'error',
+    });
   }
 })
 </script>
@@ -54,6 +101,7 @@ onMounted(async () => {
             <img src="@/assets/img/auth/auth.webp" alt="cover">
           </div>
         </div>
+        
         <div class="auth__right">
           <div class="auth__top">
             <p class="auth__acc text_small">Уже есть аккаунт?</p>
@@ -61,7 +109,19 @@ onMounted(async () => {
               <span>Войти</span>
             </RouterLink>
           </div>
-          <div class="auth__form auth__form--centered">
+          
+          <!-- Состояние загрузки -->
+          <div class="auth__form auth__form--centered" v-if="isLoading">
+            <div class="loading-spinner">
+              <svg width="60" height="60" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="spinner">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" stroke-dasharray="31.4 31.4"/>
+              </svg>
+            </div>
+            <p class="loading-text">Подтверждение регистрации...</p>
+          </div>
+          
+          <!-- Состояние успеха -->
+          <div class="auth__form auth__form--centered" v-else-if="isSuccess">
             <div class="form__heading">
               <h1 class="form__head title_two">Почта подтверждена</h1>
             </div>
@@ -89,6 +149,27 @@ onMounted(async () => {
               </RouterLink>
             </div>
           </div>
+          
+          <!-- Состояние ошибки -->
+          <div class="auth__form auth__form--centered" v-else>
+            <div class="form__heading">
+              <h1 class="form__head title_two">Ошибка подтверждения</h1>
+            </div>
+            
+            <!-- Иконка ошибки -->
+            <div class="error-icon">
+              <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M12 8V12M12 16H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+
+            <div class="error-message">
+              <p class="error-message__text">
+                {{ errorMessage || 'Не удалось подтвердить регистрацию. Возможно, ссылка устарела или данные неверны.' }}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -104,6 +185,32 @@ onMounted(async () => {
   text-align: center;
 }
 
+/* Стили для загрузки */
+.loading-spinner {
+  margin: 24px 0 16px;
+  color: var(--color, #4361ee);
+}
+
+.spinner {
+  animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 16px;
+  color: var(--text-gray, #666);
+  margin-bottom: 32px;
+}
+
+/* Стили для успеха */
 .success-icon {
   margin: 24px 0 16px;
   color: #52c41a;
@@ -126,6 +233,29 @@ onMounted(async () => {
   color: rgba(255, 255, 255, 0.8);
 }
 
+/* Стили для ошибки */
+.error-icon {
+  margin: 24px 0 16px;
+  color: #ff4d4f;
+  animation: scaleIn 0.5s ease-out;
+}
+
+.error-icon svg {
+  width: 80px;
+  height: 80px;
+}
+
+.error-message {
+  max-width: 400px;
+  margin: 0 auto 32px;
+}
+
+.error-message__text {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #ff4d4f;
+}
+
 .form__buttons--single {
   display: flex;
   flex-direction: column;
@@ -138,27 +268,10 @@ onMounted(async () => {
 .form__buttons--single .form__send {
   width: 100%;
   justify-content: center;
-}
-
-.additional-info {
-  margin-top: 32px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.additional-info__text {
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.additional-info__link {
-  color: #fff;
   text-decoration: none;
-  transition: opacity 0.2s ease;
-}
-
-.additional-info__link:hover {
-  opacity: 0.8;
-  text-decoration: underline;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
 }
 
 /* Анимация появления иконки */
@@ -178,17 +291,35 @@ onMounted(async () => {
 
 /* Адаптивность */
 @media (max-width: 768px) {
-  .success-icon svg {
+  .success-icon svg,
+  .error-icon svg {
     width: 60px;
     height: 60px;
   }
 
-  .success-message__text {
+  .success-message__text,
+  .error-message__text {
     font-size: 14px;
   }
 
   .form__buttons--single {
     max-width: 100%;
+  }
+}
+
+/* Темная тема (если используется) */
+:root {
+  --color: #4361ee;
+  --text-gray: #6c757d;
+}
+
+@media (prefers-color-scheme: dark) {
+  .success-message__text {
+    color: rgba(255, 255, 255, 0.9);
+  }
+  
+  .loading-text {
+    color: rgba(255, 255, 255, 0.7);
   }
 }
 </style>

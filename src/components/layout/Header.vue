@@ -13,25 +13,104 @@ import FaqSVG from "@/uikit/menu/FaqSVG.vue";
 import LogoutSVG from "@/uikit/menu/LogoutSVG.vue";
 import ArticlesSVG from "@/uikit/menu/ArticlesSVG.vue";
 import Tr from "@/i18n/translation";
+import { sendRequest } from '@/utils/api';
 
 const isMenuPopup = ref<boolean>(false);
 const isOverlay = ref<boolean>(false);
 const menu = ref<boolean>(false);
 
-const getData = async () => {
-  // const getversion = await sendRequest (
-  //   "get",
-  //   '/api/v1/app-versions/last/',
-  //   {}
-  // )
-  // .then((response:any) => {
-  //   return response;
-  // });
-  // versions.value = getversion.data.version_number;
+// Данные пользователя
+const userData = ref({
+  name: '',
+  email: '',
+  balance: 0,
+  avatar: ''
+});
+
+// Реферальная ссылка
+const referralLink = ref('');
+
+// Ссылка для выхода
+const logoutUrl = ref('');
+
+// Состояние копирования
+const isCopying = ref(false);
+const copySuccess = ref(false);
+
+// Получаем базовый URL из текущего окна
+const baseUrl = window.location.origin;
+
+const fetchUserData = async () => {
+  try {
+    const response = await sendRequest('get', '/ajax/getData.php', {});
+    console.log('Header данные из API:', response.data);
+    
+    if (response.data) {
+      // Данные пользователя
+      if (response.data.user) {
+        userData.value.name = response.data.user.name || response.data.user.login || 'Пользователь';
+        userData.value.email = response.data.user.email || '';
+        
+        // Аватарка пользователя
+        if (response.data.user.personalPhoto) {
+          userData.value.avatar = response.data.user.personalPhoto;
+        }
+      }
+      
+      // Баланс
+      if (response.data.profile) {
+        userData.value.balance = response.data.profile.balance || 0;
+      }
+      
+      // Реферальная ссылка
+      if (response.data.referral && response.data.referral.link) {
+        referralLink.value = response.data.referral.link;
+      }
+      
+      // Ссылка для выхода
+      if (response.data.unauth) {
+        logoutUrl.value = response.data.unauth;
+      }
+    }
+  } catch (error) {
+    console.error('Ошибка при загрузке данных в Header:', error);
+  }
+};
+
+// Функция для копирования ссылки
+const copyReferralLink = async () => {
+  if (!referralLink.value) return;
+  
+  isCopying.value = true;
+  copySuccess.value = false;
+  
+  try {
+    await navigator.clipboard.writeText(referralLink.value);
+    copySuccess.value = true;
+    
+    // Сбрасываем статус через 2 секунды
+    setTimeout(() => {
+      copySuccess.value = false;
+    }, 2000);
+  } catch (err) {
+    console.error('Ошибка при копировании:', err);
+  } finally {
+    isCopying.value = false;
+  }
+};
+
+// Функция для получения полного URL аватарки
+const getAvatarUrl = (avatarPath: string) => {
+  if (!avatarPath) return '';
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+    return avatarPath;
+  }
+  const cleanPath = avatarPath.startsWith('/') ? avatarPath : `/${avatarPath}`;
+  return `${baseUrl}${cleanPath}`;
 };
 
 onMounted(async () => {
-  getData();
+  await fetchUserData();
 });
 
 const clickOverlay = () => {
@@ -72,6 +151,32 @@ const closeMenu = () => {
   isOverlay.value = false;
   document.documentElement.classList.remove("noscroll");
 };
+
+// Функция для выхода
+const handleLogout = () => {
+  if (logoutUrl.value) {
+    window.location.href = `${baseUrl}${logoutUrl.value}`;
+  }
+};
+
+// Форматирование баланса
+const formattedBalance = (balance: number) => {
+  return balance.toLocaleString('ru-RU');
+};
+
+// Обработчик ошибки загрузки аватарки
+const handleAvatarError = (event: Event) => {
+  const img = event.target as HTMLImageElement;
+  img.style.display = 'none';
+  const parent = img.parentElement;
+  if (parent) {
+    // Показываем иконку-заглушку
+    const svg = parent.querySelector('svg');
+    if (svg) {
+      svg.style.display = 'block';
+    }
+  }
+};
 </script>
 
 <template>
@@ -86,14 +191,22 @@ const closeMenu = () => {
           </RouterLink>
           
           <div class="header__info">
-            <div class="header__balance header__button" title="Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится">
+            <div 
+              class="header__balance header__button" 
+              :title="'Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится'"
+            >
               <PaySVG />
-              <span>Баланс: 144 000 руб.</span>
+              <span>Баланс: {{ formattedBalance(userData.balance) }} руб.</span>
             </div>
-            <div class="header__invite header__button">
+            <button 
+              v-if="referralLink"
+              class="header__invite header__button"
+              @click="copyReferralLink"
+              :disabled="isCopying"
+            >
               <LinkSVG />
-              <span>Пригласи партнера по ссылке</span>
-            </div>
+              <span>{{ copySuccess ? 'Скопировано!' : 'Пригласи партнера по ссылке' }}</span>
+            </button>
           </div>
           
           <div class="header__right">
@@ -132,15 +245,26 @@ const closeMenu = () => {
               </button>
             </div>
           </div>
+          
+          <!-- Информация о пользователе с аватаркой -->
           <div class="burger__personal">
             <div class="burger__personal_logo">
-              <PersonalSVG />
+              <img 
+                v-if="userData.avatar"
+                :src="getAvatarUrl(userData.avatar)"
+                @error="handleAvatarError"
+                alt="Avatar"
+                class="burger__avatar"
+              >
+              <PersonalSVG v-else />
             </div>
             <div class="burger__personal_info">
-              <h6 class="burger__personal_name">Виктор Иванов</h6>
-              <p class="burger__personal_mail">example@gmail.com</p>
+              <h6 class="burger__personal_name">{{ userData.name || 'Пользователь' }}</h6>
+              <p class="burger__personal_mail">{{ userData.email || 'email@example.com' }}</p>
             </div>
           </div>
+          
+          <!-- Навигация -->
           <nav class="burger__nav">
             <ul class="burger__nav_list">
               <li class="burger__nav_item burger__profile">
@@ -214,7 +338,10 @@ const closeMenu = () => {
                 </RouterLink>
               </li>
               <li class="burger__nav_item burger__logout">
-                <button class="burger__nav_link" @click="closeMenu">
+                <button 
+                  class="burger__nav_link" 
+                  @click="handleLogout"
+                >
                   <LogoutSVG class="burger__nav_icon" />
                   <p>Выйти из аккаунта</p>
                 </button>
@@ -222,16 +349,24 @@ const closeMenu = () => {
             </ul>
           </nav>
           
-          <!-- Кнопки -->
+          <!-- Кнопки с балансом и реферальной ссылкой -->
           <div class="burger__buttons">
-            <div class="header__balance header__button" title="Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится">
+            <div 
+              class="header__balance header__button" 
+              :title="'Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится'"
+            >
               <PaySVG />
-              <span>Баланс: 144 000 руб.</span>
+              <span>Баланс: {{ formattedBalance(userData.balance) }} руб.</span>
             </div>
-            <div class="header__invite header__button">
+            <button 
+              v-if="referralLink"
+              class="header__invite header__button burger__copy-button"
+              @click="copyReferralLink"
+              :disabled="isCopying"
+            >
               <LinkSVG />
-              <span>Пригласи партнера по ссылке</span>
-            </div>
+              <span>{{ copySuccess ? 'Скопировано!' : 'Скопировать реферальную ссылку' }}</span>
+            </button>
           </div>
           
           <!-- Политика конфиденциальности -->
@@ -491,11 +626,19 @@ const closeMenu = () => {
   background-color: var(--white);
   border-radius: 50%;
   border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
 }
 .burger__personal_logo svg {
   width: 32px;
   height: 32px;
   opacity: 0.8;
+}
+.burger__avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 .burger__personal_info {
   flex: 1;
@@ -557,6 +700,11 @@ const closeMenu = () => {
   align-items: center;
   justify-content: center;
   gap: 10px;
+}
+.header__invite:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 .burger__privacy {
   margin: auto 0 0;
@@ -639,6 +787,13 @@ const closeMenu = () => {
   }
   .header__flex {
     gap: 70px;
+  }
+}
+
+@media (max-width: 767px) {
+  .burger__personal_logo {
+    width: 60px;
+    height: 60px;
   }
 }
 </style>

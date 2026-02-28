@@ -88,8 +88,10 @@ const showReportPopup = ref(false);
 const showQuarterPopup = ref(false);
 const showSignaturePopup = ref(false);
 const showPayoutAmountPopup = ref(false);
+const showImagesPopup = ref(false); // Новый попап для отображения изображений
 const actData = ref<ActResponse | null>(null);
 const userLabel = ref(0);
+const isoldsumm = ref("0");
 
 // Состояние для выплаты
 const payoutAmount = ref<number | null>(null);
@@ -197,10 +199,15 @@ const isBonusAmountValid = computed(() => {
   return bonusPayoutAmount.value > 0 && bonusPayoutAmount.value <= maxBonusAmount.value;
 });
 
+// Минимальная сумма для выплаты в зависимости от isoldsumm
+const minPayoutAmount = computed(() => {
+  return isoldsumm.value === "1" ? 1000 : 5000;
+});
+
 // Валидация суммы выплаты
 const isPayoutAmountValid = computed(() => {
   if (!payoutAmount.value) return false;
-  return payoutAmount.value > 0 && payoutAmount.value <= profileData.value.balance;
+  return payoutAmount.value >= minPayoutAmount.value && payoutAmount.value <= profileData.value.balance;
 });
 
 // Методы для пагинации релизов
@@ -557,6 +564,7 @@ const closeAllPopups = () => {
   showSignaturePopup.value = false;
   showBonusPayoutPopup.value = false;
   showPayoutAmountPopup.value = false;
+  showImagesPopup.value = false; // Закрываем попап с изображениями
   selectedYear.value = '';
   selectedQuarter.value = '';
   availableQuarters.value = [];
@@ -590,6 +598,11 @@ const fetchData = async () => {
   try {
     const response = await sendRequest('get', '/ajax/getData.php', {});
     console.log('Данные из API:', response.data);
+    
+    if (response.data) {
+      // Сохраняем isoldsumm
+      isoldsumm.value = response.data.isoldsumm || "0";
+    }
     
     if (response.data && response.data.profile) {
       profileData.value.balance = response.data.profile.balance || 0;
@@ -679,8 +692,8 @@ const fetchData = async () => {
 
 // Функция для открытия попапа ввода суммы выплаты
 const openPayoutAmountPopup = () => {
-  if (profileData.value.balance <= 0) {
-    alert('Недостаточно средств для выплаты');
+  if (profileData.value.balance < minPayoutAmount.value) {
+    alert(`Минимальная сумма для выплаты: ${minPayoutAmount.value} ₽`);
     return;
   }
   
@@ -693,7 +706,7 @@ const openPayoutAmountPopup = () => {
 // Функция для запроса акта выплаты с указанной суммой
 const requestPayoutAct = async () => {
   if (!isPayoutAmountValid.value) {
-    actError.value = `Сумма должна быть от 1 до ${profileData.value.balance}`;
+    actError.value = `Сумма должна быть от ${minPayoutAmount.value} до ${profileData.value.balance}`;
     return;
   }
 
@@ -716,14 +729,14 @@ const requestPayoutAct = async () => {
       actData.value = {
         docx_url: response.data.data.docx_url,
         pdf_url: response.data.data.pdf_url,
-        images: response.data.data.images,
+        images: response.data.data.images || [],
         element_id: response.data.data.element_id,
         message: response.data.message
       };
       
-      // Закрываем попап ввода суммы и открываем попап подписи
+      // Закрываем попап ввода суммы и открываем попап с изображениями
       showPayoutAmountPopup.value = false;
-      showSignaturePopup.value = true;
+      showImagesPopup.value = true;
     } else {
       actError.value = response.data?.message || 'Ошибка при получении акта';
     }
@@ -733,6 +746,12 @@ const requestPayoutAct = async () => {
   } finally {
     isRequestingAct.value = false;
   }
+};
+
+// Функция для перехода к подписи
+const goToSignature = () => {
+  showImagesPopup.value = false;
+  showSignaturePopup.value = true;
 };
 
 // Функция для отправки подписи
@@ -929,8 +948,8 @@ onMounted(() => {
             <button 
               class="personal__balance_button button__primary"
               @click="openPayoutAmountPopup"
-              :disabled="profileData.balance <= 0"
-              :class="{ 'button__disabled': profileData.balance <= 0 }"
+              :disabled="profileData.balance < minPayoutAmount"
+              :class="{ 'button__disabled': profileData.balance < minPayoutAmount }"
             >
               <span>Запросить выплаты</span>
             </button>
@@ -1376,6 +1395,9 @@ onMounted(() => {
           <p class="popup__balance-info">
             Доступно средств: <strong>{{ profileData.balance.toLocaleString() }} ₽</strong>
           </p>
+          <p class="popup__min-amount">
+            Минимальная сумма: <strong>{{ minPayoutAmount }} ₽</strong>
+          </p>
         </div>
         
         <div class="popup__form-group">
@@ -1388,9 +1410,9 @@ onMounted(() => {
             class="popup__input"
             :class="{ 'popup__input_error': actError }"
             v-model.number="payoutAmount"
-            :min="1"
+            :min="minPayoutAmount"
             :max="profileData.balance"
-            :placeholder="`От 1 до ${profileData.balance}`"
+            :placeholder="`От ${minPayoutAmount} до ${profileData.balance}`"
             :disabled="isRequestingAct"
             @keyup.enter="requestPayoutAct"
           />
@@ -1407,11 +1429,60 @@ onMounted(() => {
             <span v-else>Запрос...</span>
           </button>
           <button 
-            class="popup__button button button__secondary"
+            class="popup__button button button__black"
             @click="closeAllPopups"
             :disabled="isRequestingAct"
           >
-            Отмена
+            <span>Отмена</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
+<!-- Новый попап для отображения изображений -->
+<Teleport to="body">
+  <div class="popup" v-if="showImagesPopup && actData" @click.self="closeAllPopups">
+    <div class="popup__content popup__content_images">
+      <div class="popup__header">
+        <h3 class="popup__title">Изображения акта</h3>
+        <button class="popup__close" @click="closeAllPopups">×</button>
+      </div>
+      <div class="popup__body">
+        <p class="popup__images-info">Акт успешно создан. Просмотрите изображения:</p>
+        
+        <div class="popup__images-grid" v-if="actData.images && actData.images.length > 0">
+          <div 
+            v-for="(image, index) in actData.images" 
+            :key="index"
+            class="popup__image-item"
+          >
+            <img 
+              :src="getFullUrl(image)" 
+              :alt="`Изображение ${index + 1}`"
+              class="popup__image"
+              @click="openImageInNewTab(getFullUrl(image))"
+            >
+          </div>
+        </div>
+        
+        <div v-else class="popup__empty">
+          Нет изображений для отображения
+        </div>
+        
+        <div class="popup__actions">
+          <button 
+            class="popup__button button button__primary"
+            @click="goToSignature"
+          >
+            <span>Перейти к подписи</span>
+          </button>
+          <button 
+            class="popup__button button button__black"
+            @click="closeAllPopups"
+          >
+            <span>Отмена</span>
           </button>
         </div>
       </div>
@@ -1470,11 +1541,11 @@ onMounted(() => {
             <span v-else>Отправка...</span>
           </button>
           <button 
-            class="popup__button button button__secondary"
+            class="popup__button button button__black"
             @click="closeBonusPayoutPopup"
             :disabled="isSubmittingBonusPayout"
           >
-            Отмена
+            <span>Отмена</span>
           </button>
         </div>
       </div>
@@ -2095,6 +2166,10 @@ onMounted(() => {
   overflow: hidden;
 }
 
+.popup__content_images {
+  max-width: 800px;
+}
+
 .popup__header {
   display: flex;
   padding: 20px;
@@ -2240,10 +2315,18 @@ onMounted(() => {
 .popup__balance-info {
   font-size: 16px;
   color: var(--text);
+  margin-bottom: 5px;
 }
 
-.popup__balance-info strong {
-  font-size: 18px;
+.popup__min-amount {
+  font-size: 14px;
+  color: var(--text-gray);
+  margin-top: 5px;
+}
+
+.popup__balance-info strong,
+.popup__min-amount strong {
+  font-size: 16px;
   color: var(--color);
 }
 
@@ -2287,6 +2370,39 @@ onMounted(() => {
 .popup__actions {
   display: flex;
   gap: 10px;
+  margin-top: 20px;
+}
+
+/* Стили для сетки изображений */
+.popup__images-info {
+  margin-bottom: 20px;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.popup__images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+.popup__image-item {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  cursor: pointer;
+}
+
+.popup__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 @media (max-width: 1919px) {
@@ -2455,6 +2571,11 @@ onMounted(() => {
     position: static;
     transform: none;
   }
+  
+  .popup__images-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    max-height: 300px;
+  }
 }
 
 @media (max-width: 580px) {
@@ -2473,5 +2594,20 @@ onMounted(() => {
   .popup__actions {
     flex-direction: column;
   }
+  
+  .popup__images-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
+
+<script lang="ts">
+// Добавляем метод для открытия изображения в новой вкладке
+export default {
+  methods: {
+    openImageInNewTab(url: string) {
+      window.open(url, '_blank');
+    }
+  }
+}
+</script>

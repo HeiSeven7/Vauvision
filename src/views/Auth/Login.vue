@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { View, Hide } from '@element-plus/icons-vue'
 import { sendRequest } from '@/utils/api';
 import { ElMessage } from 'element-plus';
@@ -138,6 +138,39 @@ const handleSubmit = async () => {
     isLoading.value = false
   })
 }
+
+// Функция проверки авторизации
+const checkAuth = async () => {
+  try {
+    // GET запрос, третий аргумент - пустой объект data
+    const response = await sendRequest('get', '/ajax/isAuth.php', {})
+    
+    // Проверяем по полю error:
+    // {error: false} - не авторизован
+    // {error: true} - авторизован
+    if (response.data?.error === true) {
+      console.log('Пользователь авторизован')
+      
+      ElMessage({
+        message: 'Вы уже авторизованы',
+        type: 'info',
+      });
+      
+      // Редирект в личный кабинет
+      router.push(Tr.i18nRoute({ name: 'personal' }))
+    } else {
+      console.log('Пользователь не авторизован')
+    }
+  } catch (error) {
+    // Ошибка при проверке - пользователь скорее всего не авторизован
+    console.log('Не удалось проверить статус авторизации:', error)
+  }
+}
+
+// Проверка авторизации при загрузке страницы
+onMounted(() => {
+  checkAuth()
+})
 </script>
 
 <template>
