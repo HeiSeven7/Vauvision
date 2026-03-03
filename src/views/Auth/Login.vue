@@ -66,7 +66,7 @@ const handleSubmit = async () => {
   // Используем sendRequest для отправки данных (без токена, т.к. это логин)
   await sendRequest(
     "post",
-    '/ajax/auth/login.php',
+    '/ajax_vue/ajax/auth/login.php',
     {
       LOGIN: formData.email.trim(),
       PASSWORD: formData.password
@@ -143,7 +143,7 @@ const handleSubmit = async () => {
 const checkAuth = async () => {
   try {
     // GET запрос, третий аргумент - пустой объект data
-    const response = await sendRequest('get', '/ajax/isAuth.php', {})
+    const response = await sendRequest('get', '/ajax_vue/ajax/isAuth.php', {})
     
     // Проверяем по полю error:
     // {error: false} - не авторизован

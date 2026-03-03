@@ -274,7 +274,7 @@ const handleFinalSubmit = async () => {
 
   await sendRequest(
     "post",
-    '/ajax/auth/register.php',
+    '/ajax_vue/ajax/auth/register.php',
     registrationData
   )
   .then((response: any) => {
@@ -394,7 +394,7 @@ const handleFinalSubmit = async () => {
 const checkAuth = async () => {
   try {
     // GET запрос, третий аргумент - пустой объект data
-    const response = await sendRequest('get', '/ajax/isAuth.php', {})
+    const response = await sendRequest('get', '/ajax_vue/ajax/isAuth.php', {})
     
     // Проверяем по полю error:
     // {error: false} - не авторизован

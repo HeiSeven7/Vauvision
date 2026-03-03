@@ -269,7 +269,7 @@ const getFullUrl = (path: string) => {
 const fetchReleasesPage = async (page: number) => {
   isLoadingReleases.value = true;
   try {
-    const response = await sendRequest('get', `/ajax/getData.php?PAGEN_1=${page}`, {});
+    const response = await sendRequest('get', `/ajax_vue/ajax/getData.php?PAGEN_1=${page}`, {});
     
     if (response.data && response.data.releases) {
       releasesData.value = response.data.releases.items.map((item: any) => ({
@@ -309,7 +309,7 @@ const fetchReleasesPage = async (page: number) => {
 const fetchReportsPage = async (page: number) => {
   isLoadingReports.value = true;
   try {
-    const response = await sendRequest('get', `/ajax/getData.php?report_page=${page}`, {});
+    const response = await sendRequest('get', `/ajax_vue/ajax/getData.php?report_page=${page}`, {});
     
     if (response.data && response.data.downloadedReports) {
       reportsData.value = response.data.downloadedReports.items.map((item: any) => ({
@@ -342,7 +342,7 @@ const fetchReportsPage = async (page: number) => {
 const fetchTransactionsPage = async (page: number) => {
   isLoadingTransactions.value = true;
   try {
-    const response = await sendRequest('get', `/ajax/getData.php?PAGEN_2=${page}`, {});
+    const response = await sendRequest('get', `/ajax_vue/ajax/getData.php?PAGEN_2=${page}`, {});
     
     if (response.data && response.data.finances) {
       transactionsData.value = response.data.finances.items.map((item: any, index: number) => ({
@@ -406,7 +406,7 @@ const selectYear = async (year: string) => {
   
   isLoadingQuarters.value = true;
   try {
-    const response = await sendRequest('post', '/ajax/profile/kvartal.php', {
+    const response = await sendRequest('post', '/ajax_vue/ajax/profile/kvartal.php', {
       ID: year
     });
     
@@ -507,7 +507,7 @@ const downloadReport = async () => {
       YEAR_ID: selectedYear.value
     };
     
-    const response = await fetch('/ajax/profile/report.php', {
+    const response = await fetch('/ajax_vue/ajax/profile/report.php', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -596,7 +596,7 @@ const handleImageError = (event: Event) => {
 
 const fetchData = async () => {
   try {
-    const response = await sendRequest('get', '/ajax/getData.php', {});
+    const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
     console.log('Данные из API:', response.data);
     
     if (response.data) {
@@ -716,7 +716,7 @@ const requestPayoutAct = async () => {
   try {
     const valuta = profileData.value.region === 'Russia' ? 'RUB' : 'USD';
     
-    const response = await sendRequest('post', '/ajax/profile/aktVyplata.php', {
+    const response = await sendRequest('post', '/ajax_vue/ajax/profile/aktVyplata.php', {
       summ: payoutAmount.value,
       valuta: valuta,
       summLabels: payoutAmount.value
@@ -771,7 +771,7 @@ const submitSignature = async (signatureDataUrl: string) => {
     formData.append('url', signatureDataUrl);
     formData.append('signature', signatureFile);
 
-    const submitResponse = await sendRequest('post', '/ajax/newAkt_vyp.php', formData);
+    const submitResponse = await sendRequest('post', '/ajax_vue/ajax/newAkt_vyp.php', formData);
 
     console.log('Ответ при отправке подписи:', submitResponse.data);
 
@@ -814,7 +814,7 @@ const submitBonusPayout = async () => {
   try {
     const valuta = profileData.value.region === 'Russia' ? 'RUB' : 'USD';
     
-    const response = await sendRequest('post', '/ajax/profile/bonusVyplata.php', {
+    const response = await sendRequest('post', '/ajax_vue/ajax/profile/bonusVyplata.php', {
       summ: bonusPayoutAmount.value,
       valuta: valuta
     });
