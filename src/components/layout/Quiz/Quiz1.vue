@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { sendRequest } from '@/utils/api';
 import { ElInputNumber, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
+import { openDB } from 'idb';
 
 const emit = defineEmits<{
   'go-back': [];
@@ -62,13 +63,16 @@ interface UpdateBasketResponse {
   }
 }
 
-// Ключ для localStorage
+// Ключ для IndexedDB
+const DB_NAME = 'quizDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'quizState';
 const STORAGE_KEY = 'quiz1_state';
 
 // Состояние загрузки
 const isLoading = ref(true);
 const isInitialLoad = ref(true);
-const isRestoringFromLocalStorage = ref(false);
+const quizDB = ref<any>(null);
 
 // Локальные состояния
 const singleCountLocal = ref(0);
@@ -93,6 +97,66 @@ const totalSum = ref<number>(0);
 
 // Флаг для предотвращения циклических обновлений
 const isUpdatingFromServer = ref(false);
+
+// Инициализация IndexedDB
+const initDB = async () => {
+  quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        store.createIndex('timestamp', 'timestamp');
+      }
+    },
+  });
+};
+
+// Сохранение состояния в IndexedDB
+const saveStateToDB = async () => {
+  // Не сохраняем, если обновление идет с сервера
+  if (isUpdatingFromServer.value) return;
+  
+  try {
+    const stateToSave = {
+      id: STORAGE_KEY,
+      singleCount: singleCountLocal.value,
+      albumCount: albumCountLocal.value,
+      clipCount: clipCountLocal.value,
+      cardCount: cardCountLocal.value,
+      timestamp: Date.now()
+    };
+    
+    await quizDB.value.put(STORE_NAME, stateToSave);
+    console.log('Saved to IndexedDB:', stateToSave);
+  } catch (error) {
+    console.error('Error saving state to IndexedDB:', error);
+  }
+};
+
+// Загрузка состояния из IndexedDB
+const loadStateFromDB = async () => {
+  try {
+    const savedState = await quizDB.value.get(STORE_NAME, STORAGE_KEY);
+    if (savedState) {
+      console.log('Loading from IndexedDB:', savedState);
+      
+      // Устанавливаем значения из IndexedDB
+      singleCountLocal.value = savedState.singleCount || 0;
+      albumCountLocal.value = savedState.albumCount || 0;
+      clipCountLocal.value = savedState.clipCount || 0;
+      cardCountLocal.value = savedState.cardCount || 0;
+      
+      // Сохраняем в предыдущие значения
+      previousCounts.value = {
+        single: singleCountLocal.value,
+        album: albumCountLocal.value,
+        clip: clipCountLocal.value,
+        card: cardCountLocal.value
+      };
+    }
+  } catch (error) {
+    console.error('Error loading state from IndexedDB:', error);
+  }
+};
 
 // Загрузка данных с сервера
 const loadData = async () => {
@@ -124,63 +188,6 @@ const loadData = async () => {
   }
 };
 
-// Сохранение состояния в localStorage
-const saveStateToLocalStorage = () => {
-  // Не сохраняем, если обновление идет с сервера или идет начальная загрузка
-  if (isUpdatingFromServer.value || isLoading.value || isRestoringFromLocalStorage.value) return;
-  
-  try {
-    const stateToSave = {
-      singleCount: singleCountLocal.value,
-      albumCount: albumCountLocal.value,
-      clipCount: clipCountLocal.value,
-      cardCount: cardCountLocal.value
-    };
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-    console.log('Saved to localStorage:', stateToSave);
-  } catch (error) {
-    console.error('Error saving state to localStorage:', error);
-  }
-};
-
-// Загрузка состояния из localStorage (только для отображения во время загрузки)
-const loadStateFromLocalStorage = () => {
-  try {
-    const savedState = localStorage.getItem(STORAGE_KEY);
-    if (savedState) {
-      const parsedState = JSON.parse(savedState);
-      
-      console.log('Temporarily loading from localStorage:', parsedState);
-      
-      // Устанавливаем флаг восстановления из localStorage
-      isRestoringFromLocalStorage.value = true;
-      
-      // Сохраняем предыдущие значения
-      previousCounts.value = {
-        single: parsedState.singleCount || 0,
-        album: parsedState.albumCount || 0,
-        clip: parsedState.clipCount || 0,
-        card: parsedState.cardCount || 0
-      };
-      
-      // Временно устанавливаем значения из localStorage
-      singleCountLocal.value = parsedState.singleCount || 0;
-      albumCountLocal.value = parsedState.albumCount || 0;
-      clipCountLocal.value = parsedState.clipCount || 0;
-      cardCountLocal.value = parsedState.cardCount || 0;
-      
-      // Сбрасываем флаг через небольшой таймаут
-      setTimeout(() => {
-        isRestoringFromLocalStorage.value = false;
-      }, 100);
-    }
-  } catch (error) {
-    console.error('Error loading state from localStorage:', error);
-    isRestoringFromLocalStorage.value = false;
-  }
-};
-
 // Получение корзины
 const fetchBasket = async () => {
   try {
@@ -196,7 +203,7 @@ const fetchBasket = async () => {
       // Сохраняем элементы корзины
       basketItems.value = data.data.items || [];
       
-      // Получаем новые значения
+      // Получаем новые значения из корзины
       const singleItem = data.data.items.find(item => item.type === 'single');
       const albumItem = data.data.items.find(item => item.type === 'album');
       const clipItem = data.data.items.find(item => item.type === 'clip');
@@ -207,19 +214,27 @@ const fetchBasket = async () => {
       const newClip = clipItem?.quantity || 0;
       const newCard = cardItem?.quantity || 0;
       
+      // Обновляем локальные счетчики из данных корзины ТОЛЬКО если они отличаются
+      // и если это не начальная загрузка из IndexedDB
+      if (!isInitialLoad.value || 
+          singleCountLocal.value !== newSingle ||
+          albumCountLocal.value !== newAlbum ||
+          clipCountLocal.value !== newClip ||
+          cardCountLocal.value !== newCard) {
+        
+        singleCountLocal.value = newSingle;
+        albumCountLocal.value = newAlbum;
+        clipCountLocal.value = newClip;
+        cardCountLocal.value = newCard;
+      }
+      
       // Обновляем предыдущие значения
       previousCounts.value = {
-        single: newSingle,
-        album: newAlbum,
-        clip: newClip,
-        card: newCard
+        single: singleCountLocal.value,
+        album: albumCountLocal.value,
+        clip: clipCountLocal.value,
+        card: cardCountLocal.value
       };
-      
-      // Обновляем локальные счетчики из данных корзины
-      singleCountLocal.value = newSingle;
-      albumCountLocal.value = newAlbum;
-      clipCountLocal.value = newClip;
-      cardCountLocal.value = newCard;
       
       // Обновляем общую сумму и символ валюты
       totalSum.value = data.data.total || 0;
@@ -232,8 +247,8 @@ const fetchBasket = async () => {
         card: cardCountLocal.value
       });
       
-      // Сохраняем текущее состояние в localStorage
-      saveStateToLocalStorage();
+      // Сохраняем текущее состояние в IndexedDB
+      await saveStateToDB();
       
       // Сбрасываем флаги
       setTimeout(() => {
@@ -247,7 +262,6 @@ const fetchBasket = async () => {
     isUpdatingFromServer.value = false;
     isLoading.value = false;
     isInitialLoad.value = false;
-    isRestoringFromLocalStorage.value = false;
   }
 };
 
@@ -355,19 +369,12 @@ const handleQuantityChange = async (
   newCount: number, 
   oldCount: number
 ) => {
-  // Если обновление идет с сервера, идет загрузка или восстановление из localStorage - ничего не делаем
-  if (isUpdatingFromServer.value || isLoading.value || isRestoringFromLocalStorage.value) {
+  // Если обновление идет с сервера или начальная загрузка - ничего не делаем
+  if (isUpdatingFromServer.value || isInitialLoad.value) {
     console.log('Skipping API call due to flags:', {
       isUpdatingFromServer: isUpdatingFromServer.value,
-      isLoading: isLoading.value,
-      isRestoringFromLocalStorage: isRestoringFromLocalStorage.value
+      isInitialLoad: isInitialLoad.value
     });
-    return;
-  }
-  
-  // Проверяем, что это действительно изменение, а не начальная установка
-  if (isInitialLoad.value) {
-    console.log('Skipping API call during initial load');
     return;
   }
   
@@ -385,34 +392,42 @@ const handleQuantityChange = async (
 };
 
 // При монтировании
-onMounted(() => {
-  // Сначала показываем данные из localStorage (для быстрого отображения)
-  loadStateFromLocalStorage();
+onMounted(async () => {
+  // Инициализируем IndexedDB
+  await initDB();
   
-  // Затем загружаем актуальные данные с сервера
-  loadData();
+  // Сначала загружаем из IndexedDB
+  await loadStateFromDB();
+  
+  // Затем загружаем данные с сервера
+  await loadData();
 });
 
 const goBack = () => {
   emit('go-back');
 };
 
-const handleContinue = () => {
+const handleContinue = async () => {
   if (isContinueDisabled.value) {
     ElMessage.warning('Для продолжения выберите хотя бы один сингл или альбом');
     return;
   }
   
-  // Сохраняем состояние в localStorage
-  saveStateToLocalStorage();
+  // Сохраняем текущее состояние в IndexedDB
+  await saveStateToDB();
   
   emit('go-next');
 };
 
-// Следим за изменениями счетчиков и отправляем запросы
+// Следим за изменениями счетчиков
 watch([singleCountLocal, albumCountLocal, clipCountLocal, cardCountLocal], 
   async ([newSingle, newAlbum, newClip, newCard], 
          [oldSingle, oldAlbum, oldClip, oldCard]) => {
+    
+    // Сохраняем в IndexedDB (только если не обновление с сервера)
+    if (!isUpdatingFromServer.value) {
+      await saveStateToDB();
+    }
     
     // Обновляем предыдущие значения для следующего сравнения
     previousCounts.value = {
@@ -421,11 +436,6 @@ watch([singleCountLocal, albumCountLocal, clipCountLocal, cardCountLocal],
       clip: newClip,
       card: newCard
     };
-    
-    // Сохраняем в localStorage (только если не обновление с сервера, не загрузка и не восстановление)
-    if (!isUpdatingFromServer.value && !isLoading.value && !isRestoringFromLocalStorage.value) {
-      saveStateToLocalStorage();
-    }
     
     // Обрабатываем изменения для каждого продукта
     if (newSingle !== oldSingle) {
@@ -446,6 +456,18 @@ watch([singleCountLocal, albumCountLocal, clipCountLocal, cardCountLocal],
   },
   { deep: true }
 );
+
+// Сохраняем состояние при покидании страницы
+window.addEventListener('beforeunload', async () => {
+  await saveStateToDB();
+});
+
+// Сохраняем состояние при изменении видимости вкладки
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') {
+    await saveStateToDB();
+  }
+});
 </script>
 
 <template>

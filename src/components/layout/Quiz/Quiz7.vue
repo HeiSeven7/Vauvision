@@ -88,18 +88,23 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { ElCheckbox, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import SignaturePopup from '@/components/layout/Signature.vue';
+import { openDB } from 'idb';
 
 const emit = defineEmits<{
   'go-back': [];
   'go-next': [data: any];
 }>();
 
-// Ключи для localStorage
+// Ключи для хранения
 const STORAGE_KEY = 'quiz7_state';
+const DB_NAME = 'quizDB';
+const DB_VERSION = 1;
+
+const quizDB = ref<any>(null);
 
 // Состояние попапа
 const showSignaturePopup = ref(false);
@@ -131,37 +136,57 @@ const errors = reactive<FormErrors>({
   acceptMarketing: ''
 });
 
-// Сохранение состояния в localStorage
-const saveStateToLocalStorage = () => {
+// Инициализация IndexedDB
+const initDB = async () => {
+  quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains('quizState')) {
+        const store = db.createObjectStore('quizState', { keyPath: 'id' });
+        store.createIndex('timestamp', 'timestamp');
+      }
+    },
+  });
+};
+
+// Сохранение состояния в IndexedDB
+const saveStateToDB = async () => {
   try {
     const stateToSave = {
-      formData
+      id: STORAGE_KEY,
+      formData: { ...formData },
+      timestamp: Date.now()
     };
     
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+    await quizDB.value.put('quizState', stateToSave);
+    console.log('State saved to IndexedDB');
   } catch (error) {
-    console.error('Error saving state to localStorage:', error);
+    console.error('Error saving state to IndexedDB:', error);
   }
 };
 
-// Загрузка состояния из localStorage
-const loadStateFromLocalStorage = () => {
+// Загрузка состояния из IndexedDB
+const loadStateFromDB = async () => {
   try {
-    const savedState = localStorage.getItem(STORAGE_KEY);
+    const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
     if (savedState) {
-      const parsedState = JSON.parse(savedState);
+      console.log('Loading from IndexedDB:', savedState);
       
       // Восстанавливаем данные формы
-      Object.assign(formData, parsedState.formData);
+      Object.assign(formData, savedState.formData);
     }
   } catch (error) {
-    console.error('Error loading state from localStorage:', error);
+    console.error('Error loading state from IndexedDB:', error);
   }
 };
 
-// Очистка состояния в localStorage
-const clearLocalStorage = () => {
-  localStorage.removeItem(STORAGE_KEY);
+// Очистка состояния в IndexedDB
+const clearStateFromDB = async () => {
+  try {
+    await quizDB.value.delete('quizState', STORAGE_KEY);
+    console.log('State cleared from IndexedDB');
+  } catch (error) {
+    console.error('Error clearing state from IndexedDB:', error);
+  }
 };
 
 // Правила валидации
@@ -180,13 +205,13 @@ const validationRules = {
 };
 
 // Валидация конкретного поля
-const validateField = (fieldName: keyof FormErrors): boolean => {
+const validateField = async (fieldName: keyof FormErrors): Promise<boolean> => {
   const value = formData[fieldName as keyof FormData];
   const validator = validationRules[fieldName as keyof typeof validationRules];
   
   if (validator) {
     errors[fieldName] = validator(value);
-    saveStateToLocalStorage();
+    await saveStateToDB();
     return !errors[fieldName];
   }
   
@@ -194,18 +219,18 @@ const validateField = (fieldName: keyof FormErrors): boolean => {
 };
 
 // Валидация всей формы
-const validateForm = (): boolean => {
+const validateForm = async (): Promise<boolean> => {
   let isValid = true;
   
   const requiredFields: (keyof FormErrors)[] = ['acceptTerms', 'acceptPrivacy'];
   
-  requiredFields.forEach(field => {
-    if (!validateField(field)) {
+  for (const field of requiredFields) {
+    if (!await validateField(field)) {
       isValid = false;
     }
-  });
+  }
   
-  saveStateToLocalStorage();
+  await saveStateToDB();
   return isValid;
 };
 
@@ -215,8 +240,8 @@ const isReadyForNextStep = computed(() => {
 });
 
 // Обработчик изменений чекбоксов
-const handleCheckboxChange = (fieldName: keyof FormData) => {
-  validateField(fieldName as keyof FormErrors);
+const handleCheckboxChange = async (fieldName: keyof FormData) => {
+  await validateField(fieldName as keyof FormErrors);
   
   // Если это обязательное поле и оно стало true, очищаем ошибку
   if (fieldName === 'acceptTerms' && formData.acceptTerms) {
@@ -228,14 +253,16 @@ const handleCheckboxChange = (fieldName: keyof FormData) => {
   if (fieldName === 'acceptMarketing') {
     errors.acceptMarketing = '';
   }
+  
+  await saveStateToDB();
 };
 
 const goBack = () => {
   emit('go-back');
 };
 
-const handleContinue = () => {
-  const formValid = validateForm();
+const handleContinue = async () => {
+  const formValid = await validateForm();
   
   if (formValid) {
     // Проверяем, что пользователь действительно проскроллил вниз (опционально)
@@ -279,7 +306,7 @@ const closeSignaturePopup = () => {
   document.documentElement.classList.remove('noscroll');
 };
 
-const handleSignatureSubmit = (signatureData: string) => {
+const handleSignatureSubmit = async (signatureData: string) => {
   // Здесь можно обработать подпись (например, отправить на сервер)
   console.log('Подпись получена:', signatureData);
   closeSignaturePopup();
@@ -296,8 +323,8 @@ const handleSignatureSubmit = (signatureData: string) => {
   // В реальном приложении здесь можно сохранить данные в store или отправить на сервер
   console.log('Данные договора с подписью:', dataToSend);
   
-  // Очищаем localStorage после успешного завершения
-  clearLocalStorage();
+  // Очищаем состояние после успешного завершения
+  await clearStateFromDB();
   
   emit('go-next', dataToSend);
 };
@@ -317,8 +344,31 @@ defineExpose({
 });
 
 // Загрузка состояния при монтировании компонента
-onMounted(() => {
-  loadStateFromLocalStorage();
+onMounted(async () => {
+  try {
+    await initDB();
+    await loadStateFromDB();
+  } catch (error) {
+    console.error('Error in onMounted:', error);
+  }
+});
+
+// Сохраняем состояние при покидании страницы
+window.addEventListener('beforeunload', async () => {
+  await saveStateToDB();
+});
+
+// Сохраняем состояние при изменении видимости вкладки
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') {
+    await saveStateToDB();
+  }
+});
+
+// Очистка при размонтировании
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', saveStateToDB);
+  document.removeEventListener('visibilitychange', saveStateToDB);
 });
 </script>
 

@@ -233,18 +233,23 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
 import { ElSelect, ElOption, ElInput, ElCheckbox, ElInputNumber, ElMessage, ElButton } from 'element-plus';
 import { sendRequest } from '@/utils/api';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
+import { openDB } from 'idb';
 
 const emit = defineEmits<{
   'go-back': [];
   'go-next': [];
 }>();
 
-// Ключи для localStorage
+// Ключи для хранения
 const STORAGE_KEY = 'quiz6_state';
+const DB_NAME = 'quizDB';
+const DB_VERSION = 1;
+
+const quizDB = ref<any>(null);
 
 // Состояние загрузки
 const isLoading = ref(true);
@@ -306,6 +311,71 @@ const userBonuses = ref(0);
 // Минимальная сумма к оплате
 const MINIMUM_AMOUNT = 1;
 
+// Инициализация IndexedDB
+const initDB = async () => {
+  quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains('quizState')) {
+        const store = db.createObjectStore('quizState', { keyPath: 'id' });
+        store.createIndex('timestamp', 'timestamp');
+      }
+    },
+  });
+};
+
+// Сохранение состояния в IndexedDB
+const saveStateToDB = async () => {
+  if (isLoading.value) return;
+  
+  try {
+    const stateToSave = {
+      id: STORAGE_KEY,
+      formData: { ...formData },
+      promoApplied: promoApplied.value,
+      promoDiscount: promoDiscount.value,
+      promoMessage: promoMessage.value,
+      promoMessageType: promoMessageType.value,
+      timestamp: Date.now()
+    };
+    
+    await quizDB.value.put('quizState', stateToSave);
+    console.log('State saved to IndexedDB');
+  } catch (error) {
+    console.error('Error saving state to IndexedDB:', error);
+  }
+};
+
+// Загрузка состояния из IndexedDB
+const loadStateFromDB = async () => {
+  try {
+    const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
+    if (savedState) {
+      console.log('Loading from IndexedDB:', savedState);
+      
+      // Восстанавливаем данные формы
+      Object.assign(formData, savedState.formData);
+      
+      // Восстанавливаем состояние промокода
+      promoApplied.value = savedState.promoApplied || false;
+      promoDiscount.value = savedState.promoDiscount || 0;
+      promoMessage.value = savedState.promoMessage || '';
+      promoMessageType.value = savedState.promoMessageType || 'success';
+    }
+  } catch (error) {
+    console.error('Error loading state from IndexedDB:', error);
+  }
+};
+
+// Очистка состояния в IndexedDB
+const clearStateFromDB = async () => {
+  try {
+    await quizDB.value.delete('quizState', STORAGE_KEY);
+    console.log('State cleared from IndexedDB');
+  } catch (error) {
+    console.error('Error clearing state from IndexedDB:', error);
+  }
+};
+
 // Максимальное количество бонусов, которое можно использовать
 const maxBonuses = computed(() => {
   // Оставляем минимум 1 валюту для оплаты
@@ -360,13 +430,18 @@ const loadBasketData = async () => {
       console.log('Loaded user bonuses:', userBonuses.value);
     }
     
-    // Загружаем состояние из localStorage после получения данных из API
-    loadStateFromLocalStorage();
+    // Загружаем состояние из IndexedDB после получения данных из API
+    await loadStateFromDB();
+    
+    // Проверяем, что использованные бонусы не превышают максимум
+    if (formData.usedBonuses > maxBonuses.value) {
+      formData.usedBonuses = maxBonuses.value;
+    }
     
   } catch (error) {
     console.error('Ошибка загрузки данных корзины:', error);
-    // В случае ошибки загружаем из localStorage
-    loadStateFromLocalStorage();
+    // В случае ошибки загружаем из IndexedDB
+    await loadStateFromDB();
   } finally {
     isLoading.value = false;
   }
@@ -397,7 +472,7 @@ const checkPromoCode = async (code: string) => {
     promoDiscount.value = 0;
     promoMessage.value = '';
     await updatePriceWithPromo();
-    saveStateToLocalStorage();
+    await saveStateToDB();
     return;
   }
   
@@ -456,7 +531,7 @@ const checkPromoCode = async (code: string) => {
     await updatePriceWithPromo();
   } finally {
     promoLoading.value = false;
-    saveStateToLocalStorage();
+    await saveStateToDB();
   }
 };
 
@@ -490,55 +565,9 @@ const removePromoCode = async () => {
   
   // Обновляем цену без промокода
   await updatePriceWithPromo();
-  saveStateToLocalStorage();
+  await saveStateToDB();
   
   ElMessage.info('Промокод отменен');
-};
-
-// Сохранение состояния в localStorage
-const saveStateToLocalStorage = () => {
-  if (isLoading.value) return;
-  
-  try {
-    const stateToSave = {
-      formData,
-      promoApplied: promoApplied.value,
-      promoDiscount: promoDiscount.value,
-      promoMessage: promoMessage.value,
-      promoMessageType: promoMessageType.value
-    };
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-    console.log('Saved to localStorage:', stateToSave);
-  } catch (error) {
-    console.error('Error saving state to localStorage:', error);
-  }
-};
-
-// Загрузка состояния из localStorage
-const loadStateFromLocalStorage = () => {
-  try {
-    const savedState = localStorage.getItem(STORAGE_KEY);
-    if (savedState) {
-      const parsedState = JSON.parse(savedState);
-      
-      // Восстанавливаем данные формы
-      Object.assign(formData, parsedState.formData);
-      
-      // Восстанавливаем состояние промокода
-      promoApplied.value = parsedState.promoApplied || false;
-      promoDiscount.value = parsedState.promoDiscount || 0;
-      promoMessage.value = parsedState.promoMessage || '';
-      promoMessageType.value = parsedState.promoMessageType || 'success';
-      
-      // Проверяем, что использованные бонусы не превышают максимум
-      if (formData.usedBonuses > maxBonuses.value) {
-        formData.usedBonuses = maxBonuses.value;
-      }
-    }
-  } catch (error) {
-    console.error('Error loading state from localStorage:', error);
-  }
 };
 
 // Обработчик изменения бонусов
@@ -561,7 +590,7 @@ const handleBonusesChange = (value: number | undefined) => {
   
   // Валидируем поле
   validateField('usedBonuses');
-  saveStateToLocalStorage();
+  saveStateToDB();
 };
 
 // Форматирование цены с разделителями тысяч
@@ -609,7 +638,7 @@ const validateField = (fieldName: keyof typeof errors): boolean => {
     case 'bandlinkUrl':
       // Не обязательное поле, проверяем только если есть текст
       if (formData.bandlinkUrl.trim() && !isValidUrl(formData.bandlinkUrl)) {
-        errorMessage = 'Введите корректную ссылку на Band.link';
+        errorMessage = 'Введите корректную ссылку (начинается с https://)';
       } else if (formData.bandlinkUrl.trim() && !formData.bandlinkUrl.includes('band.link')) {
         errorMessage = 'Ссылка должна вести на Band.link';
       }
@@ -637,7 +666,7 @@ const validateField = (fieldName: keyof typeof errors): boolean => {
   errors[fieldName] = errorMessage;
   
   // Сохраняем состояние после валидации
-  saveStateToLocalStorage();
+  saveStateToDB();
   
   return !errorMessage;
 };
@@ -678,7 +707,7 @@ const validateUrlField = (fieldName: keyof typeof errors): boolean => {
   }
   
   // Сохраняем состояние после валидации
-  saveStateToLocalStorage();
+  saveStateToDB();
   
   return isValid;
 };
@@ -724,7 +753,7 @@ const validateForm = (): boolean => {
   }
   
   // Сохраняем состояние после валидации
-  saveStateToLocalStorage();
+  saveStateToDB();
   
   return isValid;
 };
@@ -768,10 +797,12 @@ const goBack = () => {
   emit('go-back');
 };
 
-const handleContinue = () => {
+const handleContinue = async () => {
   const formValid = validateForm();
   if (formValid) {
-    // Сохраняем данные формы и переходим дальше
+    // Очищаем состояние после успешного завершения
+    await clearStateFromDB();
+    
     console.log('Данные формы сохранены:', {
       ...formData,
       finalAmount: finalAmount.value,
@@ -785,20 +816,20 @@ const handleContinue = () => {
 };
 
 // Сохранение состояния при изменении данных формы
-watch(() => formData, () => {
+watch(() => formData, async () => {
   if (!isLoading.value) {
-    saveStateToLocalStorage();
+    await saveStateToDB();
   }
 }, { deep: true });
 
 // Следим за изменением platforms чтобы очистить otherPlatform если нужно
-watch(() => formData.platforms, (newPlatforms) => {
+watch(() => formData.platforms, async (newPlatforms) => {
   if (!newPlatforms.includes('other')) {
     formData.otherPlatform = '';
     errors.otherPlatform = '';
   }
   if (!isLoading.value) {
-    saveStateToLocalStorage();
+    await saveStateToDB();
   }
 });
 
@@ -816,17 +847,35 @@ watch(() => formData.usedBonuses, (newValue, oldValue) => {
 });
 
 // Загрузка данных при монтировании компонента
-onMounted(() => {
-  loadBasketData();
+onMounted(async () => {
+  try {
+    await initDB();
+    await loadBasketData();
+  } catch (error) {
+    console.error('Error in onMounted:', error);
+    isLoading.value = false;
+  }
 });
 
-// Очищаем таймер при размонтировании
-onMounted(() => {
-  return () => {
-    if (promoDebounceTimer) {
-      clearTimeout(promoDebounceTimer);
-    }
-  };
+// Сохраняем состояние при покидании страницы
+window.addEventListener('beforeunload', async () => {
+  await saveStateToDB();
+});
+
+// Сохраняем состояние при изменении видимости вкладки
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') {
+    await saveStateToDB();
+  }
+});
+
+// Очистка при размонтировании
+onUnmounted(() => {
+  if (promoDebounceTimer) {
+    clearTimeout(promoDebounceTimer);
+  }
+  window.removeEventListener('beforeunload', saveStateToDB);
+  document.removeEventListener('visibilitychange', saveStateToDB);
 });
 </script>
 

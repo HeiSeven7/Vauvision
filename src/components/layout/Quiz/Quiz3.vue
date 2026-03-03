@@ -6,22 +6,26 @@ import BackSVG from "@/uikit/icon/BackSVG.vue";
 import CloseSVG from "@/uikit/icon/CloseSVG.vue";
 import ClipSVG from "@/uikit/icon/ClipSVG.vue";
 import dayjs from 'dayjs';
+import { openDB } from 'idb';
 
 const emit = defineEmits<{
   'go-back': [];
   'go-next': [];
 }>();
 
-// Ключи для localStorage
+// Ключи для хранения
 const STORAGE_KEY = 'quiz3_state';
+const DB_NAME = 'quizDB';
+const DB_VERSION = 1;
 
 // Состояние для отображения важной информации
 const showImportantBlock = ref(false);
 
 // Состояние загрузки данных
 const isLoading = ref(true);
+const quizDB = ref<any>(null);
 
-// Данные формы с инициализацией из localStorage
+// Данные формы
 const formData = reactive({
   performerName: '',
   releaseName: '',
@@ -31,6 +35,7 @@ const formData = reactive({
   hasProfanity: '',
   profanityTracks: '',
   coverFile: null as File | null,
+  coverFileId: null as string | null,
   vkLink: '',
   email: ''
 });
@@ -53,7 +58,7 @@ const errors = reactive({
 const isUploading = ref(false);
 const coverFileName = ref('');
 const coverFileSize = ref(0);
-const dragOver = ref(false); // Состояние для drag-and-drop
+const dragOver = ref(false);
 
 // Опции для выбора
 const platformOptions = [
@@ -65,6 +70,162 @@ const profanityOptions = [
   { label: 'Да', value: 'yes' },
   { label: 'Нет', value: 'no' }
 ];
+
+// Инициализация IndexedDB
+const initDB = async () => {
+  quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains('quizState')) {
+        const store = db.createObjectStore('quizState', { keyPath: 'id' });
+        store.createIndex('timestamp', 'timestamp');
+      }
+      if (!db.objectStoreNames.contains('coverImages')) {
+        const coverStore = db.createObjectStore('coverImages', { keyPath: 'id' });
+        coverStore.createIndex('fileName', 'fileName');
+      }
+    },
+  });
+};
+
+// Сохранение обложки в IndexedDB
+const saveCoverToDB = async (file: File, fileId: string): Promise<void> => {
+  try {
+    const blob = new Blob([file], { type: file.type });
+    await quizDB.value.put('coverImages', {
+      id: fileId,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      data: blob
+    });
+    console.log(`Cover saved to DB with ID: ${fileId}`);
+  } catch (error) {
+    console.error('Error saving cover to DB:', error);
+    throw error;
+  }
+};
+
+// Загрузка обложки из IndexedDB
+const loadCoverFromDB = async (fileId: string): Promise<{ file: File, fileName: string, fileSize: number } | null> => {
+  try {
+    const stored = await quizDB.value.get('coverImages', fileId);
+    if (stored) {
+      const file = new File([stored.data], stored.fileName, { type: stored.fileType });
+      return {
+        file,
+        fileName: stored.fileName,
+        fileSize: stored.fileSize
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error loading cover from DB:', error);
+    return null;
+  }
+};
+
+// Удаление обложки из IndexedDB
+const removeCoverFromDB = async (fileId: string) => {
+  try {
+    await quizDB.value.delete('coverImages', fileId);
+    console.log(`Cover removed from DB with ID: ${fileId}`);
+  } catch (error) {
+    console.error('Error removing cover from DB:', error);
+  }
+};
+
+// Генерация ID для обложки
+const generateCoverId = (): string => {
+  return `cover-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
+// Сохранение состояния в IndexedDB
+const saveStateToDB = async () => {
+  if (isLoading.value) return;
+  
+  try {
+    const stateToSave = {
+      id: STORAGE_KEY,
+      formData: {
+        performerName: formData.performerName,
+        releaseName: formData.releaseName,
+        platforms: formData.platforms,
+        otherPlatform: formData.otherPlatform,
+        releaseDate: formData.releaseDate,
+        hasProfanity: formData.hasProfanity,
+        profanityTracks: formData.profanityTracks,
+        coverFileId: formData.coverFileId,
+        vkLink: formData.vkLink,
+        email: formData.email
+      },
+      coverFileName: coverFileName.value,
+      coverFileSize: coverFileSize.value,
+      showImportantBlock: showImportantBlock.value,
+      timestamp: Date.now()
+    };
+    
+    await quizDB.value.put('quizState', stateToSave);
+    console.log('State saved to IndexedDB');
+  } catch (error) {
+    console.error('Error saving state to IndexedDB:', error);
+  }
+};
+
+// Загрузка состояния из IndexedDB
+const loadStateFromDB = async () => {
+  try {
+    const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
+    if (savedState) {
+      console.log('Loading from IndexedDB:', savedState);
+      
+      // Сохраняем текущие email и performerName перед восстановлением
+      const currentEmail = formData.email;
+      const currentPerformerName = formData.performerName;
+      
+      // Восстанавливаем основные данные формы
+      Object.assign(formData, savedState.formData);
+      
+      // Восстанавливаем email и performerName из API, если они были загружены
+      if (currentEmail) {
+        formData.email = currentEmail;
+      }
+      if (currentPerformerName) {
+        formData.performerName = currentPerformerName;
+      }
+      
+      // Загружаем обложку из IndexedDB если есть ID
+      if (formData.coverFileId) {
+        const coverData = await loadCoverFromDB(formData.coverFileId);
+        if (coverData) {
+          formData.coverFile = coverData.file;
+        }
+      }
+      
+      // Восстанавливаем информацию о файле
+      coverFileName.value = savedState.coverFileName || '';
+      coverFileSize.value = savedState.coverFileSize || 0;
+      
+      // Восстанавливаем showImportantBlock
+      showImportantBlock.value = savedState.showImportantBlock || false;
+    }
+  } catch (error) {
+    console.error('Error loading state from IndexedDB:', error);
+  }
+};
+
+// Очистка состояния в IndexedDB
+const clearStateFromDB = async () => {
+  try {
+    // Удаляем обложку если есть
+    if (formData.coverFileId) {
+      await removeCoverFromDB(formData.coverFileId);
+    }
+    await quizDB.value.delete('quizState', STORAGE_KEY);
+    console.log('State cleared from IndexedDB');
+  } catch (error) {
+    console.error('Error clearing state from IndexedDB:', error);
+  }
+};
 
 // Загрузка данных с сервера
 const loadUserData = async () => {
@@ -88,13 +249,13 @@ const loadUserData = async () => {
       console.log('❌ user.login not found in response');
     }
     
-    // Загружаем состояние из localStorage после получения данных
-    loadStateFromLocalStorage();
+    // Загружаем состояние из IndexedDB после получения данных
+    await loadStateFromDB();
     
   } catch (error) {
     console.error('Ошибка загрузки данных пользователя:', error);
-    // В случае ошибки все равно загружаем из localStorage
-    loadStateFromLocalStorage();
+    // В случае ошибки все равно загружаем из IndexedDB
+    await loadStateFromDB();
   } finally {
     isLoading.value = false;
   }
@@ -126,73 +287,6 @@ const isReadyForNextStep = computed(() => {
   
   return requiredFields.every(Boolean);
 });
-
-// Сохранение состояния в localStorage
-const saveStateToLocalStorage = () => {
-  if (isLoading.value) return;
-  
-  try {
-    // Преобразуем File в объект для хранения (можно сохранить только имя и размер)
-    const stateToSave = {
-      formData: {
-        ...formData,
-        coverFile: formData.coverFile ? {
-          name: formData.coverFile.name,
-          size: formData.coverFile.size,
-          type: formData.coverFile.type
-        } : null
-      },
-      coverFileName: coverFileName.value,
-      coverFileSize: coverFileSize.value,
-      showImportantBlock: showImportantBlock.value
-    };
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-  } catch (error) {
-    console.error('Error saving state to localStorage:', error);
-  }
-};
-
-// Загрузка состояния из localStorage
-const loadStateFromLocalStorage = () => {
-  try {
-    const savedState = localStorage.getItem(STORAGE_KEY);
-    if (savedState) {
-      const parsedState = JSON.parse(savedState);
-      
-      // Сохраняем текущие email и performerName перед восстановлением
-      const currentEmail = formData.email;
-      const currentPerformerName = formData.performerName;
-      
-      // Восстанавливаем основные данные формы
-      Object.assign(formData, parsedState.formData);
-      
-      // Восстанавливаем email и performerName из API, если они были загружены
-      if (currentEmail) {
-        formData.email = currentEmail;
-      }
-      if (currentPerformerName) {
-        formData.performerName = currentPerformerName;
-      }
-      
-      formData.coverFile = null; // Нельзя восстановить File объект из localStorage
-      
-      // Восстанавливаем информацию о файле
-      coverFileName.value = parsedState.coverFileName || '';
-      coverFileSize.value = parsedState.coverFileSize || 0;
-      
-      // НЕ восстанавливаем showImportantBlock - всегда показываем форму
-      showImportantBlock.value = false;
-    }
-  } catch (error) {
-    console.error('Error loading state from localStorage:', error);
-  }
-};
-
-// Очистка состояния в localStorage
-const clearLocalStorage = () => {
-  localStorage.removeItem(STORAGE_KEY);
-};
 
 // Валидация URL
 const isValidUrl = (url: string) => {
@@ -306,7 +400,7 @@ const validateForm = () => {
 };
 
 // Общая функция для обработки файла
-const processCoverFile = (file: File) => {
+const processCoverFile = async (file: File) => {
   // Валидация типа файла
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
   if (!allowedTypes.includes(file.type)) {
@@ -316,49 +410,72 @@ const processCoverFile = (file: File) => {
   }
   
   // Валидация размера файла (макс 12MB)
-  const maxSize = 12 * 1024 * 1024; // 12MB в байтах
+  const maxSize = 12 * 1024 * 1024;
   if (file.size > maxSize) {
     errors.coverFile = 'Файл слишком большой. Максимальный размер: 12MB';
     ElMessage.error('Файл превышает максимальный допустимый размер');
     return;
   }
   
+  isUploading.value = true;
+  
   // Проверка размеров изображения
   const img = new Image();
-  img.onload = () => {
+  img.onload = async () => {
     if (img.width < 1500 || img.height < 1500) {
       errors.coverFile = 'Изображение слишком маленькое. Минимальный размер: 1500x1500 пикселей';
       ElMessage.error('Изображение не соответствует требованиям по размеру');
+      isUploading.value = false;
       return;
     }
     
     if (img.width > 4000 || img.height > 4000) {
       errors.coverFile = 'Изображение слишком большое. Максимальный размер: 4000x4000 пикселей';
       ElMessage.error('Изображение не соответствует требованиям по размеру');
+      isUploading.value = false;
       return;
     }
     
     if (Math.abs(img.width - img.height) > 1) {
       errors.coverFile = 'Изображение должно быть квадратным (одинаковая ширина и высота)';
       ElMessage.error('Изображение должно быть квадратным');
+      isUploading.value = false;
       return;
     }
     
-    // Очистка ошибок и установка файла
-    errors.coverFile = '';
-    formData.coverFile = file;
-    coverFileName.value = file.name;
-    coverFileSize.value = file.size;
-    
-    // Сохраняем состояние
-    saveStateToLocalStorage();
-    
-    ElMessage.success('Обложка успешно загружена');
+    try {
+      // Удаляем старую обложку если была
+      if (formData.coverFileId) {
+        await removeCoverFromDB(formData.coverFileId);
+      }
+      
+      // Генерируем ID и сохраняем в IndexedDB
+      const fileId = generateCoverId();
+      await saveCoverToDB(file, fileId);
+      
+      // Очистка ошибок и установка файла
+      errors.coverFile = '';
+      formData.coverFile = file;
+      formData.coverFileId = fileId;
+      coverFileName.value = file.name;
+      coverFileSize.value = file.size;
+      
+      // Сохраняем состояние
+      await saveStateToDB();
+      
+      ElMessage.success('Обложка успешно загружена');
+    } catch (error) {
+      console.error('Error saving cover:', error);
+      ElMessage.error('Ошибка при сохранении обложки');
+    } finally {
+      isUploading.value = false;
+    }
   };
   
   img.onerror = () => {
     errors.coverFile = 'Не удалось загрузить изображение. Проверьте файл';
     ElMessage.error('Ошибка загрузки изображения');
+    isUploading.value = false;
   };
   
   img.src = URL.createObjectURL(file);
@@ -410,14 +527,19 @@ const handleDrop = (event: DragEvent) => {
 };
 
 // Удаление загруженной обложки
-const removeUploadedCover = () => {
+const removeUploadedCover = async () => {
+  if (formData.coverFileId) {
+    await removeCoverFromDB(formData.coverFileId);
+  }
+  
   formData.coverFile = null;
+  formData.coverFileId = null;
   coverFileName.value = '';
   coverFileSize.value = 0;
   errors.coverFile = '';
   
   // Сохраняем состояние
-  saveStateToLocalStorage();
+  await saveStateToDB();
   
   ElMessage.info('Обложка удалена');
 };
@@ -436,37 +558,37 @@ const disabledDate = (time: Date) => {
   return time.getTime() < Date.now() - 24 * 60 * 60 * 1000;
 };
 
-const goBack = () => {
+const goBack = async () => {
   if (showImportantBlock.value) {
     // Если показываем блок important, возвращаемся к форме
     showImportantBlock.value = false;
-    saveStateToLocalStorage();
+    await saveStateToDB();
   } else {
     // Если показываем форму, возвращаемся ко второму шагу
     emit('go-back');
   }
 };
 
-const handleContinue = () => {
+const handleContinue = async () => {
   if (validateForm()) {
     // Если форма валидна, показываем блок с важной информацией
     showImportantBlock.value = true;
-    saveStateToLocalStorage();
+    await saveStateToDB();
   }
 };
 
-const handleAccept = () => {
-  // Очищаем localStorage после успешного завершения
-  clearLocalStorage();
+const handleAccept = async () => {
+  // Очищаем состояние после успешного завершения
+  await clearStateFromDB();
   
   // Принимаем условия и переходим к следующему шагу (четвертому)
   emit('go-next');
 };
 
 // Сохранение состояния при изменении данных формы
-watch(() => formData, () => {
+watch(() => formData, async () => {
   if (!isLoading.value) {
-    saveStateToLocalStorage();
+    await saveStateToDB();
   }
 }, { deep: true });
 
@@ -485,18 +607,37 @@ watch(() => formData.platforms, (newValue) => {
 });
 
 // Загрузка данных при монтировании компонента
-onMounted(() => {
-  loadUserData();
+onMounted(async () => {
+  try {
+    await initDB();
+    await loadUserData();
+  } catch (error) {
+    console.error('Error in onMounted:', error);
+    isLoading.value = false;
+  }
+});
+
+// Сохраняем состояние при покидании страницы
+window.addEventListener('beforeunload', async () => {
+  await saveStateToDB();
+});
+
+// Сохраняем состояние при изменении видимости вкладки
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') {
+    await saveStateToDB();
+  }
 });
 
 // Очистка при размонтировании (опционально, можно оставить для будущих шагов)
 onUnmounted(() => {
   // Если нужно очищать при переходе на другие шаги
-  // clearLocalStorage();
+  // clearStateFromDB();
 });
 </script>
 
 <template>
+<!-- Template остается точно таким же -->
 <div class="quiz__form quiz__form_three" v-if="!showImportantBlock">
   <h4 class="quiz__form_head">Информация о треке</h4>
   

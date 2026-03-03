@@ -1,22 +1,26 @@
 <script lang="ts" setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
 import { ElInput, ElMessage, ElSelect, ElOption, ElDatePicker } from 'element-plus';
 import { sendRequest } from '@/utils/api';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import dayjs from 'dayjs';
+import { openDB } from 'idb';
 
 const emit = defineEmits<{
   'go-back': [];
   'go-next': [];
 }>();
 
-// Ключи для localStorage
+// Ключи для хранения
 const STORAGE_KEY = 'quiz4_state';
+const DB_NAME = 'quizDB';
+const DB_VERSION = 1;
 
 // Состояние загрузки данных
 const isLoading = ref(true);
+const quizDB = ref<any>(null);
 
-// Данные формы с инициализацией из localStorage
+// Данные формы с инициализацией из IndexedDB
 const formData = reactive({
   userType: 'individual',
   
@@ -74,6 +78,91 @@ const citizenshipOptions = [
 
 // Флаг показа поля для другого гражданства
 const showOtherCitizenshipInput = ref(false);
+
+// Инициализация IndexedDB
+const initDB = async () => {
+  quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains('quizState')) {
+        const store = db.createObjectStore('quizState', { keyPath: 'id' });
+        store.createIndex('timestamp', 'timestamp');
+      }
+    },
+  });
+};
+
+// Сохранение состояния в IndexedDB
+const saveStateToDB = async () => {
+  if (isLoading.value) return;
+  
+  try {
+    const stateToSave = {
+      id: STORAGE_KEY,
+      formData: { ...formData },
+      showOtherCitizenshipInput: showOtherCitizenshipInput.value,
+      timestamp: Date.now()
+    };
+    
+    await quizDB.value.put('quizState', stateToSave);
+    console.log('State saved to IndexedDB');
+  } catch (error) {
+    console.error('Error saving state to IndexedDB:', error);
+  }
+};
+
+// Загрузка состояния из IndexedDB
+const loadStateFromDB = async () => {
+  try {
+    const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
+    if (savedState) {
+      console.log('Loading from IndexedDB:', savedState);
+      
+      // Сохраняем текущие значения из API
+      const currentValues = {
+        lastName: formData.lastName,
+        firstName: formData.firstName,
+        middleName: formData.middleName,
+        citizenship: formData.citizenship,
+        otherCitizenship: formData.otherCitizenship,
+        passportNumber: formData.passportNumber,
+        passportIssuedBy: formData.passportIssuedBy,
+        passportIssueDate: formData.passportIssueDate,
+        registrationAddress: formData.registrationAddress,
+        inn: formData.inn,
+        ogrn: formData.ogrn,
+        accountNumber: formData.accountNumber,
+        bankBik: formData.bankBik,
+        correspondentAccount: formData.correspondentAccount
+      };
+      
+      // Восстанавливаем основные данные формы
+      Object.assign(formData, savedState.formData);
+      
+      // Восстанавливаем значения из API поверх IndexedDB
+      Object.assign(formData, currentValues);
+      
+      // Восстанавливаем состояние поля для другого гражданства
+      showOtherCitizenshipInput.value = savedState.showOtherCitizenshipInput || false;
+      
+      // Если гражданство "Другое", убедимся что поле отображается
+      if (formData.citizenship === 'other' && !showOtherCitizenshipInput.value) {
+        showOtherCitizenshipInput.value = true;
+      }
+    }
+  } catch (error) {
+    console.error('Error loading state from IndexedDB:', error);
+  }
+};
+
+// Очистка состояния в IndexedDB
+const clearStateFromDB = async () => {
+  try {
+    await quizDB.value.delete('quizState', STORAGE_KEY);
+    console.log('State cleared from IndexedDB');
+  } catch (error) {
+    console.error('Error clearing state from IndexedDB:', error);
+  }
+};
 
 // Загрузка данных пользователя из API
 const loadUserData = async () => {
@@ -191,81 +280,16 @@ const loadUserData = async () => {
       console.log('Switched to entrepreneur mode due to IP data');
     }
     
-    // Загружаем состояние из localStorage после получения данных из API
-    loadStateFromLocalStorage();
+    // Загружаем состояние из IndexedDB после получения данных из API
+    await loadStateFromDB();
     
   } catch (error) {
     console.error('Ошибка загрузки данных пользователя:', error);
-    // В случае ошибки загружаем из localStorage
-    loadStateFromLocalStorage();
+    // В случае ошибки загружаем из IndexedDB
+    await loadStateFromDB();
   } finally {
     isLoading.value = false;
   }
-};
-
-// Сохранение состояния в localStorage
-const saveStateToLocalStorage = () => {
-  if (isLoading.value) return;
-  
-  try {
-    const stateToSave = {
-      formData,
-      showOtherCitizenshipInput: showOtherCitizenshipInput.value
-    };
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-  } catch (error) {
-    console.error('Error saving state to localStorage:', error);
-  }
-};
-
-// Загрузка состояния из localStorage
-const loadStateFromLocalStorage = () => {
-  try {
-    const savedState = localStorage.getItem(STORAGE_KEY);
-    if (savedState) {
-      const parsedState = JSON.parse(savedState);
-      
-      // Сохраняем текущие значения из API
-      const currentValues = {
-        lastName: formData.lastName,
-        firstName: formData.firstName,
-        middleName: formData.middleName,
-        citizenship: formData.citizenship,
-        otherCitizenship: formData.otherCitizenship,
-        passportNumber: formData.passportNumber,
-        passportIssuedBy: formData.passportIssuedBy,
-        passportIssueDate: formData.passportIssueDate,
-        registrationAddress: formData.registrationAddress,
-        inn: formData.inn,
-        ogrn: formData.ogrn,
-        accountNumber: formData.accountNumber,
-        bankBik: formData.bankBik,
-        correspondentAccount: formData.correspondentAccount
-      };
-      
-      // Восстанавливаем основные данные формы
-      Object.assign(formData, parsedState.formData);
-      
-      // Восстанавливаем значения из API поверх localStorage
-      Object.assign(formData, currentValues);
-      
-      // Восстанавливаем состояние поля для другого гражданства
-      showOtherCitizenshipInput.value = parsedState.showOtherCitizenshipInput || false;
-      
-      // Если гражданство "Другое", убедимся что поле отображается
-      if (formData.citizenship === 'other' && !showOtherCitizenshipInput.value) {
-        showOtherCitizenshipInput.value = true;
-      }
-    }
-  } catch (error) {
-    console.error('Error loading state from localStorage:', error);
-  }
-};
-
-// Очистка состояния в localStorage
-const clearLocalStorage = () => {
-  localStorage.removeItem(STORAGE_KEY);
 };
 
 // Вычисляемое свойство для проверки готовности к продолжению
@@ -278,7 +302,7 @@ const isReadyForNextStep = computed(() => {
     formData.citizenship.trim(),
     formData.lastName.trim(),
     formData.firstName.trim(),
-    formData.middleName.trim(), // Отчество теперь обязательное
+    formData.middleName.trim(),
     formData.passportNumber.trim(),
     formData.passportIssuedBy.trim(),
     formData.passportIssueDate.trim(),
@@ -474,7 +498,7 @@ const validateForm = (): boolean => {
 };
 
 // Обработчик изменения типа лица
-const handleUserTypeChange = () => {
+const handleUserTypeChange = async () => {
   // Сбрасываем ошибку типа
   errors.userType = '';
   
@@ -503,11 +527,11 @@ const handleUserTypeChange = () => {
   }
   
   // Сохраняем состояние
-  saveStateToLocalStorage();
+  await saveStateToDB();
 };
 
 // Обработчик изменения гражданства
-const handleCitizenshipChange = () => {
+const handleCitizenshipChange = async () => {
   errors.citizenship = '';
   errors.otherCitizenship = '';
   
@@ -520,17 +544,17 @@ const handleCitizenshipChange = () => {
   }
   
   // Сохраняем состояние
-  saveStateToLocalStorage();
+  await saveStateToDB();
 };
 
 const goBack = () => {
   emit('go-back');
 };
 
-const goNext = () => {
+const goNext = async () => {
   if (validateForm()) {
-    // Очищаем localStorage после успешного завершения
-    clearLocalStorage();
+    // Очищаем состояние после успешного завершения
+    await clearStateFromDB();
     emit('go-next');
   } else {
     ElMessage.error('Пожалуйста, заполните все обязательные поля правильно');
@@ -538,19 +562,52 @@ const goNext = () => {
 };
 
 // Сохранение состояния при изменении данных формы
-watch(() => formData, () => {
+watch(() => formData, async () => {
   if (!isLoading.value) {
-    saveStateToLocalStorage();
+    await saveStateToDB();
   }
 }, { deep: true });
 
+// Следим за изменением showOtherCitizenshipInput
+watch(showOtherCitizenshipInput, async () => {
+  if (!isLoading.value) {
+    await saveStateToDB();
+  }
+});
+
 // Загрузка данных при монтировании компонента
-onMounted(() => {
-  loadUserData();
+onMounted(async () => {
+  try {
+    await initDB();
+    await loadUserData();
+  } catch (error) {
+    console.error('Error in onMounted:', error);
+    isLoading.value = false;
+  }
+});
+
+// Сохраняем состояние при покидании страницы
+window.addEventListener('beforeunload', async () => {
+  await saveStateToDB();
+});
+
+// Сохраняем состояние при изменении видимости вкладки
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') {
+    await saveStateToDB();
+  }
+});
+
+// Очистка при размонтировании
+onUnmounted(() => {
+  // Убираем обработчики событий
+  window.removeEventListener('beforeunload', saveStateToDB);
+  document.removeEventListener('visibilitychange', saveStateToDB);
 });
 </script>
 
 <template>
+<!-- Template остается точно таким же -->
 <div class="quiz__form quiz__form_four">
   <h4 class="quiz__form_head">Данные паспорта и реквизиты</h4>
   
