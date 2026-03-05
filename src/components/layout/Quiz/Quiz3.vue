@@ -383,11 +383,13 @@ const formData = reactive({
   profanityTracks: '',
   coverFile: null as File | null,
   coverFileId: null as string | null,
-  coverFileName: '',
-  coverFileSize: 0,
   vkLink: '',
   email: ''
 });
+
+// Отдельные ref для отображения информации о файле
+const coverFileName = ref('');
+const coverFileSize = ref(0);
 
 // Ошибки валидации
 const errors = reactive({
@@ -405,12 +407,13 @@ const errors = reactive({
 
 // Состояния для загрузки файлов
 const isUploading = ref(false);
-const coverFileName = ref('');
-const coverFileSize = ref(0);
 const dragOver = ref(false);
 
 // Таймер для debounce сохранения
 let saveTimeout: NodeJS.Timeout | null = null;
+
+// Флаг для отслеживания, было ли уже загружено состояние из IndexedDB
+const isStateLoaded = ref(false);
 
 // Опции для выбора
 const platformOptions = [
@@ -508,6 +511,7 @@ const generateFileId = (): string => {
 
 // Сохранение состояния в IndexedDB
 const saveStateToDB = async () => {
+  // Не сохраняем во время загрузки или если данные еще не загружены
   if (isLoading.value || !dataLoaded.value) {
     return;
   }
@@ -568,43 +572,29 @@ const loadStateFromDB = async () => {
         showImportantBlock.value = savedState.showImportantBlock;
       }
       
-      // Восстанавливаем обложку
+      // Восстанавливаем информацию об обложке
       if (savedState.coverFileInfo) {
         const fileInfo = savedState.coverFileInfo;
         coverFileName.value = fileInfo.name || '';
         coverFileSize.value = fileInfo.size || 0;
         formData.coverFileId = fileInfo.fileId || null;
         
+        // Загружаем сам файл из отдельной базы
         if (formData.coverFileId) {
           const fileData = await loadFileFromDB(formData.coverFileId);
           if (fileData) {
             formData.coverFile = fileData.file;
-            formData.coverFileName = fileData.fileName;
-            formData.coverFileSize = fileData.fileSize;
-            console.log('Cover file loaded');
+            coverFileName.value = fileData.fileName;
+            coverFileSize.value = fileData.fileSize;
+            console.log('Cover file loaded from DB');
           }
         }
       }
+      
+      isStateLoaded.value = true;
     }
   } catch (error) {
     console.error('Error loading state from IndexedDB:', error);
-  }
-};
-
-// Очистка состояния в IndexedDB
-const clearStateFromDB = async () => {
-  try {
-    // Удаляем файл обложки
-    if (formData.coverFileId) {
-      await removeFileFromDB(formData.coverFileId);
-    }
-    
-    // Удаляем состояние
-    await quizDB.value.delete('quizState', STORAGE_KEY);
-    
-    console.log('State cleared from IndexedDB');
-  } catch (error) {
-    console.error('Error clearing state from IndexedDB:', error);
   }
 };
 
@@ -617,13 +607,14 @@ const loadUserData = async () => {
     
     const data = response.data as any;
     
+    // Сохраняем данные из API
     if (data.user?.email) {
       formData.email = data.user.email;
       console.log('User email loaded:', data.user.email);
     }
     
     if (data.user?.login) {
-      // Загружаем только если поле пустое (чтобы не перезаписывать сохраненное)
+      // Загружаем псевдоним, НО только если поле пустое (чтобы не перезаписать то, что пользователь уже ввел)
       if (!formData.performerName) {
         formData.performerName = data.user.login;
         console.log('✅ Performer name loaded from user.login:', data.user.login);
@@ -924,8 +915,10 @@ const handleContinue = async () => {
   }
 };
 
+// УБИРАЕМ ОЧИСТКУ ПРИ ПЕРЕХОДЕ НА СЛЕДУЮЩИЙ ШАГ
 const handleAccept = async () => {
-  await clearStateFromDB();
+  // НЕ очищаем состояние! Просто переходим дальше
+  // await clearStateFromDB(); // УДАЛЕНО!
   emit('go-next');
 };
 
@@ -941,22 +934,44 @@ const debouncedSave = () => {
   }, 500);
 };
 
-// Watchers с debounce
-watch(() => formData.performerName, debouncedSave);
-watch(() => formData.releaseName, debouncedSave);
-watch(() => formData.otherPlatform, debouncedSave);
-watch(() => formData.releaseDate, debouncedSave);
-watch(() => formData.hasProfanity, debouncedSave);
-watch(() => formData.profanityTracks, debouncedSave);
-watch(() => formData.vkLink, debouncedSave);
-watch(() => formData.email, debouncedSave);
-watch(() => coverFileName.value, debouncedSave);
-watch(() => coverFileSize.value, debouncedSave);
-watch(showImportantBlock, debouncedSave);
+// Watchers с debounce (только если данные уже загружены)
+watch(() => formData.performerName, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.releaseName, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.otherPlatform, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.releaseDate, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.hasProfanity, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.profanityTracks, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.vkLink, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.email, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => coverFileName.value, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => coverFileSize.value, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(showImportantBlock, () => {
+  if (dataLoaded.value) debouncedSave();
+});
 
 // Специальный watch для platforms с debounce
 watch(() => formData.platforms, () => {
-  debouncedSave();
+  if (dataLoaded.value) debouncedSave();
 }, { deep: false });
 
 // Логика очистки зависимых полей
@@ -977,10 +992,23 @@ onMounted(async () => {
   
   try {
     await initDB();
+    
+    // Сначала загружаем сохраненное состояние из IndexedDB
     await loadStateFromDB();
+    
+    // Затем загружаем данные с сервера (они перезапишут только пустые поля)
     await loadUserData();
+    
+    // Помечаем, что данные загружены
     dataLoaded.value = true;
+    
     console.log('Initialization complete');
+    console.log('Final form data:', {
+      performerName: formData.performerName,
+      email: formData.email,
+      coverFile: formData.coverFile ? 'File exists' : 'No file',
+      platforms: formData.platforms
+    });
   } catch (error) {
     console.error('Error during initialization:', error);
     ElMessage.error('Ошибка при загрузке данных');

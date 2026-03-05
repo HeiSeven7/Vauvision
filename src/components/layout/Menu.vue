@@ -54,6 +54,12 @@ import Tr from "@/i18n/translation";
         <span>Связь с поддержкой</span>
       </RouterLink>
     </li>
+    <li class="menu__item">
+      <a href="https://vauvision.com/auth/profile/" class="menu__link">
+        <span><FaqSVG /></span>
+        <span>Старая версия</span>
+      </a>
+    </li>
   </ul>
 </div>
 </template>
@@ -95,7 +101,11 @@ import Tr from "@/i18n/translation";
 }
 .menu__list {
   display: flex;
+  height: 100%;
   flex-direction: column;
+}
+.menu__item:last-child {
+  margin: auto 0 0;
 }
 .menu__link {
   display: flex;

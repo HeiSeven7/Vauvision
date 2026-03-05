@@ -18,9 +18,10 @@ const DB_VERSION = 1;
 
 // Состояние загрузки данных
 const isLoading = ref(true);
+const dataLoaded = ref(false);
 const quizDB = ref<any>(null);
 
-// Данные формы с инициализацией из IndexedDB
+// Данные формы
 const formData = reactive({
   userType: 'individual',
   
@@ -79,6 +80,9 @@ const citizenshipOptions = [
 // Флаг показа поля для другого гражданства
 const showOtherCitizenshipInput = ref(false);
 
+// Таймер для debounce сохранения
+let saveTimeout: NodeJS.Timeout | null = null;
+
 // Инициализация IndexedDB
 const initDB = async () => {
   quizDB.value = await openDB(DB_NAME, DB_VERSION, {
@@ -93,20 +97,43 @@ const initDB = async () => {
 
 // Сохранение состояния в IndexedDB
 const saveStateToDB = async () => {
-  if (isLoading.value) return;
+  // Не сохраняем во время загрузки или если данные еще не загружены
+  if (isLoading.value || !dataLoaded.value) {
+    return;
+  }
   
   try {
     const stateToSave = {
       id: STORAGE_KEY,
-      formData: { ...formData },
+      formData: { 
+        userType: formData.userType,
+        legalAddress: formData.legalAddress,
+        inn: formData.inn,
+        ogrn: formData.ogrn,
+        accountNumber: formData.accountNumber,
+        bankName: formData.bankName,
+        bankInn: formData.bankInn,
+        bankBik: formData.bankBik,
+        correspondentAccount: formData.correspondentAccount,
+        bankLegalAddress: formData.bankLegalAddress,
+        citizenship: formData.citizenship,
+        otherCitizenship: formData.otherCitizenship,
+        lastName: formData.lastName,
+        firstName: formData.firstName,
+        middleName: formData.middleName,
+        passportNumber: formData.passportNumber,
+        passportIssuedBy: formData.passportIssuedBy,
+        passportIssueDate: formData.passportIssueDate,
+        registrationAddress: formData.registrationAddress
+      },
       showOtherCitizenshipInput: showOtherCitizenshipInput.value,
       timestamp: Date.now()
     };
     
     await quizDB.value.put('quizState', stateToSave);
-    console.log('State saved to IndexedDB');
+    console.log('✅ Quiz4 state saved to IndexedDB:', stateToSave.formData.userType);
   } catch (error) {
-    console.error('Error saving state to IndexedDB:', error);
+    console.error('Error saving Quiz4 state to IndexedDB:', error);
   }
 };
 
@@ -115,52 +142,46 @@ const loadStateFromDB = async () => {
   try {
     const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
     if (savedState) {
-      console.log('Loading from IndexedDB:', savedState);
-      
-      // Сохраняем текущие значения из API
-      const currentValues = {
-        lastName: formData.lastName,
-        firstName: formData.firstName,
-        middleName: formData.middleName,
-        citizenship: formData.citizenship,
-        otherCitizenship: formData.otherCitizenship,
-        passportNumber: formData.passportNumber,
-        passportIssuedBy: formData.passportIssuedBy,
-        passportIssueDate: formData.passportIssueDate,
-        registrationAddress: formData.registrationAddress,
-        inn: formData.inn,
-        ogrn: formData.ogrn,
-        accountNumber: formData.accountNumber,
-        bankBik: formData.bankBik,
-        correspondentAccount: formData.correspondentAccount
-      };
+      console.log('📥 Loading Quiz4 from IndexedDB:', savedState);
       
       // Восстанавливаем основные данные формы
-      Object.assign(formData, savedState.formData);
-      
-      // Восстанавливаем значения из API поверх IndexedDB
-      Object.assign(formData, currentValues);
+      if (savedState.formData) {
+        // Явно восстанавливаем каждое поле, включая userType
+        formData.userType = savedState.formData.userType || 'individual';
+        formData.legalAddress = savedState.formData.legalAddress || '';
+        formData.inn = savedState.formData.inn || '';
+        formData.ogrn = savedState.formData.ogrn || '';
+        formData.accountNumber = savedState.formData.accountNumber || '';
+        formData.bankName = savedState.formData.bankName || '';
+        formData.bankInn = savedState.formData.bankInn || '';
+        formData.bankBik = savedState.formData.bankBik || '';
+        formData.correspondentAccount = savedState.formData.correspondentAccount || '';
+        formData.bankLegalAddress = savedState.formData.bankLegalAddress || '';
+        formData.citizenship = savedState.formData.citizenship || '';
+        formData.otherCitizenship = savedState.formData.otherCitizenship || '';
+        formData.lastName = savedState.formData.lastName || '';
+        formData.firstName = savedState.formData.firstName || '';
+        formData.middleName = savedState.formData.middleName || '';
+        formData.passportNumber = savedState.formData.passportNumber || '';
+        formData.passportIssuedBy = savedState.formData.passportIssuedBy || '';
+        formData.passportIssueDate = savedState.formData.passportIssueDate || '';
+        formData.registrationAddress = savedState.formData.registrationAddress || '';
+      }
       
       // Восстанавливаем состояние поля для другого гражданства
-      showOtherCitizenshipInput.value = savedState.showOtherCitizenshipInput || false;
+      if (savedState.showOtherCitizenshipInput !== undefined) {
+        showOtherCitizenshipInput.value = savedState.showOtherCitizenshipInput;
+      }
       
       // Если гражданство "Другое", убедимся что поле отображается
       if (formData.citizenship === 'other' && !showOtherCitizenshipInput.value) {
         showOtherCitizenshipInput.value = true;
       }
+      
+      console.log('✅ Restored userType:', formData.userType);
     }
   } catch (error) {
-    console.error('Error loading state from IndexedDB:', error);
-  }
-};
-
-// Очистка состояния в IndexedDB
-const clearStateFromDB = async () => {
-  try {
-    await quizDB.value.delete('quizState', STORAGE_KEY);
-    console.log('State cleared from IndexedDB');
-  } catch (error) {
-    console.error('Error clearing state from IndexedDB:', error);
+    console.error('Error loading Quiz4 state from IndexedDB:', error);
   }
 };
 
@@ -173,38 +194,32 @@ const loadUserData = async () => {
     const data = response.data as any;
     const user = data.user || {};
     
-    // Заполняем ФИО
-    if (user.last_name) {
+    // Заполняем ФИО (только если поля пустые)
+    if (user.last_name && !formData.lastName) {
       formData.lastName = user.last_name;
-      console.log('Loaded last_name:', user.last_name);
     }
     
-    if (user.name) {
+    if (user.name && !formData.firstName) {
       formData.firstName = user.name;
-      console.log('Loaded name:', user.name);
     }
     
-    if (user.uf_otch) {
+    if (user.uf_otch && !formData.middleName) {
       formData.middleName = user.uf_otch;
-      console.log('Loaded uf_otch:', user.uf_otch);
     }
     
-    // Если есть uf_fam (фамилия в отдельном поле)
+    // Если есть uf_fam (фамилия в отдельном поле) и поле пустое
     if (user.uf_fam && !formData.lastName) {
       formData.lastName = user.uf_fam;
-      console.log('Loaded uf_fam:', user.uf_fam);
     }
     
-    // Если есть uf_imya (имя в отдельном поле)
+    // Если есть uf_imya (имя в отдельном поле) и поле пустое
     if (user.uf_imya && !formData.firstName) {
       formData.firstName = user.uf_imya;
-      console.log('Loaded uf_imya:', user.uf_imya);
     }
     
-    // Гражданство
-    if (user.uf_grazhdanstvo) {
+    // Гражданство (только если поле пустое)
+    if (user.uf_grazhdanstvo && !formData.citizenship) {
       const citizenship = user.uf_grazhdanstvo;
-      console.log('Loaded uf_grazhdanstvo:', citizenship);
       
       if (citizenship === 'Российская Федерация' || citizenship === 'РФ' || citizenship === 'Russia') {
         formData.citizenship = 'RU';
@@ -215,294 +230,176 @@ const loadUserData = async () => {
       }
     }
     
-    // Паспортные данные
-    if (user.uf_seriya) {
-      // Убираем пробелы, оставляем только цифры
+    // Паспортные данные (только если поля пустые)
+    if (user.uf_seriya && !formData.passportNumber) {
       formData.passportNumber = user.uf_seriya.replace(/\s/g, '');
-      console.log('Loaded uf_seriya:', user.uf_seriya);
     }
     
-    if (user.uf_vydan) {
+    if (user.uf_vydan && !formData.passportIssuedBy) {
       formData.passportIssuedBy = user.uf_vydan;
-      console.log('Loaded uf_vydan:', user.uf_vydan);
     }
     
-    if (user.uf_data) {
-      // Преобразуем дату из формата ДД.ММ.ГГГГ в ГГГГ-ММ-ДД
+    if (user.uf_data && !formData.passportIssueDate) {
       const dateParts = user.uf_data.split('.');
       if (dateParts.length === 3) {
         formData.passportIssueDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
-        console.log('Loaded uf_data:', user.uf_data);
       }
     }
     
-    if (user.uf_address) {
+    if (user.uf_address && !formData.registrationAddress) {
       formData.registrationAddress = user.uf_address;
-      console.log('Loaded uf_address:', user.uf_address);
     }
     
-    // Данные для ИП
+    // Данные для ИП (только если поля пустые)
     let hasIPData = false;
     
-    if (user.uf_inn) {
+    if (user.uf_inn && !formData.inn) {
       formData.inn = user.uf_inn;
       hasIPData = true;
-      console.log('Loaded uf_inn:', user.uf_inn);
     }
     
-    if (user.uf_ogrn) {
+    if (user.uf_ogrn && !formData.ogrn) {
       formData.ogrn = user.uf_ogrn;
       hasIPData = true;
-      console.log('Loaded uf_ogrn:', user.uf_ogrn);
     }
     
-    if (user.uf_rs) {
+    if (user.uf_rs && !formData.accountNumber) {
       formData.accountNumber = user.uf_rs;
       hasIPData = true;
-      console.log('Loaded uf_rs:', user.uf_rs);
     }
     
-    if (user.uf_bik) {
+    if (user.uf_bik && !formData.bankBik) {
       formData.bankBik = user.uf_bik;
       hasIPData = true;
-      console.log('Loaded uf_bik:', user.uf_bik);
     }
     
-    if (user.uf_korr) {
+    if (user.uf_korr && !formData.correspondentAccount) {
       formData.correspondentAccount = user.uf_korr;
       hasIPData = true;
-      console.log('Loaded uf_korr:', user.uf_korr);
     }
     
-    // Если есть данные ИП, переключаем тип лица
-    if (hasIPData) {
+    // Если есть данные ИП и тип еще не выбран, переключаем на ИП
+    // НО! Не перезаписываем, если пользователь уже выбрал individual
+    if (hasIPData && !formData.userType) {
       formData.userType = 'entrepreneur';
       console.log('Switched to entrepreneur mode due to IP data');
     }
     
-    // Загружаем состояние из IndexedDB после получения данных из API
-    await loadStateFromDB();
-    
   } catch (error) {
     console.error('Ошибка загрузки данных пользователя:', error);
-    // В случае ошибки загружаем из IndexedDB
-    await loadStateFromDB();
-  } finally {
-    isLoading.value = false;
   }
 };
 
 // Вычисляемое свойство для проверки готовности к продолжению
 const isReadyForNextStep = computed(() => {
-  const requiredFields = [];
+  if (!formData.userType) return false;
+  if (!formData.citizenship) return false;
+  if (!formData.lastName?.trim()) return false;
+  if (!formData.firstName?.trim()) return false;
+  if (!formData.middleName?.trim()) return false;
+  if (!formData.passportNumber?.trim()) return false;
+  if (!formData.passportIssuedBy?.trim()) return false;
+  if (!formData.passportIssueDate) return false;
+  if (!formData.registrationAddress?.trim()) return false;
   
-  // Обязательные поля для всех типов
-  requiredFields.push(
-    formData.userType.trim(),
-    formData.citizenship.trim(),
-    formData.lastName.trim(),
-    formData.firstName.trim(),
-    formData.middleName.trim(),
-    formData.passportNumber.trim(),
-    formData.passportIssuedBy.trim(),
-    formData.passportIssueDate.trim(),
-    formData.registrationAddress.trim()
-  );
-  
-  // Если выбрано "Другое", проверяем поле otherCitizenship
-  if (formData.citizenship === 'other') {
-    requiredFields.push(formData.otherCitizenship.trim());
+  if (formData.citizenship === 'other' && !formData.otherCitizenship?.trim()) {
+    return false;
   }
   
-  // Для ИП добавляем дополнительные обязательные поля
   if (formData.userType === 'entrepreneur') {
-    requiredFields.push(
-      formData.legalAddress.trim(),
-      formData.inn.trim(),
-      formData.ogrn.trim(),
-      formData.accountNumber.trim(),
-      formData.bankName.trim(),
-      formData.bankInn.trim(),
-      formData.bankBik.trim(),
-      formData.correspondentAccount.trim(),
-      formData.bankLegalAddress.trim()
-    );
+    if (!formData.legalAddress?.trim()) return false;
+    if (!formData.inn?.trim()) return false;
+    if (!formData.ogrn?.trim()) return false;
+    if (!formData.accountNumber?.trim()) return false;
+    if (!formData.bankName?.trim()) return false;
+    if (!formData.bankInn?.trim()) return false;
+    if (!formData.bankBik?.trim()) return false;
+    if (!formData.correspondentAccount?.trim()) return false;
+    if (!formData.bankLegalAddress?.trim()) return false;
   }
   
-  return requiredFields.every(Boolean);
+  return true;
 });
 
-// Валидация ИНН (12 цифр для физлиц/ИП)
-const validateINN = (inn: string): boolean => {
-  const innRegex = /^\d{12}$/;
-  return innRegex.test(inn);
-};
+// Валидация
+const validateINN = (inn: string): boolean => /^\d{12}$/.test(inn);
+const validateOGRN = (ogrn: string): boolean => /^\d{15}$/.test(ogrn);
+const validateBIK = (bik: string): boolean => /^\d{9}$/.test(bik);
+const validateAccountNumber = (account: string): boolean => /^\d{20}$/.test(account);
+const validatePassportNumber = (passport: string): boolean => /^\d{10}$/.test(passport.replace(/\s/g, ''));
 
-// Валидация ОГРН (15 цифр для ИП)
-const validateOGRN = (ogrn: string): boolean => {
-  const ogrnRegex = /^\d{15}$/;
-  return ogrnRegex.test(ogrn);
-};
-
-// Валидация БИК (9 цифр)
-const validateBIK = (bik: string): boolean => {
-  const bikRegex = /^\d{9}$/;
-  return bikRegex.test(bik);
-};
-
-// Валидация расчетного счета (20 цифр)
-const validateAccountNumber = (account: string): boolean => {
-  const accountRegex = /^\d{20}$/;
-  return accountRegex.test(account);
-};
-
-// Валидация серии и номера паспорта (10 цифр)
-const validatePassportNumber = (passport: string): boolean => {
-  // Удаляем все пробелы и проверяем формат
-  const cleaned = passport.replace(/\s/g, '');
-  const passportRegex = /^\d{10}$/;
-  return passportRegex.test(cleaned);
-};
-
-// Валидация поля
 const validateField = (fieldName: keyof typeof errors) => {
   const value = formData[fieldName as keyof typeof formData] as string;
-  
-  // Сбрасываем ошибку
   errors[fieldName] = '';
   
-  // Проверка на заполненность
-  if (!value.trim()) {
+  if (!value?.trim()) {
     errors[fieldName] = 'Это поле обязательно для заполнения';
     return false;
   }
   
-  // Специфичные проверки
   switch (fieldName) {
     case 'inn':
-      if (!validateINN(value)) {
-        errors.inn = 'ИНН должен состоять из 12 цифр';
-        return false;
-      }
+      if (!validateINN(value)) errors.inn = 'ИНН должен состоять из 12 цифр';
       break;
-      
     case 'ogrn':
-      if (!validateOGRN(value)) {
-        errors.ogrn = 'ОГРН должен состоять из 15 цифр';
-        return false;
-      }
+      if (!validateOGRN(value)) errors.ogrn = 'ОГРН должен состоять из 15 цифр';
       break;
-      
     case 'bankBik':
-      if (!validateBIK(value)) {
-        errors.bankBik = 'БИК должен состоять из 9 цифр';
-        return false;
-      }
+      if (!validateBIK(value)) errors.bankBik = 'БИК должен состоять из 9 цифр';
       break;
-      
     case 'accountNumber':
-      if (!validateAccountNumber(value)) {
-        errors.accountNumber = 'Расчетный счет должен состоять из 20 цифр';
-        return false;
-      }
-      break;
-      
     case 'correspondentAccount':
-      if (!validateAccountNumber(value)) {
-        errors.correspondentAccount = 'Корреспондентский счет должен состоять из 20 цифр';
-        return false;
-      }
+      if (!validateAccountNumber(value)) errors[fieldName] = 'Счет должен состоять из 20 цифр';
       break;
-      
     case 'passportNumber':
-      if (!validatePassportNumber(value)) {
-        errors.passportNumber = 'Серия и номер паспорта должны состоять из 10 цифр (например: 2222222222)';
-        return false;
-      }
+      if (!validatePassportNumber(value)) errors.passportNumber = 'Серия и номер должны состоять из 10 цифр';
       break;
-      
     case 'passportIssueDate':
-      const issueDate = dayjs(value);
-      const today = dayjs();
-      
-      if (issueDate.isAfter(today)) {
-        errors.passportIssueDate = 'Дата выдачи не может быть в будущем';
-        return false;
-      }
+      if (dayjs(value).isAfter(dayjs())) errors.passportIssueDate = 'Дата выдачи не может быть в будущем';
       break;
-      
     case 'lastName':
     case 'firstName':
     case 'middleName':
     case 'otherCitizenship':
-      if (value.trim().length < 2) {
-        errors[fieldName] = 'Должно содержать минимум 2 символа';
-        return false;
-      }
+      if (value.trim().length < 2) errors[fieldName] = 'Минимум 2 символа';
       break;
   }
   
-  return true;
+  return !errors[fieldName];
 };
 
-// Валидация всей формы
 const validateForm = (): boolean => {
   let isValid = true;
+  Object.keys(errors).forEach(key => errors[key as keyof typeof errors] = '');
   
-  // Проверяем тип лица
   if (!formData.userType) {
     errors.userType = 'Выберите тип лица';
     isValid = false;
   }
   
-  // Список полей для валидации
   const fieldsToValidate: (keyof typeof errors)[] = [
-    'citizenship',
-    'lastName',
-    'firstName',
-    'middleName',
-    'passportNumber',
-    'passportIssuedBy',
-    'passportIssueDate',
-    'registrationAddress'
+    'citizenship', 'lastName', 'firstName', 'middleName',
+    'passportNumber', 'passportIssuedBy', 'passportIssueDate', 'registrationAddress'
   ];
   
-  // Если выбрано "Другое" для гражданства, добавляем поле otherCitizenship
-  if (formData.citizenship === 'other') {
-    fieldsToValidate.push('otherCitizenship');
-  }
+  if (formData.citizenship === 'other') fieldsToValidate.push('otherCitizenship');
   
-  // Если ИП, добавляем дополнительные поля
   if (formData.userType === 'entrepreneur') {
     fieldsToValidate.push(
-      'legalAddress',
-      'inn',
-      'ogrn',
-      'accountNumber',
-      'bankName',
-      'bankInn',
-      'bankBik',
-      'correspondentAccount',
-      'bankLegalAddress'
+      'legalAddress', 'inn', 'ogrn', 'accountNumber', 'bankName',
+      'bankInn', 'bankBik', 'correspondentAccount', 'bankLegalAddress'
     );
   }
   
-  // Валидируем все поля
   fieldsToValidate.forEach(field => {
-    if (!validateField(field)) {
-      isValid = false;
-    }
+    if (!validateField(field)) isValid = false;
   });
   
   return isValid;
 };
 
-// Обработчик изменения типа лица
-const handleUserTypeChange = async () => {
-  // Сбрасываем ошибку типа
+const handleUserTypeChange = () => {
   errors.userType = '';
-  
-  // Если выбран не ИП, очищаем поля ИП
   if (formData.userType !== 'entrepreneur') {
     formData.legalAddress = '';
     formData.inn = '';
@@ -513,105 +410,174 @@ const handleUserTypeChange = async () => {
     formData.bankBik = '';
     formData.correspondentAccount = '';
     formData.bankLegalAddress = '';
-    
-    // Сбрасываем ошибки полей ИП
-    errors.legalAddress = '';
-    errors.inn = '';
-    errors.ogrn = '';
-    errors.accountNumber = '';
-    errors.bankName = '';
-    errors.bankInn = '';
-    errors.bankBik = '';
-    errors.correspondentAccount = '';
-    errors.bankLegalAddress = '';
   }
-  
-  // Сохраняем состояние
-  await saveStateToDB();
+  if (dataLoaded.value) debouncedSave();
 };
 
-// Обработчик изменения гражданства
-const handleCitizenshipChange = async () => {
+const handleCitizenshipChange = () => {
   errors.citizenship = '';
   errors.otherCitizenship = '';
-  
-  // Показываем или скрываем поле для ввода другого гражданства
   showOtherCitizenshipInput.value = formData.citizenship === 'other';
-  
-  // Если выбрано не "Другое", очищаем поле otherCitizenship
-  if (formData.citizenship !== 'other') {
-    formData.otherCitizenship = '';
-  }
-  
-  // Сохраняем состояние
-  await saveStateToDB();
+  if (formData.citizenship !== 'other') formData.otherCitizenship = '';
+  if (dataLoaded.value) debouncedSave();
 };
 
-const goBack = () => {
-  emit('go-back');
-};
+const goBack = () => emit('go-back');
 
 const goNext = async () => {
   if (validateForm()) {
-    // Очищаем состояние после успешного завершения
-    await clearStateFromDB();
+    // Сохраняем состояние перед переходом
+    await saveStateToDB();
     emit('go-next');
   } else {
     ElMessage.error('Пожалуйста, заполните все обязательные поля правильно');
   }
 };
 
-// Сохранение состояния при изменении данных формы
-watch(() => formData, async () => {
-  if (!isLoading.value) {
-    await saveStateToDB();
-  }
-}, { deep: true });
+const debouncedSave = () => {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    if (dataLoaded.value) saveStateToDB();
+  }, 500);
+};
 
-// Следим за изменением showOtherCitizenshipInput
-watch(showOtherCitizenshipInput, async () => {
-  if (!isLoading.value) {
-    await saveStateToDB();
+// Отдельные watchers для критических полей
+watch(() => formData.userType, (newVal) => {
+  if (dataLoaded.value) {
+    console.log('userType changed to:', newVal);
+    debouncedSave();
   }
 });
 
-// Загрузка данных при монтировании компонента
+watch(() => formData.citizenship, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
+watch(() => formData.lastName, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
+watch(() => formData.firstName, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
+watch(() => formData.middleName, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
+watch(() => formData.passportNumber, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
+watch(() => formData.passportIssuedBy, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
+watch(() => formData.passportIssueDate, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
+watch(() => formData.registrationAddress, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
+watch(() => formData.otherCitizenship, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
+// Watcher для полей ИП
+watch(() => formData.legalAddress, () => {
+  if (dataLoaded.value && formData.userType === 'entrepreneur') debouncedSave();
+});
+
+watch(() => formData.inn, () => {
+  if (dataLoaded.value && formData.userType === 'entrepreneur') debouncedSave();
+});
+
+watch(() => formData.ogrn, () => {
+  if (dataLoaded.value && formData.userType === 'entrepreneur') debouncedSave();
+});
+
+watch(() => formData.accountNumber, () => {
+  if (dataLoaded.value && formData.userType === 'entrepreneur') debouncedSave();
+});
+
+watch(() => formData.bankName, () => {
+  if (dataLoaded.value && formData.userType === 'entrepreneur') debouncedSave();
+});
+
+watch(() => formData.bankInn, () => {
+  if (dataLoaded.value && formData.userType === 'entrepreneur') debouncedSave();
+});
+
+watch(() => formData.bankBik, () => {
+  if (dataLoaded.value && formData.userType === 'entrepreneur') debouncedSave();
+});
+
+watch(() => formData.correspondentAccount, () => {
+  if (dataLoaded.value && formData.userType === 'entrepreneur') debouncedSave();
+});
+
+watch(() => formData.bankLegalAddress, () => {
+  if (dataLoaded.value && formData.userType === 'entrepreneur') debouncedSave();
+});
+
+watch(showOtherCitizenshipInput, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
 onMounted(async () => {
+  console.log('Quiz4 mounted');
+  
   try {
     await initDB();
+    
+    // Сначала загружаем сохраненное состояние
+    await loadStateFromDB();
+    console.log('After loadStateFromDB - userType:', formData.userType);
+    
+    // Потом данные с сервера (только в пустые поля)
     await loadUserData();
+    console.log('After loadUserData - userType:', formData.userType);
+    
+    dataLoaded.value = true;
+    console.log('Final userType:', formData.userType);
   } catch (error) {
-    console.error('Error in onMounted:', error);
+    console.error('Error:', error);
+  } finally {
     isLoading.value = false;
   }
 });
 
-// Сохраняем состояние при покидании страницы
-window.addEventListener('beforeunload', async () => {
+const handleBeforeUnload = async () => {
+  if (saveTimeout) clearTimeout(saveTimeout);
   await saveStateToDB();
-});
+};
 
-// Сохраняем состояние при изменении видимости вкладки
-document.addEventListener('visibilitychange', async () => {
+const handleVisibilityChange = async () => {
   if (document.visibilityState === 'hidden') {
+    if (saveTimeout) clearTimeout(saveTimeout);
     await saveStateToDB();
   }
+};
+
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
-// Очистка при размонтировании
 onUnmounted(() => {
-  // Убираем обработчики событий
-  window.removeEventListener('beforeunload', saveStateToDB);
-  document.removeEventListener('visibilitychange', saveStateToDB);
+  if (saveTimeout) clearTimeout(saveTimeout);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+  window.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 </script>
 
 <template>
-<!-- Template остается точно таким же -->
+<!-- Template остается точно таким же как в вашем файле -->
 <div class="quiz__form quiz__form_four">
   <h4 class="quiz__form_head">Данные паспорта и реквизиты</h4>
   
-  <!-- Индикатор загрузки -->
   <div v-if="isLoading" class="quiz__form_loading">
     <span>Загрузка данных...</span>
   </div>
@@ -965,7 +931,7 @@ onUnmounted(() => {
         :class="{ 'error': errors.passportIssueDate }"
         size="large"
         style="width: 100%;"
-        @change="errors.passportIssueDate = ''"
+        @change="validateField('passportIssueDate')"
       />
       <div v-if="errors.passportIssueDate" class="error text_very">
         {{ errors.passportIssueDate }}
@@ -1022,8 +988,5 @@ onUnmounted(() => {
   padding: 40px;
   color: #999;
   font-size: 16px;
-}
-
-@media (max-width: 767px) {
 }
 </style>

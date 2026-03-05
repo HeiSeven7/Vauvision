@@ -88,7 +88,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
 import { ElCheckbox, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import SignaturePopup from '@/components/layout/Signature.vue';
@@ -105,9 +105,13 @@ const DB_NAME = 'quizDB';
 const DB_VERSION = 1;
 
 const quizDB = ref<any>(null);
+const dataLoaded = ref(false);
 
 // Состояние попапа
 const showSignaturePopup = ref(false);
+
+// Таймер для debounce сохранения
+let saveTimeout: NodeJS.Timeout | null = null;
 
 // Типы для формы
 interface FormData {
@@ -150,6 +154,8 @@ const initDB = async () => {
 
 // Сохранение состояния в IndexedDB
 const saveStateToDB = async () => {
+  if (!dataLoaded.value) return;
+  
   try {
     const stateToSave = {
       id: STORAGE_KEY,
@@ -158,9 +164,9 @@ const saveStateToDB = async () => {
     };
     
     await quizDB.value.put('quizState', stateToSave);
-    console.log('State saved to IndexedDB');
+    console.log('Quiz7 state saved to IndexedDB');
   } catch (error) {
-    console.error('Error saving state to IndexedDB:', error);
+    console.error('Error saving Quiz7 state to IndexedDB:', error);
   }
 };
 
@@ -169,23 +175,17 @@ const loadStateFromDB = async () => {
   try {
     const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
     if (savedState) {
-      console.log('Loading from IndexedDB:', savedState);
+      console.log('Loading Quiz7 from IndexedDB:', savedState);
       
       // Восстанавливаем данные формы
-      Object.assign(formData, savedState.formData);
+      if (savedState.formData) {
+        formData.acceptTerms = savedState.formData.acceptTerms || false;
+        formData.acceptPrivacy = savedState.formData.acceptPrivacy || false;
+        formData.acceptMarketing = savedState.formData.acceptMarketing || false;
+      }
     }
   } catch (error) {
-    console.error('Error loading state from IndexedDB:', error);
-  }
-};
-
-// Очистка состояния в IndexedDB
-const clearStateFromDB = async () => {
-  try {
-    await quizDB.value.delete('quizState', STORAGE_KEY);
-    console.log('State cleared from IndexedDB');
-  } catch (error) {
-    console.error('Error clearing state from IndexedDB:', error);
+    console.error('Error loading Quiz7 state from IndexedDB:', error);
   }
 };
 
@@ -211,7 +211,7 @@ const validateField = async (fieldName: keyof FormErrors): Promise<boolean> => {
   
   if (validator) {
     errors[fieldName] = validator(value);
-    await saveStateToDB();
+    debouncedSave();
     return !errors[fieldName];
   }
   
@@ -230,7 +230,7 @@ const validateForm = async (): Promise<boolean> => {
     }
   }
   
-  await saveStateToDB();
+  debouncedSave();
   return isValid;
 };
 
@@ -254,7 +254,7 @@ const handleCheckboxChange = async (fieldName: keyof FormData) => {
     errors.acceptMarketing = '';
   }
   
-  await saveStateToDB();
+  debouncedSave();
 };
 
 const goBack = () => {
@@ -307,7 +307,6 @@ const closeSignaturePopup = () => {
 };
 
 const handleSignatureSubmit = async (signatureData: string) => {
-  // Здесь можно обработать подпись (например, отправить на сервер)
   console.log('Подпись получена:', signatureData);
   closeSignaturePopup();
   
@@ -320,14 +319,38 @@ const handleSignatureSubmit = async (signatureData: string) => {
     timestamp: new Date().toISOString()
   };
   
-  // В реальном приложении здесь можно сохранить данные в store или отправить на сервер
   console.log('Данные договора с подписью:', dataToSend);
   
-  // Очищаем состояние после успешного завершения
-  await clearStateFromDB();
+  // ⚠️⚠️⚠️ НЕ ОЧИЩАЕМ СОСТОЯНИЕ ПРИ ПЕРЕХОДЕ!
+  // Состояние остается в IndexedDB
   
   emit('go-next', dataToSend);
 };
+
+// Debounced save
+const debouncedSave = () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  saveTimeout = setTimeout(() => {
+    if (dataLoaded.value) {
+      saveStateToDB();
+    }
+  }, 500);
+};
+
+// Watchers для чекбоксов
+watch(() => formData.acceptTerms, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
+watch(() => formData.acceptPrivacy, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
+watch(() => formData.acceptMarketing, () => {
+  if (dataLoaded.value) debouncedSave();
+});
 
 // Функция для прокрутки к чекбоксам (может быть вызвана из родительского компонента)
 const scrollToCheckboxes = () => {
@@ -348,27 +371,43 @@ onMounted(async () => {
   try {
     await initDB();
     await loadStateFromDB();
+    dataLoaded.value = true;
   } catch (error) {
     console.error('Error in onMounted:', error);
   }
 });
 
 // Сохраняем состояние при покидании страницы
-window.addEventListener('beforeunload', async () => {
-  await saveStateToDB();
-});
+const handleBeforeUnload = () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  saveStateToDB();
+};
 
 // Сохраняем состояние при изменении видимости вкладки
-document.addEventListener('visibilitychange', async () => {
+const handleVisibilityChange = () => {
   if (document.visibilityState === 'hidden') {
-    await saveStateToDB();
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+    saveStateToDB();
   }
+};
+
+// Добавляем обработчики событий
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
 // Очистка при размонтировании
 onUnmounted(() => {
-  window.removeEventListener('beforeunload', saveStateToDB);
-  document.removeEventListener('visibilitychange', saveStateToDB);
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 </script>
 

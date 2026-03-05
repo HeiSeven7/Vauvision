@@ -337,6 +337,16 @@ const handleAvatarError = (event: Event) => {
                   <p>Связь с поддержкой</p>
                 </RouterLink>
               </li>
+              <li class="burger__nav_item">
+                <a 
+                  href="https://vauvision.com/auth/profile/"
+                  class="burger__nav_link"
+                  @click="closeMenu"
+                >
+                  <FaqSVG class="burger__nav_icon" />
+                  <p>Старая версия</p>
+              </a>
+              </li>
               <li class="burger__nav_item burger__logout">
                 <button 
                   class="burger__nav_link" 

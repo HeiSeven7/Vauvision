@@ -248,6 +248,7 @@ const DB_NAME = 'quizDB';
 const DB_VERSION = 1;
 
 const quizDB = ref<any>(null);
+const dataLoaded = ref(false);
 
 // Состояние загрузки
 const isLoading = ref(true);
@@ -257,6 +258,7 @@ const promoDiscount = ref(0);
 
 // Таймер для debounce
 let promoDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let saveTimeout: NodeJS.Timeout | null = null;
 
 // Данные формы
 const formData = reactive({
@@ -344,11 +346,12 @@ const createSafeStateCopy = () => {
 
 // Сохранение состояния в IndexedDB
 const saveStateToDB = async () => {
-  if (isLoading.value) return;
+  if (isLoading.value || !dataLoaded.value) return;
   
   try {
     const stateToSave = createSafeStateCopy();
     await quizDB.value.put('quizState', stateToSave);
+    console.log('Quiz6 state saved to IndexedDB');
   } catch (error) {
     console.error('Error saving state to IndexedDB:', error);
   }
@@ -359,8 +362,22 @@ const loadStateFromDB = async () => {
   try {
     const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
     if (savedState) {
+      console.log('Loading Quiz6 from IndexedDB:', savedState);
+      
       // Восстанавливаем данные формы
-      Object.assign(formData, savedState.formData);
+      if (savedState.formData) {
+        formData.platforms = savedState.formData.platforms || [];
+        formData.otherPlatform = savedState.formData.otherPlatform || '';
+        formData.rightsInfo = savedState.formData.rightsInfo || '';
+        formData.rightsContractLink = savedState.formData.rightsContractLink || '';
+        formData.additionalComments = savedState.formData.additionalComments || '';
+        formData.promoPlan = savedState.formData.promoPlan || '';
+        formData.bandlinkUrl = savedState.formData.bandlinkUrl || '';
+        formData.promoCode = savedState.formData.promoCode || '';
+        formData.usePartnerBonuses = savedState.formData.usePartnerBonuses || false;
+        formData.usedBonuses = savedState.formData.usedBonuses || 0;
+        formData.confirmNoRightsViolation = savedState.formData.confirmNoRightsViolation || false;
+      }
       
       // Восстанавливаем состояние промокода
       promoApplied.value = savedState.promoApplied || false;
@@ -368,15 +385,6 @@ const loadStateFromDB = async () => {
     }
   } catch (error) {
     console.error('Error loading state from IndexedDB:', error);
-  }
-};
-
-// Очистка состояния в IndexedDB
-const clearStateFromDB = async () => {
-  try {
-    await quizDB.value.delete('quizState', STORAGE_KEY);
-  } catch (error) {
-    console.error('Error clearing state from IndexedDB:', error);
   }
 };
 
@@ -438,10 +446,13 @@ const loadBasketData = async () => {
       formData.usedBonuses = maxBonuses.value;
     }
     
+    dataLoaded.value = true;
+    
   } catch (error) {
     console.error('Ошибка загрузки данных корзины:', error);
     // В случае ошибки загружаем из IndexedDB
     await loadStateFromDB();
+    dataLoaded.value = true;
   } finally {
     isLoading.value = false;
   }
@@ -582,7 +593,7 @@ const handleBonusesChange = (value: number | undefined) => {
   
   // Валидируем поле
   validateField('usedBonuses');
-  saveStateToDB();
+  debouncedSave();
 };
 
 // Форматирование цены с разделителями тысяч
@@ -658,7 +669,7 @@ const validateField = (fieldName: keyof typeof errors): boolean => {
   errors[fieldName] = errorMessage;
   
   // Сохраняем состояние после валидации
-  saveStateToDB();
+  debouncedSave();
   
   return !errorMessage;
 };
@@ -699,7 +710,7 @@ const validateUrlField = (fieldName: keyof typeof errors): boolean => {
   }
   
   // Сохраняем состояние после валидации
-  saveStateToDB();
+  debouncedSave();
   
   return isValid;
 };
@@ -745,7 +756,7 @@ const validateForm = (): boolean => {
   }
   
   // Сохраняем состояние после валидации
-  saveStateToDB();
+  debouncedSave();
   
   return isValid;
 };
@@ -792,21 +803,38 @@ const goBack = () => {
 const handleContinue = async () => {
   const formValid = validateForm();
   if (formValid) {
-    // Очищаем состояние после успешного завершения
-    await clearStateFromDB();
-    
+    // ⚠️⚠️⚠️ НЕ ОЧИЩАЕМ СОСТОЯНИЕ ПРИ ПЕРЕХОДЕ!
+    // Просто переходим дальше, состояние остается в IndexedDB
     emit('go-next');
   } else {
     ElMessage.warning('Пожалуйста, заполните все обязательные поля корректно');
   }
 };
 
-// Сохранение состояния при изменении данных формы
-watch(() => formData, async () => {
-  if (!isLoading.value) {
-    await saveStateToDB();
+// Debounced save
+const debouncedSave = () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
   }
-}, { deep: true });
+  saveTimeout = setTimeout(() => {
+    if (dataLoaded.value) {
+      saveStateToDB();
+    }
+  }, 500);
+};
+
+// Watchers с debounce
+watch(() => formData.platforms, () => { if (dataLoaded.value) debouncedSave(); }, { deep: true });
+watch(() => formData.otherPlatform, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.rightsInfo, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.rightsContractLink, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.additionalComments, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.promoPlan, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.bandlinkUrl, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.promoCode, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.usePartnerBonuses, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.usedBonuses, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.confirmNoRightsViolation, () => { if (dataLoaded.value) debouncedSave(); });
 
 // Следим за изменением platforms чтобы очистить otherPlatform если нужно
 watch(() => formData.platforms, async (newPlatforms) => {
@@ -814,14 +842,12 @@ watch(() => formData.platforms, async (newPlatforms) => {
     formData.otherPlatform = '';
     errors.otherPlatform = '';
   }
-  if (!isLoading.value) {
-    await saveStateToDB();
-  }
-});
+  if (dataLoaded.value) debouncedSave();
+}, { deep: true });
 
 // Следим за изменением бонусов
 watch(() => formData.usedBonuses, (newValue, oldValue) => {
-  if (!isLoading.value && newValue !== oldValue) {
+  if (dataLoaded.value && newValue !== oldValue) {
     // Проверяем границы
     if (newValue > maxBonuses.value) {
       formData.usedBonuses = maxBonuses.value;
@@ -845,21 +871,37 @@ onMounted(async () => {
 
 // Сохраняем состояние при покидании страницы
 const handleBeforeUnload = () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
   saveStateToDB();
+};
+
+// Сохраняем состояние при изменении видимости вкладки
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'hidden') {
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+    saveStateToDB();
+  }
 };
 
 // Очистка при размонтировании
 onUnmounted(() => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
   if (promoDebounceTimer) {
     clearTimeout(promoDebounceTimer);
   }
   window.removeEventListener('beforeunload', handleBeforeUnload);
-  document.removeEventListener('visibilitychange', handleBeforeUnload);
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 
 // Добавляем обработчики событий
 window.addEventListener('beforeunload', handleBeforeUnload);
-document.addEventListener('visibilitychange', handleBeforeUnload);
+document.addEventListener('visibilitychange', handleVisibilityChange);
 </script>
 
 <style lang="css" scoped>

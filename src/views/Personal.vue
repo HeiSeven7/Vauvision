@@ -71,6 +71,21 @@ interface Transaction {
   currency?: string;
 }
 
+interface Article {
+  img: string;
+  name: string;
+  url: string;
+}
+
+interface Partner {
+  id: number;
+  name: string;
+  email: string;
+  date: string;
+  earnings: string;
+  releases: string;
+}
+
 interface Quarter {
   id: string;
   name: string;
@@ -117,6 +132,8 @@ const availableQuarters = ref<Quarter[]>([]);
 const releasesData = ref<Release[]>([]);
 const reportsData = ref<Report[]>([]);
 const transactionsData = ref<Transaction[]>([]);
+const articlesData = ref<Article[]>([]);
+const partnersData = ref<Partner[]>([]);
 
 // Состояние загрузки
 const isLoadingReleases = ref(false);
@@ -196,6 +213,16 @@ const paginatedTransactions = computed(() => {
 
 const showTransactionsPagination = computed(() => {
   return totalTransactionsItems.value > transactionsPerPage.value;
+});
+
+// Последние 3 статьи
+const lastThreeArticles = computed(() => {
+  return articlesData.value.slice(0, 3);
+});
+
+// Последние 3 партнера
+const lastThreePartners = computed(() => {
+  return partnersData.value.slice(0, 3);
 });
 
 // Состояние для попапа выплаты бонусов
@@ -586,7 +613,7 @@ const closeAllPopups = () => {
   showSignaturePopup.value = false;
   showBonusPayoutPopup.value = false;
   showPayoutAmountPopup.value = false;
-  showImagesPopup.value = false; // Закрываем попап с изображениями
+  showImagesPopup.value = false;
   selectedYear.value = '';
   selectedQuarter.value = '';
   availableQuarters.value = [];
@@ -706,10 +733,74 @@ const fetchData = async () => {
       currentTransactionsPage.value = transactionsPagination.value.currentPage;
     }
     
+    // Загружаем статьи (берем из общего ответа или делаем отдельный запрос)
+    if (response.data && response.data.articles) {
+      articlesData.value = response.data.articles || [];
+    } else {
+      // Если статей нет в общем ответе, делаем отдельный запрос
+      try {
+        const articlesResponse = await sendRequest('get', '/ajax_vue/ajax/getData.php?articles', {});
+        if (articlesResponse.data && articlesResponse.data.articles) {
+          articlesData.value = articlesResponse.data.articles;
+        }
+      } catch (error) {
+        console.error('Ошибка при загрузке статей:', error);
+      }
+    }
+    
+    // Загружаем партнеров
+    if (response.data && response.data.profile && response.data.profile.referralUsers) {
+      partnersData.value = response.data.profile.referralUsers.map((user: any, index: number) => ({
+        id: parseInt(user.ID) || index + 1,
+        name: user.LOGIN || 'Без имени',
+        email: user.EMAIL || '',
+        date: formatDate(user.DATE_REGISTER),
+        earnings: user.PAYOUT || '0 ₽',
+        releases: formatReleases(user.UF_RELEASES)
+      }));
+    } else {
+      // Если партнеров нет в общем ответе, делаем отдельный запрос
+      try {
+        const partnerResponse = await sendRequest('get', '/ajax_vue/ajax/getData.php?referral', {});
+        if (partnerResponse.data && partnerResponse.data.profile && partnerResponse.data.profile.referralUsers) {
+          partnersData.value = partnerResponse.data.profile.referralUsers.map((user: any, index: number) => ({
+            id: parseInt(user.ID) || index + 1,
+            name: user.LOGIN || 'Без имени',
+            email: user.EMAIL || '',
+            date: formatDate(user.DATE_REGISTER),
+            earnings: user.PAYOUT || '0 ₽',
+            releases: formatReleases(user.UF_RELEASES)
+          }));
+        }
+      } catch (error) {
+        console.error('Ошибка при загрузке партнеров:', error);
+      }
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Ошибка при загрузке данных:', error);
   }
+};
+
+// Форматирование даты для партнеров
+const formatDate = (dateString: string) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+// Форматирование количества релизов для партнеров
+const formatReleases = (releases: string | number) => {
+  const count = Number(releases);
+  if (count === 0) return '0 релизов';
+  if (count === 1) return '1 релиз';
+  if (count >= 2 && count <= 4) return `${count} релиза`;
+  return `${count} релизов`;
 };
 
 // Функция для открытия попапа ввода суммы выплаты
@@ -1261,7 +1352,9 @@ onMounted(() => {
               <h5 class="personal__articles_head">Станьте партнером</h5>
               <p class="personal__articles_desc">Take advantage of this incredible offer and maximize your profits.</p>
             </div>
-            <button class="personal__partner_button button__primary"><span>стать партнером</span></button>
+            <RouterLink class="personal__partner_button button__primary" :to="Tr.i18nRoute({ name: 'partner' })">
+              <span>стать партнером</span>
+            </RouterLink>
           </div>
           <div class="personal__articles">
             <div class="personal__articles_top">
@@ -1271,64 +1364,58 @@ onMounted(() => {
               </RouterLink>
             </div>
             <ul class="personal__articles_list">
-              <li class="personal__articles_item">
-                <a href="" class="personal__articles_link">
+              <li 
+                class="personal__articles_item" 
+                v-for="article in lastThreeArticles" 
+                :key="article.url"
+              >
+                <a :href="article.url" class="personal__articles_link">
                   <div class="personal__articles_image">
-                    <img src="@/assets/img/personal/articles/articles_1.webp" alt="">
+                    <img 
+                      :src="getFullUrl(article.img)" 
+                      :alt="article.name"
+                      @error="handleImageError"
+                    >
                   </div>
                   <div class="personal__articles_info">
-                    <p class="personal__articles_head text_small">Продвижение артиста. Абсурдный прием, который работает.</p>
-                    <p class="personal__articles_date text_very">8 дн назад</p>
+                    <p class="personal__articles_head text_small">{{ article.name }}</p>
+                    <p class="personal__articles_date text_very">Читать статью</p>
                   </div>
                 </a>
               </li>
-              <li class="personal__articles_item">
-                <a href="" class="personal__articles_link">
+              <li v-if="lastThreeArticles.length === 0" class="personal__articles_item">
+                <div class="personal__articles_link">
                   <div class="personal__articles_image">
-                    <img src="@/assets/img/personal/articles/articles_2.webp" alt="">
+                    <div class="articles__image_placeholder"></div>
                   </div>
                   <div class="personal__articles_info">
-                    <p class="personal__articles_head text_small">Стоит ли выкладывать треки в пятницу.</p>
-                    <p class="personal__articles_date text_very">8 дн назад</p>
+                    <p class="personal__articles_head text_small">Статьи временно недоступны</p>
                   </div>
-                </a>
-              </li>
-              <li class="personal__articles_item">
-                <a href="" class="personal__articles_link">
-                  <div class="personal__articles_image">
-                    <img src="@/assets/img/personal/articles/articles_3.webp" alt="">
-                  </div>
-                  <div class="personal__articles_info">
-                    <p class="personal__articles_head text_small">Топ-чарты. Как туда попасть? Что получает артист?</p>
-                    <p class="personal__articles_date text_very">8 дн назад</p>
-                  </div>
-                </a>
+                </div>
               </li>
             </ul>
           </div>
           <div class="personal__partners">
             <div class="personal__partners_top">
               <h5 class="personal__partners_head">Партнеры</h5>
-              <a href="" class="personal__partners_all button">Смотреть больше</a>
+              <RouterLink class="personal__partners_all button" :to="Tr.i18nRoute({ name: 'partner' })">Смотреть больше</RouterLink>
             </div>
             <ul class="personal__partners_list">
-              <li class="personal__partners_item">
-                <a href="" class="personal__partners_link">
-                  <p class="personal__partners_heading button">Superkuper</p>
-                  <p class="personal__partners_desc text_very">mail@yandex.ru  • 12.10.2025</p>
+              <li 
+                class="personal__partners_item" 
+                v-for="partner in lastThreePartners" 
+                :key="partner.id"
+              >
+                <a href="#" class="personal__partners_link">
+                  <p class="personal__partners_heading button">{{ partner.name }}</p>
+                  <p class="personal__partners_desc text_very">{{ partner.email }} • {{ partner.date }}</p>
                 </a>
               </li>
-              <li class="personal__partners_item">
-                <a href="" class="personal__partners_link">
-                  <p class="personal__partners_heading button">leoneo</p>
-                  <p class="personal__partners_desc text_very">mail@yandex.ru  • 12.10.2025</p>
-                </a>
-              </li>
-              <li class="personal__partners_item">
-                <a href="" class="personal__partners_link">
-                  <p class="personal__partners_heading button">tat55</p>
-                  <p class="personal__partners_desc text_very">mail@yandex.ru  • 12.10.2025</p>
-                </a>
+              <li v-if="lastThreePartners.length === 0" class="personal__partners_item">
+                <div class="personal__partners_link">
+                  <p class="personal__partners_heading button">Нет партнеров</p>
+                  <p class="personal__partners_desc text_very">Пригласите друзей</p>
+                </div>
               </li>
             </ul>
           </div>
@@ -1852,7 +1939,7 @@ onMounted(() => {
 }
 .personal__partner {
   display: flex;
-  padding: 40px;
+  padding: 52px;
   flex-direction: column;
   gap: 63px;
   position: relative;
@@ -1913,11 +2000,19 @@ onMounted(() => {
   width: 60px;
   height: 60px;
   flex: 0 0 auto;
+  position: relative;
+  background-color: var(--border);
 }
 .personal__articles_image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.articles__image_placeholder {
+  width: 100%;
+  height: 100%;
+  background-color: var(--border);
+  border-radius: 4px;
 }
 .personal__articles_info {
   display: flex;
@@ -2448,7 +2543,7 @@ onMounted(() => {
     max-width: calc(33.333% - 27px);
   }
   .personal__partner {
-    gap: 86px;
+    gap: 84px;
   }
   .personal__release_desc {
     max-width: 410px;

@@ -13,6 +13,7 @@ const isLoading = ref(false);
 const dataLoaded = ref(false);
 const quizDB = ref<any>(null);
 const audioDB = ref<any>(null);
+const filesDB = ref<any>(null);
 
 // Интерфейсы для типизации
 interface SingleTrack {
@@ -74,52 +75,86 @@ interface Quiz3Data {
     vkLink?: string;
     email?: string;
   };
-  coverFileName?: string;
-  coverFileSize?: number;
-  coverFileId?: string | null;
+  coverFileInfo?: {
+    name?: string;
+    size?: number;
+    fileId?: string | null;
+  };
+  showImportantBlock?: boolean;
 }
 
 interface Quiz4Data {
   formData?: {
+    userType?: string;
+    legalAddress?: string;
+    inn?: string;
+    ogrn?: string;
+    accountNumber?: string;
+    bankName?: string;
+    bankInn?: string;
+    bankBik?: string;
+    correspondentAccount?: string;
+    bankLegalAddress?: string;
+    citizenship?: string;
+    otherCitizenship?: string;
     lastName?: string;
     firstName?: string;
     middleName?: string;
-    birthDate?: string;
-    passportSeries?: string;
     passportNumber?: string;
-    passportIssueDate?: string;
     passportIssuedBy?: string;
-    passportCode?: string;
+    passportIssueDate?: string;
     registrationAddress?: string;
-    phone?: string;
   };
+  showOtherCitizenshipInput?: boolean;
 }
 
 interface Quiz5Data {
   formData?: {
-    appleMusicText?: string;
-    karaokeFile?: string;
+    genre?: string;
+    tiktokStartSeconds?: string;
+    hasDrugsMention?: string;
+    drugsTracks?: string;
+    appleMusicLinks?: string;
+    spotifyLinks?: string;
+    vkLinks?: string;
+    yandexMusicLinks?: string;
+    socialLinks?: string;
   };
-  appleMusicFileName?: string;
-  appleMusicFileSize?: number;
-  karaokeFileName?: string;
-  karaokeFileSize?: number;
-  appleMusicFileId?: string | null;
-  karaokeFileId?: string | null;
+  appleMusicFileInfo?: {
+    name?: string;
+    size?: number;
+    fileId?: string | null;
+  };
+  karaokeFileInfo?: {
+    name?: string;
+    size?: number;
+    fileId?: string | null;
+  };
 }
 
 interface Quiz6Data {
   formData?: {
+    platforms?: string[];
+    otherPlatform?: string;
+    rightsInfo?: string;
+    rightsContractLink?: string;
+    additionalComments?: string;
+    promoPlan?: string;
+    bandlinkUrl?: string;
+    promoCode?: string;
+    usePartnerBonuses?: boolean;
+    usedBonuses?: number;
     confirmNoRightsViolation?: boolean;
-    confirmOriginalContent?: boolean;
-    additionalNotes?: string;
   };
+  promoApplied?: boolean;
+  promoDiscount?: number;
 }
 
 interface Quiz7Data {
   formData?: {
-    agreementAccepted?: boolean;
-    agreementDate?: string;
+    acceptTerms?: boolean;
+    acceptPrivacy?: boolean;
+    acceptMarketing?: boolean;
   };
 }
 
@@ -151,43 +186,70 @@ interface AllData {
   coverFileId?: string | null;
   
   // Шаг 4
-  passportInfo?: {
+  userInfo?: {
+    userType?: string;
+    legalAddress?: string;
+    inn?: string;
+    ogrn?: string;
+    accountNumber?: string;
+    bankName?: string;
+    bankInn?: string;
+    bankBik?: string;
+    correspondentAccount?: string;
+    bankLegalAddress?: string;
+    citizenship?: string;
+    otherCitizenship?: string;
     lastName?: string;
     firstName?: string;
     middleName?: string;
-    birthDate?: string;
-    passportSeries?: string;
     passportNumber?: string;
-    passportIssueDate?: string;
     passportIssuedBy?: string;
-    passportCode?: string;
+    passportIssueDate?: string;
     registrationAddress?: string;
-    phone?: string;
   };
   
   // Шаг 5
+  genreInfo?: {
+    genre?: string;
+    tiktokStartSeconds?: string;
+    hasDrugsMention?: string;
+    drugsTracks?: string;
+    appleMusicLinks?: string;
+    spotifyLinks?: string;
+    vkLinks?: string;
+    yandexMusicLinks?: string;
+    socialLinks?: string;
+  };
   appleMusicFileName?: string;
   appleMusicFileSize?: number;
+  appleMusicFileId?: string | null;
   karaokeFileName?: string;
   karaokeFileSize?: number;
-  appleMusicFileId?: string | null;
   karaokeFileId?: string | null;
   
   // Шаг 6
   additionalInfo?: {
+    platforms?: string[];
+    otherPlatform?: string;
+    rightsInfo?: string;
+    rightsContractLink?: string;
+    additionalComments?: string;
+    promoPlan?: string;
+    bandlinkUrl?: string;
+    promoCode?: string;
+    usePartnerBonuses?: boolean;
+    usedBonuses?: number;
     confirmNoRightsViolation?: boolean;
-    confirmOriginalContent?: boolean;
-    additionalNotes?: string;
   };
+  promoApplied?: boolean;
+  promoDiscount?: number;
   
   // Шаг 7
   agreement?: {
-    agreementAccepted?: boolean;
-    agreementDate?: string;
+    acceptTerms?: boolean;
+    acceptPrivacy?: boolean;
+    acceptMarketing?: boolean;
   };
-  
-  // Подпись
-  signature?: string;
   
   // Метаданные
   totalTracks?: number;
@@ -202,12 +264,12 @@ const STORAGE_KEYS = {
   QUIZ4: 'quiz4_state',
   QUIZ5: 'quiz5_state',
   QUIZ6: 'quiz6_state',
-  QUIZ7: 'quiz7_state',
-  SIGNATURE: 'signature_data'
+  QUIZ7: 'quiz7_state'
 };
 
 const DB_NAME = 'quizDB';
 const AUDIO_DB_NAME = 'audioDB';
+const FILES_DB_NAME = 'filesDB';
 const DB_VERSION = 1;
 
 // Инициализация IndexedDB
@@ -227,6 +289,16 @@ const initDB = async () => {
     upgrade(db) {
       if (!db.objectStoreNames.contains('audio')) {
         const store = db.createObjectStore('audio', { keyPath: 'id' });
+        store.createIndex('fileName', 'fileName');
+      }
+    },
+  });
+  
+  // База для файлов (обложки, тексты)
+  filesDB.value = await openDB(FILES_DB_NAME, DB_VERSION, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains('files')) {
+        const store = db.createObjectStore('files', { keyPath: 'id' });
         store.createIndex('fileName', 'fileName');
       }
     },
@@ -260,6 +332,23 @@ const loadAudioFromDB = async (fileId: string): Promise<{ fileName: string, file
   }
 };
 
+// Загрузка файла из filesDB
+const loadFileFromDB = async (fileId: string): Promise<{ fileName: string, fileSize: number } | null> => {
+  try {
+    const stored = await filesDB.value.get('files', fileId);
+    if (stored) {
+      return {
+        fileName: stored.fileName,
+        fileSize: stored.fileSize
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error loading file from DB:', error);
+    return null;
+  }
+};
+
 // Реактивные данные
 const quiz1Data = ref<Quiz1Data | null>(null);
 const quiz2Data = ref<Quiz2Data | null>(null);
@@ -268,7 +357,6 @@ const quiz4Data = ref<Quiz4Data | null>(null);
 const quiz5Data = ref<Quiz5Data | null>(null);
 const quiz6Data = ref<Quiz6Data | null>(null);
 const quiz7Data = ref<Quiz7Data | null>(null);
-const signatureData = ref<string | null>(null);
 
 // Загрузка всех данных из IndexedDB
 const loadAllData = async () => {
@@ -282,14 +370,7 @@ const loadAllData = async () => {
     quiz6Data.value = await loadFromDB(STORAGE_KEYS.QUIZ6);
     quiz7Data.value = await loadFromDB(STORAGE_KEYS.QUIZ7);
     
-    // Загружаем подпись из localStorage (она там хранится как текст)
-    try {
-      signatureData.value = localStorage.getItem(STORAGE_KEYS.SIGNATURE);
-    } catch (error) {
-      console.error('Error loading signature:', error);
-    }
-    
-    // Дополнительно загружаем информацию о файлах из аудио БД
+    // Загружаем информацию о файлах из аудио БД
     if (quiz2Data.value) {
       // Загружаем информацию о файлах синглов
       if (quiz2Data.value.singleTracks) {
@@ -299,6 +380,7 @@ const loadAllData = async () => {
             if (audioInfo) {
               track.audioFileName = audioInfo.fileName;
               track.audioFileSize = audioInfo.fileSize;
+              track.uploaded = true;
             }
           }
         }
@@ -314,11 +396,37 @@ const loadAllData = async () => {
                 if (audioInfo) {
                   track.audioFileName = audioInfo.fileName;
                   track.audioFileSize = audioInfo.fileSize;
+                  track.uploaded = true;
                 }
               }
             }
           }
         }
+      }
+    }
+    
+    // Загружаем информацию о файлах из filesDB (обложка, тексты)
+    if (quiz3Data.value?.coverFileInfo?.fileId) {
+      const fileInfo = await loadFileFromDB(quiz3Data.value.coverFileInfo.fileId);
+      if (fileInfo) {
+        quiz3Data.value.coverFileInfo.name = fileInfo.fileName;
+        quiz3Data.value.coverFileInfo.size = fileInfo.fileSize;
+      }
+    }
+    
+    if (quiz5Data.value?.appleMusicFileInfo?.fileId) {
+      const fileInfo = await loadFileFromDB(quiz5Data.value.appleMusicFileInfo.fileId);
+      if (fileInfo) {
+        quiz5Data.value.appleMusicFileInfo.name = fileInfo.fileName;
+        quiz5Data.value.appleMusicFileInfo.size = fileInfo.fileSize;
+      }
+    }
+    
+    if (quiz5Data.value?.karaokeFileInfo?.fileId) {
+      const fileInfo = await loadFileFromDB(quiz5Data.value.karaokeFileInfo.fileId);
+      if (fileInfo) {
+        quiz5Data.value.karaokeFileInfo.name = fileInfo.fileName;
+        quiz5Data.value.karaokeFileInfo.size = fileInfo.fileSize;
       }
     }
     
@@ -329,8 +437,7 @@ const loadAllData = async () => {
       quiz4: quiz4Data.value,
       quiz5: quiz5Data.value,
       quiz6: quiz6Data.value,
-      quiz7: quiz7Data.value,
-      signature: signatureData.value ? 'present' : 'absent'
+      quiz7: quiz7Data.value
     });
     
     dataLoaded.value = true;
@@ -362,39 +469,43 @@ const summaryData = computed((): AllData => {
   // Шаг 3
   if (quiz3Data.value) {
     data.releaseInfo = quiz3Data.value.formData || {};
-    data.coverFileName = quiz3Data.value.coverFileName || '';
-    data.coverFileSize = quiz3Data.value.coverFileSize || 0;
-    data.coverFileId = quiz3Data.value.coverFileId || null;
+    if (quiz3Data.value.coverFileInfo) {
+      data.coverFileName = quiz3Data.value.coverFileInfo.name || '';
+      data.coverFileSize = quiz3Data.value.coverFileInfo.size || 0;
+      data.coverFileId = quiz3Data.value.coverFileInfo.fileId || null;
+    }
   }
   
   // Шаг 4
   if (quiz4Data.value) {
-    data.passportInfo = quiz4Data.value.formData || {};
+    data.userInfo = quiz4Data.value.formData || {};
   }
   
   // Шаг 5
   if (quiz5Data.value) {
-    data.appleMusicFileName = quiz5Data.value.appleMusicFileName || '';
-    data.appleMusicFileSize = quiz5Data.value.appleMusicFileSize || 0;
-    data.appleMusicFileId = quiz5Data.value.appleMusicFileId || null;
-    data.karaokeFileName = quiz5Data.value.karaokeFileName || '';
-    data.karaokeFileSize = quiz5Data.value.karaokeFileSize || 0;
-    data.karaokeFileId = quiz5Data.value.karaokeFileId || null;
+    data.genreInfo = quiz5Data.value.formData || {};
+    if (quiz5Data.value.appleMusicFileInfo) {
+      data.appleMusicFileName = quiz5Data.value.appleMusicFileInfo.name || '';
+      data.appleMusicFileSize = quiz5Data.value.appleMusicFileInfo.size || 0;
+      data.appleMusicFileId = quiz5Data.value.appleMusicFileInfo.fileId || null;
+    }
+    if (quiz5Data.value.karaokeFileInfo) {
+      data.karaokeFileName = quiz5Data.value.karaokeFileInfo.name || '';
+      data.karaokeFileSize = quiz5Data.value.karaokeFileInfo.size || 0;
+      data.karaokeFileId = quiz5Data.value.karaokeFileInfo.fileId || null;
+    }
   }
   
   // Шаг 6
   if (quiz6Data.value) {
     data.additionalInfo = quiz6Data.value.formData || {};
+    data.promoApplied = quiz6Data.value.promoApplied || false;
+    data.promoDiscount = quiz6Data.value.promoDiscount || 0;
   }
   
   // Шаг 7
   if (quiz7Data.value) {
     data.agreement = quiz7Data.value.formData || {};
-  }
-  
-  // Подпись
-  if (signatureData.value) {
-    data.signature = signatureData.value;
   }
   
   // Общее количество треков
@@ -420,9 +531,9 @@ const calculateTotalTracks = (data: AllData): number => {
 
 // Форматирование размера файла
 const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) return '0 Б';
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
@@ -438,31 +549,30 @@ const formatDate = (dateString?: string): string => {
   }
 };
 
-// Очистка всех данных из IndexedDB
-const clearAllDataFromDB = async () => {
-  try {
-    // Удаляем все состояния
-    const keys = [
-      STORAGE_KEYS.QUIZ1,
-      STORAGE_KEYS.QUIZ2,
-      STORAGE_KEYS.QUIZ3,
-      STORAGE_KEYS.QUIZ4,
-      STORAGE_KEYS.QUIZ5,
-      STORAGE_KEYS.QUIZ6,
-      STORAGE_KEYS.QUIZ7
-    ];
-    
-    for (const key of keys) {
-      await quizDB.value.delete('quizState', key);
+// Форматирование платформ
+const formatPlatforms = (platforms?: string[]): string => {
+  if (!platforms || platforms.length === 0) return 'Не указано';
+  return platforms.map(p => {
+    switch(p) {
+      case 'all': return 'Все площадки';
+      case 'other': return 'Другое';
+      case 'social': return 'Социальные сети';
+      case 'friends': return 'Рекомендация друзей';
+      case 'search': return 'Поиск в интернете';
+      case 'youtube': return 'YouTube';
+      case 'forums': return 'Музыкальные форумы';
+      case 'previous': return 'Ранее пользовались';
+      default: return p;
     }
-    
-    // Очищаем подпись из localStorage
-    localStorage.removeItem(STORAGE_KEYS.SIGNATURE);
-    
-    console.log('All data cleared from IndexedDB');
-  } catch (error) {
-    console.error('Error clearing data from DB:', error);
-  }
+  }).join(', ');
+};
+
+// Форматирование гражданства
+const formatCitizenship = (citizenship?: string, other?: string): string => {
+  if (!citizenship) return 'Не указано';
+  if (citizenship === 'RU') return 'Российская Федерация';
+  if (citizenship === 'other') return other || 'Другое';
+  return citizenship;
 };
 
 const goBack = () => {
@@ -515,16 +625,41 @@ const handleFinish = async () => {
     }
     
     // Проверка шага 4
-    const lastName = data.passportInfo?.lastName || '';
-    const firstName = data.passportInfo?.firstName || '';
-    const passportSeries = data.passportInfo?.passportSeries || '';
-    const passportNumber = data.passportInfo?.passportNumber || '';
-    if (!lastName || !firstName || !passportSeries || !passportNumber) {
+    const lastName = data.userInfo?.lastName || '';
+    const firstName = data.userInfo?.firstName || '';
+    const passportNumber = data.userInfo?.passportNumber || '';
+    if (!lastName || !firstName || !passportNumber) {
       errors.push('Не заполнены паспортные данные (шаг 4)');
       hasErrors = true;
     }
     
+    // Проверка шага 5
+    const hasDrugsMention = data.genreInfo?.hasDrugsMention || '';
+    if (!hasDrugsMention) {
+      errors.push('Не указано наличие упоминаний наркотических средств (шаг 5)');
+      hasErrors = true;
+    }
+    
+    const socialLinks = data.genreInfo?.socialLinks || '';
+    if (!socialLinks) {
+      errors.push('Не указаны ссылки на соцсети (шаг 5)');
+      hasErrors = true;
+    }
+    
+    // Проверка консистентности файлов текстов
+    const hasAppleMusicFile = !!data.appleMusicFileName;
+    const hasKaraokeFile = !!data.karaokeFileName;
+    if ((hasAppleMusicFile && !hasKaraokeFile) || (!hasAppleMusicFile && hasKaraokeFile)) {
+      errors.push('Для добавления текста трека необходимо прикрепить оба файла: docx и ttml (шаг 5)');
+      hasErrors = true;
+    }
+    
     // Проверка шага 6
+    if (!data.additionalInfo?.platforms || data.additionalInfo.platforms.length === 0) {
+      errors.push('Не указано, откуда узнали о нас (шаг 6)');
+      hasErrors = true;
+    }
+    
     const confirmNoRightsViolation = data.additionalInfo?.confirmNoRightsViolation || false;
     if (!confirmNoRightsViolation) {
       errors.push('Не подтверждено отсутствие нарушений прав (шаг 6)');
@@ -532,15 +667,10 @@ const handleFinish = async () => {
     }
     
     // Проверка шага 7
-    const agreementAccepted = data.agreement?.agreementAccepted || false;
-    if (!agreementAccepted) {
-      errors.push('Не приняты условия договора (шаг 7)');
-      hasErrors = true;
-    }
-    
-    // Проверка подписи
-    if (!data.signature) {
-      errors.push('Требуется подпись договора');
+    const acceptTerms = data.agreement?.acceptTerms || false;
+    const acceptPrivacy = data.agreement?.acceptPrivacy || false;
+    if (!acceptTerms || !acceptPrivacy) {
+      errors.push('Не приняты обязательные условия договора (шаг 7)');
       hasErrors = true;
     }
     
@@ -572,8 +702,8 @@ const handleFinish = async () => {
     };
     localStorage.setItem('quiz_final_submission', JSON.stringify(finalData));
     
-    // Очищаем временные данные из IndexedDB
-    await clearAllDataFromDB();
+    // ⚠️⚠️⚠️ НЕ ОЧИЩАЕМ ДАННЫЕ ИЗ INDEXEDDB!
+    // Данные остаются в IndexedDB для возможности возврата
     
     ElMessage.success({
       message: 'Все данные успешно отправлены!',
@@ -638,6 +768,8 @@ onMounted(async () => {
         <div v-for="(track, index) in summaryData.singleTracks" :key="index" class="summary_item">
           <p><strong>Сингл {{ index + 1 }}:</strong> {{ track.trackName || 'Без названия' }}</p>
           <p class="text_small">Исполнитель: {{ track.performerName || 'Не указан' }}</p>
+          <p class="text_small">Музыка: {{ track.musicAuthor || 'Не указан' }}</p>
+          <p class="text_small">Текст: {{ track.textAuthor || 'Не указан' }}</p>
           <p class="text_small" v-if="track.audioFileName">Аудио: {{ track.audioFileName }} ({{ formatFileSize(track.audioFileSize || 0) }})</p>
           <p class="text_small success" v-else-if="track.uploaded">Аудио загружено</p>
           <p class="text_small warning" v-else>Аудио не загружено</p>
@@ -651,11 +783,15 @@ onMounted(async () => {
       <div class="quiz__summary_content">
         <div v-for="(album, albumIndex) in summaryData.albums" :key="albumIndex" class="summary_item">
           <p><strong>Альбом {{ albumIndex + 1 }}:</strong> {{ album.albumName || 'Без названия' }}</p>
+          <p class="text_small">Исполнитель: {{ album.performerName || 'Не указан' }}</p>
+          <p class="text_small">Музыка: {{ album.musicAuthor || 'Не указан' }}</p>
+          <p class="text_small">Текст: {{ album.textAuthor || 'Не указан' }}</p>
           <p class="text_small">Треков: {{ album.tracks?.length || 0 }}</p>
           <div v-if="album.tracks && album.tracks.length > 0" class="summary_subitem">
             <div v-for="(track, trackIndex) in album.tracks" :key="trackIndex">
-              <p class="text_small">Трек {{ track.trackNumber }}: {{ track.trackName || 'Без названия' }}</p>
-              <p class="text_small success" v-if="track.uploaded">Аудио загружено</p>
+              <p class="text_small"><strong>Трек {{ track.trackNumber }}:</strong> {{ track.trackName || 'Без названия' }}</p>
+              <p class="text_small" v-if="track.audioFileName">Аудио: {{ track.audioFileName }} ({{ formatFileSize(track.audioFileSize || 0) }})</p>
+              <p class="text_small success" v-else-if="track.uploaded">Аудио загружено</p>
               <p class="text_small warning" v-else>Аудио не загружено</p>
             </div>
           </div>
@@ -670,9 +806,12 @@ onMounted(async () => {
         <p><strong>Артист:</strong> {{ summaryData.releaseInfo.performerName || 'Не указано' }}</p>
         <p><strong>Название релиза:</strong> {{ summaryData.releaseInfo.releaseName || 'Не указано' }}</p>
         <p><strong>Email:</strong> {{ summaryData.releaseInfo.email || 'Не указано' }}</p>
-        <p><strong>Платформы:</strong> {{ summaryData.releaseInfo.platforms?.join(', ') || 'Не указано' }}</p>
+        <p><strong>Ссылка VK/Instagram:</strong> {{ summaryData.releaseInfo.vkLink || 'Не указано' }}</p>
+        <p><strong>Платформы:</strong> {{ formatPlatforms(summaryData.releaseInfo.platforms) }}</p>
+        <p v-if="summaryData.releaseInfo.otherPlatform"><strong>Другие платформы:</strong> {{ summaryData.releaseInfo.otherPlatform }}</p>
         <p><strong>Дата релиза:</strong> {{ formatDate(summaryData.releaseInfo.releaseDate) }}</p>
         <p><strong>Мат:</strong> {{ summaryData.releaseInfo.hasProfanity === 'yes' ? 'Да' : 'Нет' }}</p>
+        <p v-if="summaryData.releaseInfo.hasProfanity === 'yes'"><strong>Треки с матом:</strong> {{ summaryData.releaseInfo.profanityTracks }}</p>
         <p v-if="summaryData.coverFileName">
           <strong>Обложка:</strong> {{ summaryData.coverFileName }} ({{ formatFileSize(summaryData.coverFileSize || 0) }})
         </p>
@@ -680,23 +819,46 @@ onMounted(async () => {
       </div>
     </div>
     
-    <!-- Шаг 4: Паспортные данные -->
-    <div class="quiz__summary_section" v-if="summaryData.passportInfo">
-      <h6>Шаг 4: Паспортные данные</h6>
+    <!-- Шаг 4: Данные пользователя -->
+    <div class="quiz__summary_section" v-if="summaryData.userInfo">
+      <h6>Шаг 4: Данные пользователя</h6>
       <div class="quiz__summary_content">
-        <p><strong>Фамилия:</strong> {{ summaryData.passportInfo.lastName || 'Не указано' }}</p>
-        <p><strong>Имя:</strong> {{ summaryData.passportInfo.firstName || 'Не указано' }}</p>
-        <p><strong>Отчество:</strong> {{ summaryData.passportInfo.middleName || 'Не указано' }}</p>
-        <p><strong>Дата рождения:</strong> {{ formatDate(summaryData.passportInfo.birthDate) }}</p>
-        <p><strong>Паспорт:</strong> {{ summaryData.passportInfo.passportSeries || '' }} {{ summaryData.passportInfo.passportNumber || '' }}</p>
-        <p><strong>Телефон:</strong> {{ summaryData.passportInfo.phone || 'Не указано' }}</p>
+        <p><strong>Тип лица:</strong> {{ summaryData.userInfo.userType === 'individual' ? 'Физическое лицо' : 'Индивидуальный предприниматель' }}</p>
+        
+        <!-- Данные ИП -->
+        <template v-if="summaryData.userInfo.userType === 'entrepreneur'">
+          <p><strong>Юридический адрес:</strong> {{ summaryData.userInfo.legalAddress || 'Не указано' }}</p>
+          <p><strong>ИНН:</strong> {{ summaryData.userInfo.inn || 'Не указано' }}</p>
+          <p><strong>ОГРН:</strong> {{ summaryData.userInfo.ogrn || 'Не указано' }}</p>
+          <p><strong>Расчетный счет:</strong> {{ summaryData.userInfo.accountNumber || 'Не указано' }}</p>
+          <p><strong>Банк:</strong> {{ summaryData.userInfo.bankName || 'Не указано' }}</p>
+          <p><strong>ИНН банка:</strong> {{ summaryData.userInfo.bankInn || 'Не указано' }}</p>
+          <p><strong>БИК банка:</strong> {{ summaryData.userInfo.bankBik || 'Не указано' }}</p>
+          <p><strong>Корр. счет:</strong> {{ summaryData.userInfo.correspondentAccount || 'Не указано' }}</p>
+          <p><strong>Юр. адрес банка:</strong> {{ summaryData.userInfo.bankLegalAddress || 'Не указано' }}</p>
+        </template>
+        
+        <!-- Общие данные -->
+        <p><strong>Гражданство:</strong> {{ formatCitizenship(summaryData.userInfo.citizenship, summaryData.userInfo.otherCitizenship) }}</p>
+        <p><strong>Фамилия:</strong> {{ summaryData.userInfo.lastName || 'Не указано' }}</p>
+        <p><strong>Имя:</strong> {{ summaryData.userInfo.firstName || 'Не указано' }}</p>
+        <p><strong>Отчество:</strong> {{ summaryData.userInfo.middleName || 'Не указано' }}</p>
+        <p><strong>Паспорт:</strong> {{ summaryData.userInfo.passportNumber || 'Не указано' }}</p>
+        <p><strong>Кем выдан:</strong> {{ summaryData.userInfo.passportIssuedBy || 'Не указано' }}</p>
+        <p><strong>Дата выдачи:</strong> {{ formatDate(summaryData.userInfo.passportIssueDate) }}</p>
+        <p><strong>Адрес регистрации:</strong> {{ summaryData.userInfo.registrationAddress || 'Не указано' }}</p>
       </div>
     </div>
     
-    <!-- Шаг 5: Файлы текстов -->
-    <div class="quiz__summary_section" v-if="summaryData.appleMusicFileName || summaryData.karaokeFileName">
-      <h6>Шаг 5: Файлы текстов</h6>
+    <!-- Шаг 5: Жанр и текст -->
+    <div class="quiz__summary_section" v-if="summaryData.genreInfo">
+      <h6>Шаг 5: Жанр и текст</h6>
       <div class="quiz__summary_content">
+        <p><strong>Жанр:</strong> {{ summaryData.genreInfo.genre || 'Не указано' }}</p>
+        <p><strong>Секунды для TikTok:</strong> {{ summaryData.genreInfo.tiktokStartSeconds || 'Не указано' }}</p>
+        <p><strong>Упоминание наркотиков:</strong> {{ summaryData.genreInfo.hasDrugsMention === 'yes' ? 'Да' : 'Нет' }}</p>
+        <p v-if="summaryData.genreInfo.hasDrugsMention === 'yes'"><strong>Треки:</strong> {{ summaryData.genreInfo.drugsTracks }}</p>
+        
         <p v-if="summaryData.appleMusicFileName">
           <strong>Apple Music текст:</strong> {{ summaryData.appleMusicFileName }} 
           ({{ formatFileSize(summaryData.appleMusicFileSize || 0) }})
@@ -705,6 +867,12 @@ onMounted(async () => {
           <strong>Караоке файл:</strong> {{ summaryData.karaokeFileName }} 
           ({{ formatFileSize(summaryData.karaokeFileSize || 0) }})
         </p>
+        
+        <p><strong>Ссылки Apple Music:</strong> {{ summaryData.genreInfo.appleMusicLinks || 'Не указано' }}</p>
+        <p><strong>Ссылки Spotify:</strong> {{ summaryData.genreInfo.spotifyLinks || 'Не указано' }}</p>
+        <p><strong>Ссылки VK:</strong> {{ summaryData.genreInfo.vkLinks || 'Не указано' }}</p>
+        <p><strong>Ссылки Yandex Music:</strong> {{ summaryData.genreInfo.yandexMusicLinks || 'Не указано' }}</p>
+        <p><strong>Ссылки на соцсети:</strong> {{ summaryData.genreInfo.socialLinks || 'Не указано' }}</p>
       </div>
     </div>
     
@@ -712,51 +880,48 @@ onMounted(async () => {
     <div class="quiz__summary_section" v-if="summaryData.additionalInfo">
       <h6>Шаг 6: Дополнительная информация</h6>
       <div class="quiz__summary_content">
+        <p><strong>Откуда узнали:</strong> {{ formatPlatforms(summaryData.additionalInfo.platforms) }}</p>
+        <p v-if="summaryData.additionalInfo.otherPlatform"><strong>Другое:</strong> {{ summaryData.additionalInfo.otherPlatform }}</p>
+        <p><strong>Права на инструменты:</strong></p>
+        <pre class="text_small">{{ summaryData.additionalInfo.rightsInfo || 'Не указано' }}</pre>
+        <p><strong>Ссылка на договор:</strong> {{ summaryData.additionalInfo.rightsContractLink || 'Не указано' }}</p>
+        <p><strong>Доп. комментарии:</strong> {{ summaryData.additionalInfo.additionalComments || 'Не указано' }}</p>
+        <p><strong>Промо-план:</strong> {{ summaryData.additionalInfo.promoPlan || 'Не указано' }}</p>
+        <p><strong>Bandlink:</strong> {{ summaryData.additionalInfo.bandlinkUrl || 'Не указано' }}</p>
+        <p><strong>Промокод:</strong> {{ summaryData.additionalInfo.promoCode || 'Не указано' }}</p>
+        <p v-if="summaryData.promoApplied"><strong>Скидка по промокоду:</strong> {{ summaryData.promoDiscount }}%</p>
+        <p><strong>Использовано бонусов:</strong> {{ summaryData.additionalInfo.usedBonuses || 0 }}</p>
         <p>
           <strong>Подтверждение прав:</strong> 
           <span :class="summaryData.additionalInfo.confirmNoRightsViolation ? 'success' : 'warning'">
             {{ summaryData.additionalInfo.confirmNoRightsViolation ? 'Да' : 'Нет' }}
           </span>
         </p>
-        <p>
-          <strong>Оригинальный контент:</strong> 
-          <span :class="summaryData.additionalInfo.confirmOriginalContent ? 'success' : 'warning'">
-            {{ summaryData.additionalInfo.confirmOriginalContent ? 'Да' : 'Нет' }}
-          </span>
-        </p>
-        <p v-if="summaryData.additionalInfo.additionalNotes">
-          <strong>Примечания:</strong> {{ summaryData.additionalInfo.additionalNotes }}
-        </p>
       </div>
     </div>
     
-    <!-- Шаг 7: Соглашение -->
+    <!-- Шаг 7: Договор -->
     <div class="quiz__summary_section" v-if="summaryData.agreement">
-      <h6>Шаг 7: Соглашение</h6>
+      <h6>Шаг 7: Договор</h6>
       <div class="quiz__summary_content">
         <p>
-          <strong>Договор принят:</strong> 
-          <span :class="summaryData.agreement.agreementAccepted ? 'success' : 'warning'">
-            {{ summaryData.agreement.agreementAccepted ? 'Да' : 'Нет' }}
+          <strong>Условия оферты:</strong> 
+          <span :class="summaryData.agreement.acceptTerms ? 'success' : 'warning'">
+            {{ summaryData.agreement.acceptTerms ? 'Принято' : 'Не принято' }}
           </span>
         </p>
-        <p v-if="summaryData.agreement.agreementDate">
-          <strong>Дата:</strong> {{ formatDate(summaryData.agreement.agreementDate) }}
+        <p>
+          <strong>Обработка персональных данных:</strong> 
+          <span :class="summaryData.agreement.acceptPrivacy ? 'success' : 'warning'">
+            {{ summaryData.agreement.acceptPrivacy ? 'Согласие дано' : 'Не дано' }}
+          </span>
         </p>
-      </div>
-    </div>
-    
-    <!-- Подпись -->
-    <div class="quiz__summary_section" v-if="summaryData.signature">
-      <h6>Подпись договора</h6>
-      <div class="quiz__summary_content">
-        <p class="success">Подпись предоставлена</p>
-      </div>
-    </div>
-    <div class="quiz__summary_section" v-else>
-      <h6>Подпись договора</h6>
-      <div class="quiz__summary_content">
-        <p class="warning">Подпись не найдена</p>
+        <p>
+          <strong>Рекламные рассылки:</strong> 
+          <span :class="summaryData.agreement.acceptMarketing ? 'success' : ''">
+            {{ summaryData.agreement.acceptMarketing ? 'Согласие дано' : 'Не дано' }}
+          </span>
+        </p>
       </div>
     </div>
     
@@ -791,7 +956,7 @@ onMounted(async () => {
     
     <div class="quiz__form_hint">
       <p class="text_small">
-        Нажмите кнопку выше для отправки всех данных из всех форм, включая файлы и подпись.
+        Нажмите кнопку выше для отправки всех данных из всех форм, включая файлы.
         Перед отправкой проверьте все данные в сводке.
       </p>
     </div>
@@ -900,6 +1065,16 @@ onMounted(async () => {
   background-color: var(--bg-light);
   border-radius: 4px;
   text-align: center;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background-color: var(--bg-light);
+  padding: 8px;
+  border-radius: 4px;
+  margin-top: 5px;
+  font-family: inherit;
 }
 
 @media (max-width: 767px) {
