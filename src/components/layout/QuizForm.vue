@@ -52,6 +52,9 @@ interface AlbumData {
 
 const currentStep = ref(1);
 
+// Референсы для дочерних компонентов
+const quiz1Ref = ref<InstanceType<typeof Quiz1> | null>(null);
+
 // Глобальное состояние
 const quizState = reactive({
   singleCount: 0,
@@ -213,7 +216,6 @@ const handleGoBack = () => {
 
 const handleFinish = () => {
   ElMessage.success('Процесс загрузки завершен!');
-  // Здесь можно добавить логику завершения процесса
   console.log('Данные для отправки:', {
     singleCount: quizState.singleCount,
     albumCount: quizState.albumCount,
@@ -225,8 +227,33 @@ const handleFinish = () => {
   });
 };
 
-// Экспортируем состояние и методы для дочерних компонентов
+// Метод для полной очистки при рестарте
+const fullReset = async () => {
+  console.log('🔄 Полная очистка QuizForm');
+  
+  // Сбрасываем шаг на 1
+  currentStep.value = 1;
+  
+  // Сбрасываем глобальное состояние
+  quizState.singleCount = 0;
+  quizState.albumCount = 0;
+  quizState.clipCount = 0;
+  quizState.cardCount = 0;
+  quizState.singleTracks = [];
+  quizState.albumTracks = [];
+  totalSum.value = 0;
+  
+  // Сбрасываем Quiz1 если он существует
+  if (quiz1Ref.value) {
+    await quiz1Ref.value.fullReset();
+  }
+  
+  console.log('✅ Полная очистка QuizForm завершена');
+};
+
+// Экспортируем методы и состояние для родителя
 defineExpose({
+  fullReset,
   quizState,
   totalSum,
   updateCounts,
@@ -250,6 +277,7 @@ defineExpose({
     <!-- Шаг 1 -->
     <Quiz1 
       v-if="currentStep === 1"
+      ref="quiz1Ref"
       @go-back="handleGoBack"
       @go-next="goToStep(2)"
     />

@@ -23,6 +23,9 @@ const quizDB = ref<any>(null);
 const audioDB = ref<any>(null);
 const dataLoaded = ref(false);
 
+// Состояние попапа
+const isPopupVisible = ref(false);
+
 // Запрещенные слова
 const forbiddenWords = ['нет', 'такой', 'информации', 'не', 'знаю', 'откуда'];
 
@@ -405,7 +408,7 @@ const loadStateFromDB = async () => {
 const isReadyForNextStep = computed(() => {
   // Проверяем все синглы
   const allSinglesComplete = singleTracks.value.every((track, index) => 
-    track.trackName.trim().split(/\s+/).length >= 2 &&
+    track.trackName.trim().length >= 1 && // минимум 1 символ
     track.audioFile !== null &&
     track.uploaded &&
     track.performerName.trim().split(/\s+/).length >= 3 &&
@@ -418,10 +421,10 @@ const isReadyForNextStep = computed(() => {
 
   // Проверяем все альбомы
   const allAlbumsComplete = albums.value.every((album, albumIndex) =>
-    album.albumName.trim().split(/\s+/).length >= 3 &&
+    album.albumName.trim().length >= 1 && // минимум 1 символ
     album.tracks.length > 0 &&
     album.tracks.every((track, trackIndex) =>
-      track.trackName.trim().split(/\s+/).length >= 2 &&
+      track.trackName.trim().length >= 1 && // минимум 1 символ
       track.audioFile !== null &&
       track.uploaded &&
       track.performerName.trim().split(/\s+/).length >= 3 &&
@@ -520,8 +523,8 @@ const validateSingleTrackName = (trackIndex: number) => {
   
   if (!value.trim()) {
     error = 'Название трека обязательно для заполнения';
-  } else if (!checkMinWords(value, 2)) {
-    error = 'Название трека должно содержать минимум 2 слова';
+  } else if (value.trim().length < 1) {
+    error = 'Название трека должно содержать минимум 1 символ';
   }
   
   singleErrors.value[trackIndex].trackName = error;
@@ -605,8 +608,8 @@ const validateAlbumTrackTrackName = (albumIndex: number, trackIndex: number) => 
   
   if (!value.trim()) {
     error = 'Название трека обязательно для заполнения';
-  } else if (!checkMinWords(value, 2)) {
-    error = 'Название трека должно содержать минимум 2 слова';
+  } else if (value.trim().length < 1) {
+    error = 'Название трека должно содержать минимум 1 символ';
   }
   
   albumErrors.value[albumIndex].tracks[trackIndex].trackName = error;
@@ -620,8 +623,8 @@ const validateAlbumName = (albumIndex: number) => {
   
   if (!value.trim()) {
     error = 'Название альбома обязательно для заполнения';
-  } else if (!checkMinWords(value, 3)) {
-    error = 'Название альбома должно содержать минимум 3 слова';
+  } else if (value.trim().length < 1) {
+    error = 'Название альбома должно содержать минимум 1 символ';
   } else if (checkForbiddenWords(value)) {
     error = 'В поле "Название альбома" запрещено использовать слова: "нет", "такой", "информации", "не", "знаю", "откуда"';
   }
@@ -991,6 +994,17 @@ const validateAlbumNameOnChange = (albumIndex: number) => {
   saveStateToDB();
 };
 
+// --- Обработчики попапа ---
+const openPopup = () => {
+  isPopupVisible.value = true;
+  document.body.style.overflow = 'hidden';
+};
+
+const closePopup = () => {
+  isPopupVisible.value = false;
+  document.body.style.overflow = '';
+};
+
 const goBack = async () => {
   if (showImportantBlock.value) {
     showImportantBlock.value = false;
@@ -1073,10 +1087,46 @@ document.addEventListener('visibilitychange', async () => {
 <div class="quiz__form quiz__form_two" v-if="!showImportantBlock">
   <div class="quiz__form_top">
     <h4 class="quiz__form_head">Загрузка синглов и альбомов</h4>
-    <button class="quiz__additional button__second button">
+    <button 
+      class="quiz__additional button__second button" 
+      @click="openPopup"
+    >
       <span>Дополнительная информация</span>
     </button>
   </div>
+  
+  <!-- Попап с дополнительной информацией -->
+  <Teleport to="body">
+    <Transition name="popup-fade">
+      <div v-if="isPopupVisible" class="quiz-popup__overlay" @click.self="closePopup">
+        <div class="quiz-popup">
+          <button class="quiz-popup__close" @click="closePopup">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="quiz-popup__content">
+            <div class="quiz-popup__body">
+              <!-- Новый текст для попапа -->
+              <div class="quiz-popup__instruction-block">
+                <p>Выделите и выберите все нужные синглы *</p>
+                <p>?</p>
+                <p>Назовите файл трека по образцу: «# трека. Артист — Название».</p>
+                <p>Например «1. КРЕСТ — SHiNE (prod. by CLONNEX)»</p>
+                <p>Формат только .wav, разрядность только 16 bit</p>
+              </div>
+            </div>
+            
+            <div class="quiz-popup__footer">
+              <button class="quiz-popup__button button__black button" @click="closePopup">
+                <span>Понятно</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
   
   <div class="quiz__form_two_empty">
     <div class="quiz__form_two_lists">
@@ -1486,6 +1536,18 @@ document.addEventListener('visibilitychange', async () => {
 </template>
 
 <style lang="css" scoped>
+/* Стили для верхней части */
+.quiz__form_top {
+  display: flex;
+  width: 100%;
+  padding: 0 0 40px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 20px;
+}
+.quiz__additional {
+  text-transform: uppercase;
+}
 .quiz__section_title,
 .quiz__album_item_title {
   padding: 20px 0 10px;
@@ -1556,5 +1618,140 @@ document.addEventListener('visibilitychange', async () => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+/* Стили для попапа как в Quiz1 */
+.quiz-popup__overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 80px 20px 20px;
+  backdrop-filter: blur(5px);
+}
+
+.quiz-popup {
+  width: 100%;
+  max-width: 600px;
+  position: relative;
+  background-color: var(--bg);
+}
+
+.quiz-popup__close {
+  display: flex;
+  padding: 8px;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0;
+  left: -60px;
+  background: var(--bg);
+  cursor: pointer;
+  color: var(--text);
+  border: none;
+  z-index: 1002;
+}
+
+.quiz-popup__content {
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding: 30px;
+}
+
+.quiz-popup__body {
+  padding: 0 0 20px;
+}
+
+.quiz-popup__instruction-block {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #333;
+}
+.quiz-popup__instruction-block p {
+  margin-bottom: 10px;
+}
+.quiz-popup__instruction-block p:first-child {
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.quiz-popup__instruction-block p:nth-child(2) {
+  font-size: 24px;
+  text-align: center;
+  margin: 15px 0;
+}
+
+.quiz-popup__footer {
+  padding: 20px 0 0;
+  text-align: center;
+}
+
+/* Анимации попапа */
+.popup-fade-enter-active,
+.popup-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.popup-fade-enter-from,
+.popup-fade-leave-to {
+  opacity: 0;
+}
+
+/* Стили для скролла попапа */
+.quiz-popup__content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.quiz-popup__content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.quiz-popup__content::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.quiz-popup__content::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Адаптивность для попапа */
+@media (max-width: 767px) {
+  .quiz-popup__close {
+    top: -60px;
+    left: auto;
+    right: 0;
+    background: var(--bg);
+  }
+  
+  .quiz-popup__content {
+    padding: 20px;
+  }
+  
+  .quiz__form_top {
+    padding: 0 0 20px;
+  }
+  
+  .quiz-popup__button {
+    min-width: 160px;
+    padding: 12px 24px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .quiz-popup__close {
+    top: -50px;
+  }
+  
+  .quiz-popup__content {
+    padding: 15px;
+  }
 }
 </style>

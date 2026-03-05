@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import ClipSVG from "@/uikit/icon/ClipSVG.vue";
 import CloseSVG from "@/uikit/icon/CloseSVG.vue";
-import { ElInput, ElSelect, ElOption } from 'element-plus';
+import { ElInput, ElSelect, ElOption, ElMessage } from 'element-plus';
 import { openDB } from 'idb';
 
 const emit = defineEmits<{
@@ -43,9 +43,18 @@ interface Errors {
 // Ключи для хранения
 const STORAGE_KEY = 'quiz5_state';
 const DB_NAME = 'quizDB';
+const AUDIO_DB_NAME = 'audioDB'; // Оставим для совместимости, хотя тут аудио нет
 const DB_VERSION = 1;
 
+// Локальные состояния
+const isLoading = ref(true);
+const dataLoaded = ref(false);
+
+// Базы данных
 const quizDB = ref<any>(null);
+const audioDB = ref<any>(null); // Оставим для совместимости
+
+let saveTimeout: NodeJS.Timeout | null = null;
 
 const formData = ref<FormData>({
   genre: '',
@@ -95,32 +104,40 @@ const karaokeFileName = ref('');
 const karaokeFileSize = ref(0);
 const karaokeFileId = ref<string | null>(null);
 
-// Инициализация IndexedDB
+// Инициализация IndexedDB (как в Quiz2)
 const initDB = async () => {
+  // База для текстовых данных состояний
   quizDB.value = await openDB(DB_NAME, DB_VERSION, {
     upgrade(db) {
       if (!db.objectStoreNames.contains('quizState')) {
         const store = db.createObjectStore('quizState', { keyPath: 'id' });
         store.createIndex('timestamp', 'timestamp');
       }
-      if (!db.objectStoreNames.contains('textFiles')) {
-        const textStore = db.createObjectStore('textFiles', { keyPath: 'id' });
-        textStore.createIndex('fileName', 'fileName');
+    },
+  });
+  
+  // База для файлов (как в Quiz2 для аудио, но теперь для текстовых файлов)
+  audioDB.value = await openDB(AUDIO_DB_NAME, DB_VERSION, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains('audio')) { // Назовем так для совместимости с Quiz2
+        const store = db.createObjectStore('audio', { keyPath: 'id' });
+        store.createIndex('fileName', 'fileName');
       }
     },
   });
 };
 
-// Сохранение файла в IndexedDB
+// Сохранение файла в IndexedDB (как в Quiz2)
 const saveFileToDB = async (file: File, fileId: string): Promise<void> => {
   try {
     const blob = new Blob([file], { type: file.type });
-    await quizDB.value.put('textFiles', {
+    await audioDB.value.put('audio', {
       id: fileId,
       fileName: file.name,
       fileSize: file.size,
       fileType: file.type,
-      data: blob
+      data: blob,
+      timestamp: Date.now()
     });
     console.log(`File saved to DB with ID: ${fileId}`);
   } catch (error) {
@@ -129,10 +146,10 @@ const saveFileToDB = async (file: File, fileId: string): Promise<void> => {
   }
 };
 
-// Загрузка файла из IndexedDB
+// Загрузка файла из IndexedDB (как в Quiz2)
 const loadFileFromDB = async (fileId: string): Promise<{ file: File, fileName: string, fileSize: number } | null> => {
   try {
-    const stored = await quizDB.value.get('textFiles', fileId);
+    const stored = await audioDB.value.get('audio', fileId);
     if (stored) {
       const file = new File([stored.data], stored.fileName, { type: stored.fileType });
       return {
@@ -148,22 +165,17 @@ const loadFileFromDB = async (fileId: string): Promise<{ file: File, fileName: s
   }
 };
 
-// Удаление файла из IndexedDB
+// Удаление файла из IndexedDB (как в Quiz2)
 const removeFileFromDB = async (fileId: string) => {
   try {
-    await quizDB.value.delete('textFiles', fileId);
+    await audioDB.value.delete('audio', fileId);
     console.log(`File removed from DB with ID: ${fileId}`);
   } catch (error) {
     console.error('Error removing file from DB:', error);
   }
 };
 
-// Генерация ID для файла
-const generateFileId = (prefix: string): string => {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-};
-
-// Сохранение состояния в IndexedDB
+// Сохранение состояния в IndexedDB (как в Quiz2)
 const saveStateToDB = async () => {
   try {
     const stateToSave = {
@@ -177,14 +189,18 @@ const saveStateToDB = async () => {
         spotifyLinks: formData.value.spotifyLinks,
         vkLinks: formData.value.vkLinks,
         yandexMusicLinks: formData.value.yandexMusicLinks,
-        socialLinks: formData.value.socialLinks,
-        appleMusicFileId: appleMusicFileId.value,
-        karaokeFileId: karaokeFileId.value
+        socialLinks: formData.value.socialLinks
       },
-      appleMusicFileName: appleMusicFileName.value,
-      appleMusicFileSize: appleMusicFileSize.value,
-      karaokeFileName: karaokeFileName.value,
-      karaokeFileSize: karaokeFileSize.value,
+      appleMusicFileInfo: appleMusicFileId.value ? {
+        name: appleMusicFileName.value,
+        size: appleMusicFileSize.value,
+        fileId: appleMusicFileId.value
+      } : null,
+      karaokeFileInfo: karaokeFileId.value ? {
+        name: karaokeFileName.value,
+        size: karaokeFileSize.value,
+        fileId: karaokeFileId.value
+      } : null,
       timestamp: Date.now()
     };
     
@@ -195,72 +211,75 @@ const saveStateToDB = async () => {
   }
 };
 
-// Загрузка состояния из IndexedDB
+// Загрузка состояния из IndexedDB (как в Quiz2)
 const loadStateFromDB = async () => {
   try {
+    await initDB();
+    
     const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
+    
     if (savedState) {
       console.log('Loading from IndexedDB:', savedState);
       
       // Восстанавливаем основные данные формы
-      formData.value = {
-        genre: savedState.formData.genre || '',
-        tiktokStartSeconds: savedState.formData.tiktokStartSeconds || '',
-        appleMusicTextFile: null,
-        hasDrugsMention: savedState.formData.hasDrugsMention || '',
-        drugsTracks: savedState.formData.drugsTracks || '',
-        karaokeFile: null,
-        appleMusicLinks: savedState.formData.appleMusicLinks || '',
-        spotifyLinks: savedState.formData.spotifyLinks || '',
-        vkLinks: savedState.formData.vkLinks || '',
-        yandexMusicLinks: savedState.formData.yandexMusicLinks || '',
-        socialLinks: savedState.formData.socialLinks || ''
-      };
+      if (savedState.formData) {
+        formData.value.genre = savedState.formData.genre || '';
+        formData.value.tiktokStartSeconds = savedState.formData.tiktokStartSeconds || '';
+        formData.value.hasDrugsMention = savedState.formData.hasDrugsMention || '';
+        formData.value.drugsTracks = savedState.formData.drugsTracks || '';
+        formData.value.appleMusicLinks = savedState.formData.appleMusicLinks || '';
+        formData.value.spotifyLinks = savedState.formData.spotifyLinks || '';
+        formData.value.vkLinks = savedState.formData.vkLinks || '';
+        formData.value.yandexMusicLinks = savedState.formData.yandexMusicLinks || '';
+        formData.value.socialLinks = savedState.formData.socialLinks || '';
+      }
       
-      // Восстанавливаем информацию о файлах
-      appleMusicFileName.value = savedState.appleMusicFileName || '';
-      appleMusicFileSize.value = savedState.appleMusicFileSize || 0;
-      appleMusicFileId.value = savedState.formData.appleMusicFileId || null;
-      
-      karaokeFileName.value = savedState.karaokeFileName || '';
-      karaokeFileSize.value = savedState.karaokeFileSize || 0;
-      karaokeFileId.value = savedState.formData.karaokeFileId || null;
-      
-      // Загружаем файлы из IndexedDB если есть ID
-      if (appleMusicFileId.value) {
-        const fileData = await loadFileFromDB(appleMusicFileId.value);
-        if (fileData) {
-          formData.value.appleMusicTextFile = fileData.file;
+      // Восстанавливаем Apple Music файл
+      if (savedState.appleMusicFileInfo) {
+        const fileInfo = savedState.appleMusicFileInfo;
+        appleMusicFileName.value = fileInfo.name || '';
+        appleMusicFileSize.value = fileInfo.size || 0;
+        appleMusicFileId.value = fileInfo.fileId || null;
+        
+        if (appleMusicFileId.value) {
+          const fileData = await loadFileFromDB(appleMusicFileId.value);
+          if (fileData) {
+            formData.value.appleMusicTextFile = fileData.file;
+            console.log('Apple Music file loaded');
+          }
         }
       }
       
-      if (karaokeFileId.value) {
-        const fileData = await loadFileFromDB(karaokeFileId.value);
-        if (fileData) {
-          formData.value.karaokeFile = fileData.file;
+      // Восстанавливаем Karaoke файл
+      if (savedState.karaokeFileInfo) {
+        const fileInfo = savedState.karaokeFileInfo;
+        karaokeFileName.value = fileInfo.name || '';
+        karaokeFileSize.value = fileInfo.size || 0;
+        karaokeFileId.value = fileInfo.fileId || null;
+        
+        if (karaokeFileId.value) {
+          const fileData = await loadFileFromDB(karaokeFileId.value);
+          if (fileData) {
+            formData.value.karaokeFile = fileData.file;
+            console.log('Karaoke file loaded');
+          }
         }
       }
     }
+    
+    validateFileConsistency();
+    dataLoaded.value = true;
+    
   } catch (error) {
     console.error('Error loading state from IndexedDB:', error);
+  } finally {
+    isLoading.value = false;
   }
 };
 
-// Очистка состояния в IndexedDB
-const clearStateFromDB = async () => {
-  try {
-    // Удаляем файлы если есть
-    if (appleMusicFileId.value) {
-      await removeFileFromDB(appleMusicFileId.value);
-    }
-    if (karaokeFileId.value) {
-      await removeFileFromDB(karaokeFileId.value);
-    }
-    await quizDB.value.delete('quizState', STORAGE_KEY);
-    console.log('State cleared from IndexedDB');
-  } catch (error) {
-    console.error('Error clearing state from IndexedDB:', error);
-  }
+// Генерация ID для файла (как в Quiz2)
+const generateFileId = (type: 'apple' | 'karaoke'): string => {
+  return `${type}-${Date.now()}-${Math.random()}`;
 };
 
 // Проверка всех обязательных полей
@@ -449,7 +468,7 @@ const validateField = (fieldName: keyof FormData) => {
   }
   
   validateFileConsistency();
-  saveStateToDB();
+  debouncedSave();
 };
 
 const validateFileConsistency = () => {
@@ -519,7 +538,14 @@ const goBack = () => {
 const goNext = async () => {
   if (validateForm()) {
     // Очищаем состояние после успешного завершения
-    await clearStateFromDB();
+    if (appleMusicFileId.value) {
+      await removeFileFromDB(appleMusicFileId.value);
+    }
+    if (karaokeFileId.value) {
+      await removeFileFromDB(karaokeFileId.value);
+    }
+    await quizDB.value.delete('quizState', STORAGE_KEY);
+    
     emit('go-next', formData.value);
   }
 };
@@ -537,23 +563,32 @@ const handleAppleMusicFileChange = async (event: Event) => {
   if (input.files && input.files[0]) {
     const file = input.files[0];
     
-    // Удаляем старый файл если был
-    if (appleMusicFileId.value) {
-      await removeFileFromDB(appleMusicFileId.value);
+    try {
+      // Генерируем ID для файла
+      const fileId = generateFileId('apple');
+      
+      // Удаляем старый файл если был
+      if (appleMusicFileId.value) {
+        await removeFileFromDB(appleMusicFileId.value);
+      }
+      
+      // Сохраняем в IndexedDB
+      await saveFileToDB(file, fileId);
+      
+      formData.value.appleMusicTextFile = file;
+      appleMusicFileName.value = file.name;
+      appleMusicFileSize.value = file.size;
+      appleMusicFileId.value = fileId;
+      
+      validateField('appleMusicTextFile');
+      validateFileConsistency();
+      await saveStateToDB();
+      
+      ElMessage.success('Файл успешно загружен');
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      ElMessage.error('Ошибка при загрузке файла');
     }
-    
-    // Генерируем ID и сохраняем в IndexedDB
-    const fileId = generateFileId('apple-music');
-    await saveFileToDB(file, fileId);
-    
-    formData.value.appleMusicTextFile = file;
-    appleMusicFileName.value = file.name;
-    appleMusicFileSize.value = file.size;
-    appleMusicFileId.value = fileId;
-    
-    validateField('appleMusicTextFile');
-    validateFileConsistency();
-    await saveStateToDB();
   }
 };
 
@@ -562,23 +597,32 @@ const handleKaraokeFileChange = async (event: Event) => {
   if (input.files && input.files[0]) {
     const file = input.files[0];
     
-    // Удаляем старый файл если был
-    if (karaokeFileId.value) {
-      await removeFileFromDB(karaokeFileId.value);
+    try {
+      // Генерируем ID для файла
+      const fileId = generateFileId('karaoke');
+      
+      // Удаляем старый файл если был
+      if (karaokeFileId.value) {
+        await removeFileFromDB(karaokeFileId.value);
+      }
+      
+      // Сохраняем в IndexedDB
+      await saveFileToDB(file, fileId);
+      
+      formData.value.karaokeFile = file;
+      karaokeFileName.value = file.name;
+      karaokeFileSize.value = file.size;
+      karaokeFileId.value = fileId;
+      
+      validateField('karaokeFile');
+      validateFileConsistency();
+      await saveStateToDB();
+      
+      ElMessage.success('Файл успешно загружен');
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      ElMessage.error('Ошибка при загрузке файла');
     }
-    
-    // Генерируем ID и сохраняем в IndexedDB
-    const fileId = generateFileId('karaoke');
-    await saveFileToDB(file, fileId);
-    
-    formData.value.karaokeFile = file;
-    karaokeFileName.value = file.name;
-    karaokeFileSize.value = file.size;
-    karaokeFileId.value = fileId;
-    
-    validateField('karaokeFile');
-    validateFileConsistency();
-    await saveStateToDB();
   }
 };
 
@@ -625,20 +669,28 @@ const handleDrop = async (event: DragEvent) => {
         return;
       }
       
-      // Удаляем старый файл если был
-      if (appleMusicFileId.value) {
-        await removeFileFromDB(appleMusicFileId.value);
+      try {
+        const fileId = generateFileId('apple');
+        
+        if (appleMusicFileId.value) {
+          await removeFileFromDB(appleMusicFileId.value);
+        }
+        
+        await saveFileToDB(file, fileId);
+        
+        formData.value.appleMusicTextFile = file;
+        appleMusicFileName.value = file.name;
+        appleMusicFileSize.value = file.size;
+        appleMusicFileId.value = fileId;
+        errors.value.appleMusicTextFile = '';
+        
+        await saveStateToDB();
+        ElMessage.success('Файл успешно загружен');
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        ElMessage.error('Ошибка при загрузке файла');
       }
       
-      // Генерируем ID и сохраняем в IndexedDB
-      const fileId = generateFileId('apple-music');
-      await saveFileToDB(file, fileId);
-      
-      formData.value.appleMusicTextFile = file;
-      appleMusicFileName.value = file.name;
-      appleMusicFileSize.value = file.size;
-      appleMusicFileId.value = fileId;
-      errors.value.appleMusicTextFile = '';
     } else if (target.classList.contains('karaoke-upload')) {
       karaokeDragOver.value = false;
       const allowedExtensions = ['.ttml'];
@@ -655,24 +707,30 @@ const handleDrop = async (event: DragEvent) => {
         return;
       }
       
-      // Удаляем старый файл если был
-      if (karaokeFileId.value) {
-        await removeFileFromDB(karaokeFileId.value);
+      try {
+        const fileId = generateFileId('karaoke');
+        
+        if (karaokeFileId.value) {
+          await removeFileFromDB(karaokeFileId.value);
+        }
+        
+        await saveFileToDB(file, fileId);
+        
+        formData.value.karaokeFile = file;
+        karaokeFileName.value = file.name;
+        karaokeFileSize.value = file.size;
+        karaokeFileId.value = fileId;
+        errors.value.karaokeFile = '';
+        
+        await saveStateToDB();
+        ElMessage.success('Файл успешно загружен');
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        ElMessage.error('Ошибка при загрузке файла');
       }
-      
-      // Генерируем ID и сохраняем в IndexedDB
-      const fileId = generateFileId('karaoke');
-      await saveFileToDB(file, fileId);
-      
-      formData.value.karaokeFile = file;
-      karaokeFileName.value = file.name;
-      karaokeFileSize.value = file.size;
-      karaokeFileId.value = fileId;
-      errors.value.karaokeFile = '';
     }
     
     validateFileConsistency();
-    await saveStateToDB();
   }
 };
 
@@ -689,9 +747,12 @@ const removeUploadedAppleMusicFile = async () => {
   if (appleMusicTextFileRef.value) {
     appleMusicTextFileRef.value.value = '';
   }
+  
   errors.value.appleMusicTextFile = '';
   validateFileConsistency();
   await saveStateToDB();
+  
+  ElMessage.info('Файл удален');
 };
 
 const removeUploadedKaraokeFile = async () => {
@@ -707,9 +768,12 @@ const removeUploadedKaraokeFile = async () => {
   if (karaokeFileRef.value) {
     karaokeFileRef.value.value = '';
   }
+  
   errors.value.karaokeFile = '';
   validateFileConsistency();
   await saveStateToDB();
+  
+  ElMessage.info('Файл удален');
 };
 
 const formatFileSize = (bytes: number): string => {
@@ -722,11 +786,21 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-// Сохранение состояния при изменении данных формы
-watch(() => formData.value, async () => {
-  await saveStateToDB();
-}, { deep: true });
+// Debounced save (как в Quiz2)
+const debouncedSave = () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  saveTimeout = setTimeout(async () => {
+    if (dataLoaded.value) {
+      await saveStateToDB();
+    }
+  }, 500);
+};
 
+// Watchers с debounce (как в Quiz2)
+watch(() => formData.value.genre, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.value.tiktokStartSeconds, () => { if (dataLoaded.value) debouncedSave(); });
 watch(() => formData.value.hasDrugsMention, (newValue) => {
   if (newValue !== 'yes') {
     formData.value.drugsTracks = '';
@@ -734,43 +808,62 @@ watch(() => formData.value.hasDrugsMention, (newValue) => {
   }
   validateField('hasDrugsMention');
   validateField('drugsTracks');
-  saveStateToDB();
+  if (dataLoaded.value) debouncedSave();
 });
+watch(() => formData.value.drugsTracks, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.value.appleMusicLinks, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.value.spotifyLinks, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.value.vkLinks, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.value.yandexMusicLinks, () => { if (dataLoaded.value) debouncedSave(); });
+watch(() => formData.value.socialLinks, () => { if (dataLoaded.value) debouncedSave(); });
 
-// Загрузка данных при монтировании компонента
+// При монтировании загружаем состояние (как в Quiz2)
 onMounted(async () => {
   try {
-    await initDB();
     await loadStateFromDB();
   } catch (error) {
     console.error('Error in onMounted:', error);
   }
 });
 
-// Сохраняем состояние при покидании страницы
-window.addEventListener('beforeunload', async () => {
+// Сохраняем состояние при покидании страницы (как в Quiz2)
+const handleBeforeUnload = async () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
   await saveStateToDB();
-});
+};
 
-// Сохраняем состояние при изменении видимости вкладки
-document.addEventListener('visibilitychange', async () => {
+// Сохраняем состояние при изменении видимости вкладки (как в Quiz2)
+const handleVisibilityChange = async () => {
   if (document.visibilityState === 'hidden') {
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
     await saveStateToDB();
   }
-});
+};
 
 // Очистка при размонтировании
 onUnmounted(() => {
-  window.removeEventListener('beforeunload', saveStateToDB);
-  document.removeEventListener('visibilitychange', saveStateToDB);
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 </script>
 
 <template>
-<!-- Template остается точно таким же -->
 <div class="quiz__form quiz__form_five">
   <h4 class="quiz__form_head">жанр и текст</h4>
-  <div class="quiz__form_single">
+  
+  <!-- Индикатор загрузки -->
+  <div v-if="isLoading" class="quiz__form_loading">
+    <span>Загрузка данных...</span>
+  </div>
+  
+  <div v-else class="quiz__form_single">
     <div class="form__flex">
       <div class="form__group">
         <label for="genre" class="form__label button">Какой жанр указать?<span>*</span></label>
@@ -1062,6 +1155,7 @@ onUnmounted(() => {
       <button 
         class="form__back button__second button" 
         @click="goBack"
+        :disabled="isLoading"
       >
         <span><BackSVG /></span>
         <span>Назад</span>
@@ -1069,7 +1163,7 @@ onUnmounted(() => {
       <button 
         class="quiz__form_button button__black button"
         @click="goNext"
-        :disabled="!isContinueButtonEnabled"
+        :disabled="!isContinueButtonEnabled || isLoading"
       >
         <span>Продолжить</span>
       </button>
@@ -1081,5 +1175,60 @@ onUnmounted(() => {
 <style lang="css" scoped>
 .quiz__form_single {
   padding: 20px 0 0;
+}
+.quiz__form_loading {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-size: 16px;
+}
+.quiz__form_single_name {
+  display: flex;
+  width: 100%;
+  padding: 20px;
+  margin: 30px 0 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background-color: #EDFBE2;
+}
+.quiz__form_single_name_svg {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  transform: rotate(0deg);
+  transition: transform 0.15s linear;
+}
+.quiz__form_single_name_svg:hover {
+  transform: rotate(90deg);
+}
+.quiz__form_single_name_svg svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.quiz__form_single_name_left {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.quiz__form_single_name_size {
+  color: var(--text-gray);
+}
+.quiz__form_single_error {
+  margin-top: 10px;
+  color: #f56c6c;
+  padding: 8px 12px;
+  background-color: #fef0f0;
+  border: 1px solid #fde2e2;
+  border-radius: 4px;
+}
+
+@media (max-width: 767px) {
+  .quiz__form_single_name {
+    padding: 15px;
+    align-items: flex-start;
+  }
 }
 </style>

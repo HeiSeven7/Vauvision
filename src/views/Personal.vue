@@ -15,6 +15,18 @@ import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
 import Tr from "@/i18n/translation"
 import SignaturePopup from "@/components/layout/Signature.vue";
 
+const loading = ref<boolean>(false);
+const loadingSvg = `
+  <path class="path" d="
+    M 30 15
+    L 28 17
+    M 25.61 25.61
+    A 15 15, 0, 0, 1, 15 30
+    A 15 15, 0, 1, 1, 27.99 7.5
+    L 15 15
+  " style="stroke-width: 4px; fill: rgba(0, 0, 0, 0)"/>
+`;
+
 // Получаем базовый URL из текущего окна
 const API_BASE_URL = window.location.origin;
 
@@ -267,6 +279,7 @@ const getFullUrl = (path: string) => {
 
 // Функция для загрузки страницы релизов
 const fetchReleasesPage = async (page: number) => {
+  loading.value = true;
   isLoadingReleases.value = true;
   try {
     const response = await sendRequest('get', `/ajax_vue/ajax/getData.php?PAGEN_1=${page}`, {});
@@ -302,11 +315,13 @@ const fetchReleasesPage = async (page: number) => {
     console.error('Ошибка при загрузке релизов:', error);
   } finally {
     isLoadingReleases.value = false;
+    loading.value = false;
   }
 };
 
 // Функция для загрузки страницы отчетов
 const fetchReportsPage = async (page: number) => {
+  loading.value = true;
   isLoadingReports.value = true;
   try {
     const response = await sendRequest('get', `/ajax_vue/ajax/getData.php?report_page=${page}`, {});
@@ -335,11 +350,13 @@ const fetchReportsPage = async (page: number) => {
     console.error('Ошибка при загрузке отчетов:', error);
   } finally {
     isLoadingReports.value = false;
+    loading.value = false;
   }
 };
 
 // Функция для загрузки страницы транзакций
 const fetchTransactionsPage = async (page: number) => {
+  loading.value = true;
   isLoadingTransactions.value = true;
   try {
     const response = await sendRequest('get', `/ajax_vue/ajax/getData.php?PAGEN_2=${page}`, {});
@@ -369,6 +386,7 @@ const fetchTransactionsPage = async (page: number) => {
     console.error('Ошибка при загрузке транзакций:', error);
   } finally {
     isLoadingTransactions.value = false;
+    loading.value = false;
   }
 };
 
@@ -404,6 +422,7 @@ const getStatusText = (status: string) => {
 const selectYear = async (year: string) => {
   selectedYear.value = year;
   
+  loading.value = true;
   isLoadingQuarters.value = true;
   try {
     const response = await sendRequest('post', '/ajax_vue/ajax/profile/kvartal.php', {
@@ -489,6 +508,7 @@ const selectYear = async (year: string) => {
     alert('Не удалось загрузить список кварталов');
   } finally {
     isLoadingQuarters.value = false;
+    loading.value = false;
   }
 };
 
@@ -499,6 +519,7 @@ const downloadReport = async () => {
     return;
   }
 
+  loading.value = true;
   isDownloading.value = true;
   try {
     const requestData = {
@@ -539,6 +560,7 @@ const downloadReport = async () => {
     alert('Произошла ошибка при запросе');
   } finally {
     isDownloading.value = false;
+    loading.value = false;
   }
 };
 
@@ -710,6 +732,7 @@ const requestPayoutAct = async () => {
     return;
   }
 
+  loading.value = true;
   isRequestingAct.value = true;
   actError.value = '';
 
@@ -745,6 +768,7 @@ const requestPayoutAct = async () => {
     actError.value = error.response?.data?.message || 'Не удалось получить акт для подписи';
   } finally {
     isRequestingAct.value = false;
+    loading.value = false;
   }
 };
 
@@ -808,6 +832,7 @@ const submitBonusPayout = async () => {
     return;
   }
 
+  loading.value = true;
   isSubmittingBonusPayout.value = true;
   payoutError.value = '';
 
@@ -881,6 +906,7 @@ const submitBonusPayout = async () => {
     payoutError.value = 'Не удалось отправить запрос. Проверьте соединение и попробуйте позже.';
   } finally {
     isSubmittingBonusPayout.value = false;
+    loading.value = false;
   }
 };
 
@@ -908,7 +934,10 @@ onMounted(() => {
 
 <template>
 <Header></Header>
-<section class="personal">
+<section v-if="loading === true" class="loading">
+  <div v-loading="loading" :element-loading-svg="loadingSvg" class="loading__svg" element-loading-svg-view-box="-10, -10, 50, 50" style="width: 100%"></div>
+</section>
+<section v-else class="personal">
   <div class="container personal__container">
     <Menu />
     <div class="personal__block">
@@ -982,7 +1011,7 @@ onMounted(() => {
               <h5 class="personal__release_head">Выложите релиз</h5>
               <p class="personal__release_desc">Lorem ipsum dolor sit amet consectetur. Gravida elementum mauris penatibus lectus tellus ac neque mollis. Nascetur pulvinar tellus maecenas venenatis pharetra vulputate odio quis pretium.</p>
             </div>
-            <RouterLink class="personal__release_button button__black button" :to="Tr.i18nRoute({ name: 'quiz' })">
+            <RouterLink class="personal__release_button button__black button" :to="Tr.i18nRoute({ name: 'release' })">
               <span>Выложить релиз</span>
             </RouterLink>
             <div class="personal__release_image">

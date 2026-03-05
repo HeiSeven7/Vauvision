@@ -8,6 +8,18 @@ import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
 import ClipSVG from "@/uikit/icon/ClipSVG.vue";
 import { sendRequest } from '@/utils/api';
 
+const loading = ref<boolean>(false);
+const loadingSvg = `
+  <path class="path" d="
+    M 30 15
+    L 28 17
+    M 25.61 25.61
+    A 15 15, 0, 0, 1, 15 30
+    A 15 15, 0, 1, 1, 27.99 7.5
+    L 15 15
+  " style="stroke-width: 4px; fill: rgba(0, 0, 0, 0)"/>
+`;
+
 // Интерфейс для партнера из API
 interface ReferralUser {
   ID: string;
@@ -91,6 +103,7 @@ const prevPartnersPage = () => {
 // Загрузка данных
 const fetchData = async () => {
   isLoading.value = true;
+  loading.value = true;
   try {
     const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
     console.log('Данные из API:', response.data);
@@ -109,6 +122,7 @@ const fetchData = async () => {
     console.error('Ошибка при загрузке данных:', error);
   } finally {
     isLoading.value = false;
+    loading.value = false;
   }
 };
 
@@ -154,7 +168,10 @@ onMounted(() => {
 
 <template>
 <Header></Header>
-<section class="personal">
+<section v-if="loading === true" class="loading">
+  <div v-loading="loading" :element-loading-svg="loadingSvg" class="loading__svg" element-loading-svg-view-box="-10, -10, 50, 50" style="width: 100%"></div>
+</section>
+<section v-else class="personal">
   <div class="container personal__container">
     <Menu />
     <div class="personal__block">

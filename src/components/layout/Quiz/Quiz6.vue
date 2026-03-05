@@ -55,7 +55,7 @@
           size="large"
         />
         <div class="form__group_inner">
-          <label for="rightsContractLink" class="form__label button text_small">Ссылка на договор в <a href="https://360.yandex.ru/disk/">Яндекс Диске</a> (не обязательно)</label>
+          <label for="rightsContractLink" class="form__label button text_small">Ссылка на договор в <a href="https://360.yandex.ru/disk/"> Яндекс Диске</a> (не обязательно)</label>
           <el-input
             v-model="formData.rightsContractLink"
             type="text"
@@ -140,9 +140,7 @@
           </el-button>
           <span v-if="promoLoading" class="promo_loading">Проверка...</span>
         </div>
-        <div v-if="promoMessage" :class="promoMessageType === 'success' ? 'success' : 'error'" class="text_very">
-          {{ promoMessage }}
-        </div>
+        <!-- Убираем дублирующееся сообщение, оставляем только одно -->
         <div v-if="promoDiscount > 0" class="promo_discount_info">
           Применена скидка {{ promoDiscount }}%
         </div>
@@ -256,8 +254,6 @@ const isLoading = ref(true);
 const promoLoading = ref(false);
 const promoApplied = ref(false);
 const promoDiscount = ref(0);
-const promoMessage = ref('');
-const promoMessageType = ref<'success' | 'error'>('success');
 
 // Таймер для debounce
 let promoDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -323,23 +319,36 @@ const initDB = async () => {
   });
 };
 
+// Функция для создания безопасной копии состояния (без циклических ссылок)
+const createSafeStateCopy = () => {
+  return {
+    id: STORAGE_KEY,
+    formData: {
+      platforms: [...formData.platforms],
+      otherPlatform: formData.otherPlatform,
+      rightsInfo: formData.rightsInfo,
+      rightsContractLink: formData.rightsContractLink,
+      additionalComments: formData.additionalComments,
+      promoPlan: formData.promoPlan,
+      bandlinkUrl: formData.bandlinkUrl,
+      promoCode: formData.promoCode,
+      usePartnerBonuses: formData.usePartnerBonuses,
+      usedBonuses: formData.usedBonuses,
+      confirmNoRightsViolation: formData.confirmNoRightsViolation
+    },
+    promoApplied: promoApplied.value,
+    promoDiscount: promoDiscount.value,
+    timestamp: Date.now()
+  };
+};
+
 // Сохранение состояния в IndexedDB
 const saveStateToDB = async () => {
   if (isLoading.value) return;
   
   try {
-    const stateToSave = {
-      id: STORAGE_KEY,
-      formData: { ...formData },
-      promoApplied: promoApplied.value,
-      promoDiscount: promoDiscount.value,
-      promoMessage: promoMessage.value,
-      promoMessageType: promoMessageType.value,
-      timestamp: Date.now()
-    };
-    
+    const stateToSave = createSafeStateCopy();
     await quizDB.value.put('quizState', stateToSave);
-    console.log('State saved to IndexedDB');
   } catch (error) {
     console.error('Error saving state to IndexedDB:', error);
   }
@@ -350,16 +359,12 @@ const loadStateFromDB = async () => {
   try {
     const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
     if (savedState) {
-      console.log('Loading from IndexedDB:', savedState);
-      
       // Восстанавливаем данные формы
       Object.assign(formData, savedState.formData);
       
       // Восстанавливаем состояние промокода
       promoApplied.value = savedState.promoApplied || false;
       promoDiscount.value = savedState.promoDiscount || 0;
-      promoMessage.value = savedState.promoMessage || '';
-      promoMessageType.value = savedState.promoMessageType || 'success';
     }
   } catch (error) {
     console.error('Error loading state from IndexedDB:', error);
@@ -370,7 +375,6 @@ const loadStateFromDB = async () => {
 const clearStateFromDB = async () => {
   try {
     await quizDB.value.delete('quizState', STORAGE_KEY);
-    console.log('State cleared from IndexedDB');
   } catch (error) {
     console.error('Error clearing state from IndexedDB:', error);
   }
@@ -409,25 +413,21 @@ const loadBasketData = async () => {
   try {
     // Загружаем данные корзины для получения итоговой суммы
     const response = await sendRequest("post", '/ajax_vue/ajax/basket/updateBasket.php', {});
-    console.log('updateBasket for Quiz6:', response.data);
     
     const data = response.data as any;
     
     if (data.data) {
       originalTotalAmount.value = data.data.total || 0;
       currencySymbol.value = data.data.currency_symbol || '₽';
-      console.log('Loaded total amount:', originalTotalAmount.value, currencySymbol.value);
     }
     
     // Загружаем данные пользователя для получения бонусов
     const userResponse = await sendRequest("post", '/ajax_vue/ajax/getDataForm.php', {});
-    console.log('getDataForm for Quiz6:', userResponse.data);
     
     const userData = userResponse.data as any;
     
     if (userData.user?.uf_bonus) {
       userBonuses.value = parseInt(userData.user.uf_bonus) || 0;
-      console.log('Loaded user bonuses:', userBonuses.value);
     }
     
     // Загружаем состояние из IndexedDB после получения данных из API
@@ -451,13 +451,11 @@ const loadBasketData = async () => {
 const updatePriceWithPromo = async () => {
   try {
     const response = await sendRequest("post", '/ajax_vue/ajax/quiz/promoPrice.php', {});
-    console.log('promoPrice response:', response.data);
     
     const data = response.data as any;
     
     if (data.data?.total) {
       originalTotalAmount.value = data.data.total;
-      console.log('Updated total amount with promo:', originalTotalAmount.value);
     }
   } catch (error) {
     console.error('Ошибка обновления цены после промокода:', error);
@@ -470,7 +468,6 @@ const checkPromoCode = async (code: string) => {
     // Если поле пустое, сбрасываем промокод
     promoApplied.value = false;
     promoDiscount.value = 0;
-    promoMessage.value = '';
     await updatePriceWithPromo();
     await saveStateToDB();
     return;
@@ -492,30 +489,29 @@ const checkPromoCode = async (code: string) => {
       COUNT_ALBUM: counts.album || 0
     });
     
-    console.log('promo response:', response.data);
-    
     if (response.data.error === 0) {
       // Промокод применен успешно
       promoApplied.value = true;
       
-      // Извлекаем процент скидки из сообщения (например, "Промокод применен! 10%")
+      // Извлекаем процент скидки из сообщения
       const message = response.data.message || '';
       const percentMatch = message.match(/(\d+)%/);
       if (percentMatch) {
         promoDiscount.value = parseInt(percentMatch[1]);
       }
       
-      promoMessage.value = message;
-      promoMessageType.value = 'success';
+      // Показываем сообщение об успехе
+      ElMessage.success(message);
       
       // Обновляем цену с учетом промокода
       await updatePriceWithPromo();
     } else {
       // Ошибка применения промокода
       promoApplied.value = false;
-      promoMessage.value = response.data.message || 'Неверный промокод';
-      promoMessageType.value = 'error';
       promoDiscount.value = 0;
+      
+      // Показываем сообщение об ошибке
+      ElMessage.error(response.data.message || 'Неверный промокод');
       
       // Обновляем цену без промокода
       await updatePriceWithPromo();
@@ -523,9 +519,9 @@ const checkPromoCode = async (code: string) => {
   } catch (error) {
     console.error('Ошибка применения промокода:', error);
     promoApplied.value = false;
-    promoMessage.value = 'Ошибка при проверке промокода';
-    promoMessageType.value = 'error';
     promoDiscount.value = 0;
+    
+    ElMessage.error('Ошибка при проверке промокода');
     
     // Обновляем цену без промокода
     await updatePriceWithPromo();
@@ -547,9 +543,6 @@ const handlePromoInput = () => {
     return;
   }
   
-  // Очищаем сообщение при вводе
-  promoMessage.value = '';
-  
   // Устанавливаем новый таймер
   promoDebounceTimer = setTimeout(() => {
     checkPromoCode(formData.promoCode);
@@ -560,7 +553,6 @@ const handlePromoInput = () => {
 const removePromoCode = async () => {
   promoApplied.value = false;
   promoDiscount.value = 0;
-  promoMessage.value = '';
   formData.promoCode = '';
   
   // Обновляем цену без промокода
@@ -803,12 +795,6 @@ const handleContinue = async () => {
     // Очищаем состояние после успешного завершения
     await clearStateFromDB();
     
-    console.log('Данные формы сохранены:', {
-      ...formData,
-      finalAmount: finalAmount.value,
-      promoDiscount: promoDiscount.value,
-      usedBonusesValue: formData.usedBonuses * 1 // Конвертируем в рубли
-    });
     emit('go-next');
   } else {
     ElMessage.warning('Пожалуйста, заполните все обязательные поля корректно');
@@ -858,25 +844,22 @@ onMounted(async () => {
 });
 
 // Сохраняем состояние при покидании страницы
-window.addEventListener('beforeunload', async () => {
-  await saveStateToDB();
-});
-
-// Сохраняем состояние при изменении видимости вкладки
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'hidden') {
-    await saveStateToDB();
-  }
-});
+const handleBeforeUnload = () => {
+  saveStateToDB();
+};
 
 // Очистка при размонтировании
 onUnmounted(() => {
   if (promoDebounceTimer) {
     clearTimeout(promoDebounceTimer);
   }
-  window.removeEventListener('beforeunload', saveStateToDB);
-  document.removeEventListener('visibilitychange', saveStateToDB);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+  document.removeEventListener('visibilitychange', handleBeforeUnload);
 });
+
+// Добавляем обработчики событий
+window.addEventListener('beforeunload', handleBeforeUnload);
+document.addEventListener('visibilitychange', handleBeforeUnload);
 </script>
 
 <style lang="css" scoped>

@@ -78,7 +78,7 @@ import ArticlesSVG from "@/uikit/menu/ArticlesSVG.vue";
           </RouterLink>
         </li>
         <li class="home__item">
-          <RouterLink class="home__link" :to="Tr.i18nRoute({ name: 'quiz' })">
+          <RouterLink class="home__link" :to="Tr.i18nRoute({ name: 'release' })">
             <span><ArticlesSVG /></span>
             <span>Релиз</span>
           </RouterLink>

@@ -829,7 +829,8 @@ section {
   gap: 10px;
 }
 .form__label {
-  display: flex;
+  display: inline-flex;
+  gap: 4px;
 }
 .form__label span {
   color: var(--error);

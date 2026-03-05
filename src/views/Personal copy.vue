@@ -786,7 +786,7 @@ onMounted(() => {
               <h5 class="personal__release_head">Выложите релиз</h5>
               <p class="personal__release_desc">Lorem ipsum dolor sit amet consectetur. Gravida elementum mauris penatibus lectus tellus ac neque mollis. Nascetur pulvinar tellus maecenas venenatis pharetra vulputate odio quis pretium.</p>
             </div>
-            <RouterLink class="personal__release_button button__black button" :to="Tr.i18nRoute({ name: 'quiz' })">
+            <RouterLink class="personal__release_button button__black button" :to="Tr.i18nRoute({ name: 'release' })">
               <span>Выложить релиз</span>
             </RouterLink>
             <div class="personal__release_image">

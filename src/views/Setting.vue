@@ -5,6 +5,18 @@ import { sendRequest, FileRequest } from '@/utils/api';
 import { useRouter } from 'vue-router';
 import Tr from "@/i18n/translation";
 
+const loading = ref<boolean>(false);
+const loadingSvg = `
+  <path class="path" d="
+    M 30 15
+    L 28 17
+    M 25.61 25.61
+    A 15 15, 0, 0, 1, 15 30
+    A 15 15, 0, 1, 1, 27.99 7.5
+    L 15 15
+  " style="stroke-width: 4px; fill: rgba(0, 0, 0, 0)"/>
+`;
+
 import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
 import PhotoSVG from "@/uikit/icon/PhotoSVG.vue";
@@ -238,6 +250,7 @@ const savePassportData = async () => {
     return
   }
   
+  loading.value = true;
   isLoading.value = true
   try {
     const passportData = {
@@ -279,6 +292,7 @@ const savePassportData = async () => {
     }
   } finally {
     isLoading.value = false
+    loading.value = false;
   }
 }
 
@@ -677,7 +691,10 @@ onMounted(() => {
 
 <template>
 <Header></Header>
-<section class="personal">
+<section v-if="loading === true" class="loading">
+  <div v-loading="loading" :element-loading-svg="loadingSvg" class="loading__svg" element-loading-svg-view-box="-10, -10, 50, 50" style="width: 100%"></div>
+</section>
+<section v-else class="personal">
   <div class="container personal__container">
     <Menu />
     <div class="personal__block">

@@ -289,7 +289,7 @@ const handleAvatarError = (event: Event) => {
               </li>
               <li class="burger__nav_item">
                 <RouterLink 
-                  :to="Tr.i18nRoute({ name: 'quiz' })" 
+                  :to="Tr.i18nRoute({ name: 'release' })" 
                   class="burger__nav_link"
                   @click="closeMenu"
                 >
