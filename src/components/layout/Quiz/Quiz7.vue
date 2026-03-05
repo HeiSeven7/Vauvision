@@ -3,11 +3,20 @@
     <h4 class="quiz__form_head">Договор</h4>
     <p class="quiz__form_description">Пожалуйста, проверьте договор. Если всё верно, то переходите к следующему шагу и оплате. Если нужно что-то исправить, то вернитесь назад. Для перехода на следующий шаг пролистайте вниз страницы.</p>
     
-    <div class="quiz__form_agreement">
-      <img src="@/assets/img/quiz/agreement_1.webp" alt="Страница 1 договора" loading="lazy">
-      <img src="@/assets/img/quiz/agreement_2.webp" alt="Страница 2 договора" loading="lazy">
-      <img src="@/assets/img/quiz/agreement_3.webp" alt="Страница 3 договора" loading="lazy">
-      <img src="@/assets/img/quiz/agreement_4.webp" alt="Страница 4 договора" loading="lazy">
+    <div v-if="isLoading" class="quiz__form_loading">
+      <span>Загрузка договора...</span>
+    </div>
+    
+    <div v-else-if="!contractData" class="quiz__form_error">
+      <p class="error">Данные договора не найдены. Пожалуйста, вернитесь на предыдущий шаг и сгенерируйте договор.</p>
+    </div>
+    
+    <div v-else class="quiz__form_agreement">
+      <!-- Отображаем ВСЕ картинки из полученного массива images -->
+      <div v-for="(img, index) in contractData.images" :key="index" class="quiz__form_agreement_page">
+        <img :src="img" :alt="`Страница ${index + 1} договора`" loading="lazy" />
+        <p class="quiz__form_agreement_page_number">Страница {{ index + 1 }} из {{ contractData.images.length }}</p>
+      </div>
     </div>
     
     <div class="quiz__form_checkboxes">
@@ -74,7 +83,7 @@
       </div>
       
       <div class="quiz__form_hint" v-if="!isReadyForNextStep">
-        <p class="text_small">Обязательно дождитесь полной загрузки формы, не закрывайте вкладку! Спасибо, что выбрали нас!</p>
+        <p class="text_small">Обязательно примите условия договора для продолжения</p>
       </div>
     </div>
 
@@ -99,6 +108,13 @@ const emit = defineEmits<{
   'go-next': [data: any];
 }>();
 
+// Интерфейсы
+interface ContractData {
+  doc_pdf: string;
+  doc_docx: string;
+  images: string[];
+}
+
 // Ключи для хранения
 const STORAGE_KEY = 'quiz7_state';
 const DB_NAME = 'quizDB';
@@ -106,35 +122,26 @@ const DB_VERSION = 1;
 
 const quizDB = ref<any>(null);
 const dataLoaded = ref(false);
+const isLoading = ref(true);
 
 // Состояние попапа
 const showSignaturePopup = ref(false);
 
+// Данные договора из Quiz6
+const contractData = ref<ContractData | null>(null);
+
 // Таймер для debounce сохранения
 let saveTimeout: NodeJS.Timeout | null = null;
 
-// Типы для формы
-interface FormData {
-  acceptTerms: boolean;
-  acceptPrivacy: boolean;
-  acceptMarketing: boolean;
-}
-
-interface FormErrors {
-  acceptTerms: string;
-  acceptPrivacy: string;
-  acceptMarketing: string;
-}
-
 // Данные формы
-const formData = reactive<FormData>({
+const formData = reactive({
   acceptTerms: false,
   acceptPrivacy: false,
   acceptMarketing: false
 });
 
 // Ошибки валидации
-const errors = reactive<FormErrors>({
+const errors = reactive({
   acceptTerms: '',
   acceptPrivacy: '',
   acceptMarketing: ''
@@ -152,6 +159,24 @@ const initDB = async () => {
   });
 };
 
+// Загрузка данных договора из Quiz6
+const loadContractData = async (): Promise<ContractData | null> => {
+  try {
+    // Загружаем состояние Quiz6
+    const quiz6State = await quizDB.value.get('quizState', 'quiz6_state');
+    
+    if (quiz6State && quiz6State.contractData) {
+      console.log('Loaded contract data from Quiz6:', quiz6State.contractData);
+      return quiz6State.contractData;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error loading contract data:', error);
+    return null;
+  }
+};
+
 // Сохранение состояния в IndexedDB
 const saveStateToDB = async () => {
   if (!dataLoaded.value) return;
@@ -160,6 +185,7 @@ const saveStateToDB = async () => {
     const stateToSave = {
       id: STORAGE_KEY,
       formData: { ...formData },
+      contractData: contractData.value,
       timestamp: Date.now()
     };
     
@@ -183,6 +209,11 @@ const loadStateFromDB = async () => {
         formData.acceptPrivacy = savedState.formData.acceptPrivacy || false;
         formData.acceptMarketing = savedState.formData.acceptMarketing || false;
       }
+      
+      // Восстанавливаем данные договора
+      if (savedState.contractData) {
+        contractData.value = savedState.contractData;
+      }
     }
   } catch (error) {
     console.error('Error loading Quiz7 state from IndexedDB:', error);
@@ -200,17 +231,17 @@ const validationRules = {
     return '';
   },
   acceptMarketing: (_: boolean) => {
-    return ''; // Это поле необязательное
+    return '';
   }
 };
 
 // Валидация конкретного поля
-const validateField = async (fieldName: keyof FormErrors): Promise<boolean> => {
-  const value = formData[fieldName as keyof FormData];
+const validateField = async (fieldName: keyof typeof errors): Promise<boolean> => {
+  const value = formData[fieldName as keyof typeof formData];
   const validator = validationRules[fieldName as keyof typeof validationRules];
   
   if (validator) {
-    errors[fieldName] = validator(value);
+    errors[fieldName] = validator(value as boolean);
     debouncedSave();
     return !errors[fieldName];
   }
@@ -222,7 +253,7 @@ const validateField = async (fieldName: keyof FormErrors): Promise<boolean> => {
 const validateForm = async (): Promise<boolean> => {
   let isValid = true;
   
-  const requiredFields: (keyof FormErrors)[] = ['acceptTerms', 'acceptPrivacy'];
+  const requiredFields: (keyof typeof errors)[] = ['acceptTerms', 'acceptPrivacy'];
   
   for (const field of requiredFields) {
     if (!await validateField(field)) {
@@ -236,22 +267,18 @@ const validateForm = async (): Promise<boolean> => {
 
 // Вычисляемое свойство для проверки готовности к продолжению
 const isReadyForNextStep = computed(() => {
-  return formData.acceptTerms && formData.acceptPrivacy;
+  return formData.acceptTerms && formData.acceptPrivacy && !!contractData.value;
 });
 
 // Обработчик изменений чекбоксов
-const handleCheckboxChange = async (fieldName: keyof FormData) => {
-  await validateField(fieldName as keyof FormErrors);
+const handleCheckboxChange = async (fieldName: keyof typeof formData) => {
+  await validateField(fieldName as keyof typeof errors);
   
-  // Если это обязательное поле и оно стало true, очищаем ошибку
   if (fieldName === 'acceptTerms' && formData.acceptTerms) {
     errors.acceptTerms = '';
   }
   if (fieldName === 'acceptPrivacy' && formData.acceptPrivacy) {
     errors.acceptPrivacy = '';
-  }
-  if (fieldName === 'acceptMarketing') {
-    errors.acceptMarketing = '';
   }
   
   debouncedSave();
@@ -264,41 +291,26 @@ const goBack = () => {
 const handleContinue = async () => {
   const formValid = await validateForm();
   
-  if (formValid) {
-    // Проверяем, что пользователь действительно проскроллил вниз (опционально)
-    const agreementSection = document.querySelector('.quiz__form_agreement');
-    if (agreementSection) {
-      const sectionBottom = agreementSection.getBoundingClientRect().bottom;
-      const viewportHeight = window.innerHeight;
-      
-      if (sectionBottom > viewportHeight + 100) {
-        // Если пользователь не проскроллил достаточно далеко, показываем предупреждение
-        ElMessage.warning({
-          message: 'Пожалуйста, просмотрите договор полностью перед продолжением',
-          duration: 3000
-        });
-        
-        // Прокручиваем к договору
-        agreementSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        return;
-      }
-    }
-    
-    // Показываем попап для подписи
-    showSignaturePopup.value = true;
-    document.documentElement.classList.add('noscroll');
-  } else {
+  if (!formValid) {
     ElMessage.warning({
       message: 'Пожалуйста, примите обязательные условия договора',
       duration: 3000
     });
     
-    // Прокручиваем к первому полю с ошибкой
     const firstErrorField = document.querySelector('.error');
     if (firstErrorField) {
       firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+    return;
   }
+  
+  if (!contractData.value) {
+    ElMessage.error('Данные договора не найдены');
+    return;
+  }
+  
+  showSignaturePopup.value = true;
+  document.documentElement.classList.add('noscroll');
 };
 
 const closeSignaturePopup = () => {
@@ -307,22 +319,24 @@ const closeSignaturePopup = () => {
 };
 
 const handleSignatureSubmit = async (signatureData: string) => {
-  console.log('Подпись получена:', signatureData);
+  console.log('Подпись получена');
   closeSignaturePopup();
   
-  // Собираем данные для отправки
+  // Собираем данные для отправки в Quiz8
   const dataToSend = {
-    acceptTerms: formData.acceptTerms,
-    acceptPrivacy: formData.acceptPrivacy,
-    acceptMarketing: formData.acceptMarketing,
+    contract: contractData.value,
+    formData: {
+      acceptTerms: formData.acceptTerms,
+      acceptPrivacy: formData.acceptPrivacy,
+      acceptMarketing: formData.acceptMarketing
+    },
     signature: signatureData,
     timestamp: new Date().toISOString()
   };
   
   console.log('Данные договора с подписью:', dataToSend);
   
-  // ⚠️⚠️⚠️ НЕ ОЧИЩАЕМ СОСТОЯНИЕ ПРИ ПЕРЕХОДЕ!
-  // Состояние остается в IndexedDB
+  await saveStateToDB();
   
   emit('go-next', dataToSend);
 };
@@ -352,28 +366,28 @@ watch(() => formData.acceptMarketing, () => {
   if (dataLoaded.value) debouncedSave();
 });
 
-// Функция для прокрутки к чекбоксам (может быть вызвана из родительского компонента)
-const scrollToCheckboxes = () => {
-  const checkboxesSection = document.querySelector('.quiz__form_checkboxes');
-  if (checkboxesSection) {
-    checkboxesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-};
-
-// Экспортируем функции, если нужно использовать извне
-defineExpose({
-  validateForm,
-  scrollToCheckboxes
-});
-
 // Загрузка состояния при монтировании компонента
 onMounted(async () => {
   try {
     await initDB();
+    
     await loadStateFromDB();
+    
+    if (!contractData.value) {
+      const data = await loadContractData();
+      if (data) {
+        contractData.value = data;
+        await saveStateToDB();
+      }
+    }
+    
     dataLoaded.value = true;
+    
   } catch (error) {
     console.error('Error in onMounted:', error);
+    ElMessage.error('Ошибка при загрузке данных договора');
+  } finally {
+    isLoading.value = false;
   }
 });
 
@@ -385,7 +399,6 @@ const handleBeforeUnload = () => {
   saveStateToDB();
 };
 
-// Сохраняем состояние при изменении видимости вкладки
 const handleVisibilityChange = () => {
   if (document.visibilityState === 'hidden') {
     if (saveTimeout) {
@@ -395,13 +408,11 @@ const handleVisibilityChange = () => {
   }
 };
 
-// Добавляем обработчики событий
 onMounted(() => {
   window.addEventListener('beforeunload', handleBeforeUnload);
   document.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
-// Очистка при размонтировании
 onUnmounted(() => {
   if (saveTimeout) {
     clearTimeout(saveTimeout);
@@ -423,6 +434,24 @@ onUnmounted(() => {
   color: var(--text-gray);
   margin-bottom: 40px;
 }
+.quiz__form_loading {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-size: 16px;
+}
+.quiz__form_error {
+  text-align: center;
+  padding: 40px;
+  background-color: #fef0f0;
+  border: 1px solid #fde2e2;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+.quiz__form_error .error {
+  color: #f56c6c;
+  font-size: 16px;
+}
 .quiz__form_bottom {
   display: flex;
   padding: 60px 0 0;
@@ -442,20 +471,33 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 20px;
 }
-.quiz__form_agreement img {
+.quiz__form_agreement_page {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.quiz__form_agreement_page img {
   width: 100%;
   height: auto;
-  object-fit: contain;
-  border: 1px solid var(--border);
+  display: block;
+}
+.quiz__form_agreement_page_number {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
 }
 .quiz__form_checkboxes {
   display: flex;
   padding: 20px 0 0;
   flex-direction: column;
   gap: 10px;
-}
-.quiz__form_description {
-  padding: 20px 0 0;
 }
 .form__checkbox_group .el-checkbox {
   display: flex;
