@@ -1770,6 +1770,7 @@ onMounted(() => {
 }
 .personal__release {
   display: flex;
+  min-height: 315px;
   padding: 40px;
   flex-direction: column;
   gap: 30px;
@@ -1939,9 +1940,11 @@ onMounted(() => {
 }
 .personal__partner {
   display: flex;
+  min-height: 315px;
   padding: 52px;
   flex-direction: column;
-  gap: 63px;
+  justify-content: space-between;
+  gap: 20px;
   position: relative;
   background-color: var(--bg);
   border: 1px solid var(--border);
@@ -2591,6 +2594,10 @@ onMounted(() => {
   }
   .personal__releases_title {
     padding: 0 0 20px;
+  }
+  .personal__release,
+  .personal__partner {
+    min-height: auto;
   }
 }
 @media (max-width: 1023px) {

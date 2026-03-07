@@ -14,12 +14,13 @@ const emit = defineEmits<{
 // Ключи для хранения
 const STORAGE_KEY = 'quiz4_state';
 const DB_NAME = 'quizDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Увеличиваем версию до 2
 
 // Состояние загрузки данных
 const isLoading = ref(true);
 const dataLoaded = ref(false);
 const quizDB = ref<any>(null);
+const dbInitialized = ref(false);
 
 // Данные формы
 const formData = reactive({
@@ -85,116 +86,184 @@ let saveTimeout: NodeJS.Timeout | null = null;
 
 // Инициализация IndexedDB
 const initDB = async () => {
-  quizDB.value = await openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('quizState')) {
-        const store = db.createObjectStore('quizState', { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp');
-      }
-    },
-  });
+  try {
+    console.log('Quiz4: Initializing IndexedDB...');
+    
+    quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz4: Upgrading DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (!db.objectStoreNames.contains('quizState')) {
+          const store = db.createObjectStore('quizState', { keyPath: 'id' });
+          store.createIndex('timestamp', 'timestamp');
+          console.log('Quiz4: Created quizState store');
+        }
+      },
+    });
+    
+    dbInitialized.value = true;
+    console.log('Quiz4: IndexedDB initialized successfully');
+    
+  } catch (error) {
+    console.error('Quiz4: Error initializing IndexedDB:', error);
+    dbInitialized.value = false;
+  }
+};
+
+// Безопасное выполнение операций с БД
+const safeDBOperation = async <T>(
+  operation: () => Promise<T>, 
+  fallback: T
+): Promise<T> => {
+  if (!dbInitialized.value || !quizDB.value) {
+    console.log('Quiz4: DB not initialized');
+    return fallback;
+  }
+  
+  try {
+    if (!quizDB.value.objectStoreNames || !quizDB.value.objectStoreNames.contains('quizState')) {
+      console.log('Quiz4: Store quizState not found');
+      return fallback;
+    }
+    
+    return await operation();
+  } catch (error) {
+    console.error('Quiz4: Error in DB operation:', error);
+    return fallback;
+  }
 };
 
 // Сохранение состояния в IndexedDB
 const saveStateToDB = async () => {
   // Не сохраняем во время загрузки или если данные еще не загружены
-  if (isLoading.value || !dataLoaded.value) {
+  if (isLoading.value || !dataLoaded.value || !dbInitialized.value) {
     return;
   }
   
-  try {
-    const stateToSave = {
-      id: STORAGE_KEY,
-      formData: { 
-        userType: formData.userType,
-        legalAddress: formData.legalAddress,
-        inn: formData.inn,
-        ogrn: formData.ogrn,
-        accountNumber: formData.accountNumber,
-        bankName: formData.bankName,
-        bankInn: formData.bankInn,
-        bankBik: formData.bankBik,
-        correspondentAccount: formData.correspondentAccount,
-        bankLegalAddress: formData.bankLegalAddress,
-        citizenship: formData.citizenship,
-        otherCitizenship: formData.otherCitizenship,
-        lastName: formData.lastName,
-        firstName: formData.firstName,
-        middleName: formData.middleName,
-        passportNumber: formData.passportNumber,
-        passportIssuedBy: formData.passportIssuedBy,
-        passportIssueDate: formData.passportIssueDate,
-        registrationAddress: formData.registrationAddress
-      },
-      showOtherCitizenshipInput: showOtherCitizenshipInput.value,
-      timestamp: Date.now()
-    };
-    
-    await quizDB.value.put('quizState', stateToSave);
-    console.log('✅ Quiz4 state saved to IndexedDB:', stateToSave.formData.userType);
-  } catch (error) {
-    console.error('Error saving Quiz4 state to IndexedDB:', error);
-  }
+  await safeDBOperation(
+    async () => {
+      const stateToSave = {
+        id: STORAGE_KEY,
+        formData: { 
+          userType: formData.userType,
+          legalAddress: formData.legalAddress,
+          inn: formData.inn,
+          ogrn: formData.ogrn,
+          accountNumber: formData.accountNumber,
+          bankName: formData.bankName,
+          bankInn: formData.bankInn,
+          bankBik: formData.bankBik,
+          correspondentAccount: formData.correspondentAccount,
+          bankLegalAddress: formData.bankLegalAddress,
+          citizenship: formData.citizenship,
+          otherCitizenship: formData.otherCitizenship,
+          lastName: formData.lastName,
+          firstName: formData.firstName,
+          middleName: formData.middleName,
+          passportNumber: formData.passportNumber,
+          passportIssuedBy: formData.passportIssuedBy,
+          passportIssueDate: formData.passportIssueDate,
+          registrationAddress: formData.registrationAddress
+        },
+        showOtherCitizenshipInput: showOtherCitizenshipInput.value,
+        timestamp: Date.now()
+      };
+      
+      await quizDB.value.put('quizState', stateToSave);
+      console.log('✅ Quiz4 state saved to IndexedDB');
+      
+      // Отправляем событие об обновлении данных для QuizMenu
+      window.dispatchEvent(new CustomEvent('quiz-data-updated'));
+    },
+    null
+  );
 };
 
 // Загрузка состояния из IndexedDB
 const loadStateFromDB = async () => {
-  try {
-    const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
-    if (savedState) {
-      console.log('📥 Loading Quiz4 from IndexedDB:', savedState);
-      
-      // Восстанавливаем основные данные формы
-      if (savedState.formData) {
-        // Явно восстанавливаем каждое поле, включая userType
-        formData.userType = savedState.formData.userType || 'individual';
-        formData.legalAddress = savedState.formData.legalAddress || '';
-        formData.inn = savedState.formData.inn || '';
-        formData.ogrn = savedState.formData.ogrn || '';
-        formData.accountNumber = savedState.formData.accountNumber || '';
-        formData.bankName = savedState.formData.bankName || '';
-        formData.bankInn = savedState.formData.bankInn || '';
-        formData.bankBik = savedState.formData.bankBik || '';
-        formData.correspondentAccount = savedState.formData.correspondentAccount || '';
-        formData.bankLegalAddress = savedState.formData.bankLegalAddress || '';
-        formData.citizenship = savedState.formData.citizenship || '';
-        formData.otherCitizenship = savedState.formData.otherCitizenship || '';
-        formData.lastName = savedState.formData.lastName || '';
-        formData.firstName = savedState.formData.firstName || '';
-        formData.middleName = savedState.formData.middleName || '';
-        formData.passportNumber = savedState.formData.passportNumber || '';
-        formData.passportIssuedBy = savedState.formData.passportIssuedBy || '';
-        formData.passportIssueDate = savedState.formData.passportIssueDate || '';
-        formData.registrationAddress = savedState.formData.registrationAddress || '';
-      }
-      
-      // Восстанавливаем состояние поля для другого гражданства
-      if (savedState.showOtherCitizenshipInput !== undefined) {
-        showOtherCitizenshipInput.value = savedState.showOtherCitizenshipInput;
-      }
-      
-      // Если гражданство "Другое", убедимся что поле отображается
-      if (formData.citizenship === 'other' && !showOtherCitizenshipInput.value) {
-        showOtherCitizenshipInput.value = true;
-      }
-      
-      console.log('✅ Restored userType:', formData.userType);
-    }
-  } catch (error) {
-    console.error('Error loading Quiz4 state from IndexedDB:', error);
+  if (!dbInitialized.value) {
+    console.log('Quiz4: DB not initialized, skipping load');
+    return;
   }
+  
+  await safeDBOperation(
+    async () => {
+      const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
+      if (savedState) {
+        console.log('📥 Loading Quiz4 from IndexedDB:', savedState);
+        
+        // Восстанавливаем основные данные формы
+        if (savedState.formData) {
+          // Явно восстанавливаем каждое поле, включая userType
+          formData.userType = savedState.formData.userType || 'individual';
+          formData.legalAddress = savedState.formData.legalAddress || '';
+          formData.inn = savedState.formData.inn || '';
+          formData.ogrn = savedState.formData.ogrn || '';
+          formData.accountNumber = savedState.formData.accountNumber || '';
+          formData.bankName = savedState.formData.bankName || '';
+          formData.bankInn = savedState.formData.bankInn || '';
+          formData.bankBik = savedState.formData.bankBik || '';
+          formData.correspondentAccount = savedState.formData.correspondentAccount || '';
+          formData.bankLegalAddress = savedState.formData.bankLegalAddress || '';
+          formData.citizenship = savedState.formData.citizenship || '';
+          formData.otherCitizenship = savedState.formData.otherCitizenship || '';
+          formData.lastName = savedState.formData.lastName || '';
+          formData.firstName = savedState.formData.firstName || '';
+          formData.middleName = savedState.formData.middleName || '';
+          formData.passportNumber = savedState.formData.passportNumber || '';
+          formData.passportIssuedBy = savedState.formData.passportIssuedBy || '';
+          formData.passportIssueDate = savedState.formData.passportIssueDate || '';
+          formData.registrationAddress = savedState.formData.registrationAddress || '';
+        }
+        
+        // Восстанавливаем состояние поля для другого гражданства
+        if (savedState.showOtherCitizenshipInput !== undefined) {
+          showOtherCitizenshipInput.value = savedState.showOtherCitizenshipInput;
+        }
+        
+        // Если гражданство "Другое", убедимся что поле отображается
+        if (formData.citizenship === 'other' && !showOtherCitizenshipInput.value) {
+          showOtherCitizenshipInput.value = true;
+        }
+        
+        console.log('✅ Restored userType:', formData.userType);
+      }
+    },
+    null
+  );
 };
 
 // Загрузка данных пользователя из API
 const loadUserData = async () => {
   try {
+    console.log('Quiz4: Loading user data from API...');
+    
+    // Используем тот же эндпоинт, что и в Quiz1 и Quiz3
     const response = await sendRequest("post", '/ajax_vue/ajax/getDataForm.php', {});
-    console.log('getDataForm for Quiz4:', response.data);
+    console.log('Quiz4: getDataForm response:', response.data);
     
     const data = response.data as any;
     const user = data.user || {};
     
+    console.log('Quiz4: User data received:', user);
+    
     // Заполняем ФИО (только если поля пустые)
+    if (user.uf_fam && !formData.lastName) {
+      formData.lastName = user.uf_fam;
+      console.log('✅ Loaded last name:', user.uf_fam);
+    }
+    
+    if (user.uf_imya && !formData.firstName) {
+      formData.firstName = user.uf_imya;
+      console.log('✅ Loaded first name:', user.uf_imya);
+    }
+    
+    if (user.uf_otch && !formData.middleName) {
+      formData.middleName = user.uf_otch;
+      console.log('✅ Loaded middle name:', user.uf_otch);
+    }
+    
+    // Альтернативные поля ФИО
     if (user.last_name && !formData.lastName) {
       formData.lastName = user.last_name;
     }
@@ -203,23 +272,10 @@ const loadUserData = async () => {
       formData.firstName = user.name;
     }
     
-    if (user.uf_otch && !formData.middleName) {
-      formData.middleName = user.uf_otch;
-    }
-    
-    // Если есть uf_fam (фамилия в отдельном поле) и поле пустое
-    if (user.uf_fam && !formData.lastName) {
-      formData.lastName = user.uf_fam;
-    }
-    
-    // Если есть uf_imya (имя в отдельном поле) и поле пустое
-    if (user.uf_imya && !formData.firstName) {
-      formData.firstName = user.uf_imya;
-    }
-    
     // Гражданство (только если поле пустое)
     if (user.uf_grazhdanstvo && !formData.citizenship) {
       const citizenship = user.uf_grazhdanstvo;
+      console.log('Quiz4: Citizenship from API:', citizenship);
       
       if (citizenship === 'Российская Федерация' || citizenship === 'РФ' || citizenship === 'Russia') {
         formData.citizenship = 'RU';
@@ -232,22 +288,27 @@ const loadUserData = async () => {
     
     // Паспортные данные (только если поля пустые)
     if (user.uf_seriya && !formData.passportNumber) {
+      // Убираем пробелы из серии паспорта
       formData.passportNumber = user.uf_seriya.replace(/\s/g, '');
+      console.log('✅ Loaded passport number:', formData.passportNumber);
     }
     
     if (user.uf_vydan && !formData.passportIssuedBy) {
       formData.passportIssuedBy = user.uf_vydan;
+      console.log('✅ Loaded passport issued by');
     }
     
     if (user.uf_data && !formData.passportIssueDate) {
       const dateParts = user.uf_data.split('.');
       if (dateParts.length === 3) {
         formData.passportIssueDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+        console.log('✅ Loaded passport issue date:', formData.passportIssueDate);
       }
     }
     
     if (user.uf_address && !formData.registrationAddress) {
       formData.registrationAddress = user.uf_address;
+      console.log('✅ Loaded registration address');
     }
     
     // Данные для ИП (только если поля пустые)
@@ -256,37 +317,46 @@ const loadUserData = async () => {
     if (user.uf_inn && !formData.inn) {
       formData.inn = user.uf_inn;
       hasIPData = true;
+      console.log('✅ Loaded INN');
     }
     
     if (user.uf_ogrn && !formData.ogrn) {
       formData.ogrn = user.uf_ogrn;
       hasIPData = true;
+      console.log('✅ Loaded OGRN');
     }
     
     if (user.uf_rs && !formData.accountNumber) {
       formData.accountNumber = user.uf_rs;
       hasIPData = true;
+      console.log('✅ Loaded account number');
     }
     
     if (user.uf_bik && !formData.bankBik) {
       formData.bankBik = user.uf_bik;
       hasIPData = true;
+      console.log('✅ Loaded BIK');
     }
     
     if (user.uf_korr && !formData.correspondentAccount) {
       formData.correspondentAccount = user.uf_korr;
       hasIPData = true;
+      console.log('✅ Loaded correspondent account');
     }
     
     // Если есть данные ИП и тип еще не выбран, переключаем на ИП
     // НО! Не перезаписываем, если пользователь уже выбрал individual
-    if (hasIPData && !formData.userType) {
-      formData.userType = 'entrepreneur';
-      console.log('Switched to entrepreneur mode due to IP data');
+    if (hasIPData && formData.userType === 'individual') {
+      // Проверяем, были ли уже какие-то данные в форме или это чистая загрузка
+      const hasExistingData = Object.values(formData).some(val => val && val !== 'individual');
+      if (!hasExistingData) {
+        formData.userType = 'entrepreneur';
+        console.log('✅ Switched to entrepreneur mode due to IP data');
+      }
     }
     
   } catch (error) {
-    console.error('Ошибка загрузки данных пользователя:', error);
+    console.error('Quiz4: Ошибка загрузки данных пользователя:', error);
   }
 };
 
@@ -437,7 +507,7 @@ const goNext = async () => {
 const debouncedSave = () => {
   if (saveTimeout) clearTimeout(saveTimeout);
   saveTimeout = setTimeout(() => {
-    if (dataLoaded.value) saveStateToDB();
+    if (dataLoaded.value && dbInitialized.value) saveStateToDB();
   }, 500);
 };
 
@@ -527,23 +597,26 @@ watch(showOtherCitizenshipInput, () => {
 });
 
 onMounted(async () => {
-  console.log('Quiz4 mounted');
+  console.log('Quiz4: Component mounted');
+  isLoading.value = true;
   
   try {
+    // Сначала инициализируем БД
     await initDB();
     
-    // Сначала загружаем сохраненное состояние
+    // Затем загружаем сохраненное состояние
     await loadStateFromDB();
-    console.log('After loadStateFromDB - userType:', formData.userType);
+    console.log('Quiz4: After loadStateFromDB - userType:', formData.userType);
     
     // Потом данные с сервера (только в пустые поля)
     await loadUserData();
-    console.log('After loadUserData - userType:', formData.userType);
+    console.log('Quiz4: After loadUserData - userType:', formData.userType);
     
     dataLoaded.value = true;
-    console.log('Final userType:', formData.userType);
+    console.log('Quiz4: Final userType:', formData.userType);
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Quiz4: Error during initialization:', error);
+    ElMessage.error('Ошибка при загрузке данных');
   } finally {
     isLoading.value = false;
   }

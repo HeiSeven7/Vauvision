@@ -3,259 +3,267 @@
     <h4 class="quiz__form_head">дополнительная информация</h4>
     
     <!-- Индикатор загрузки -->
-    <div v-if="uploadingFiles || isGeneratingContract" class="quiz__form_contract_loading">
+    <div v-if="isLoading" class="quiz__form_loading">
       <div class="loading-spinner"></div>
-      <p v-if="uploadingFiles">Отправка файлов на сервер... {{ uploadedCount }}/{{ totalFilesCount }}</p>
-      <p v-else-if="isGeneratingContract">Генерация договора... Это может занять несколько секунд</p>
+      <p>Загрузка данных...</p>
     </div>
     
-    <div class="form__flex" :class="{ 'blur-content': uploadingFiles || isGeneratingContract }">
-      <!-- Откуда узнали -->
-      <div class="form__group">
-        <label class="form__label button">откуда вы о нас узнали?<span>*</span></label>
-        <el-select
-          v-model="formData.platforms"
-          multiple
-          placeholder="Выберите площадки"
-          :class="{ 'error': errors.platforms }"
-          size="large"
-          @change="validateForm"
-          :disabled="uploadingFiles || isGeneratingContract"
-        >
-          <el-option
-            v-for="platform in platformOptions"
-            :key="platform.value"
-            :label="platform.label"
-            :value="platform.value"
-          />
-        </el-select>
-        <div v-if="errors.platforms" class="error text_very">
-          {{ errors.platforms }}
-        </div>
-        <div v-if="formData.platforms.includes('other')" class="form__group_inner">
-          <el-input
-            v-model="formData.otherPlatform"
-            type="text"
-            placeholder="Укажите другие площадки"
-            :class="{ 'error': errors.otherPlatform }"
-            @blur="validateForm"
-            @input="errors.otherPlatform = ''"
+    <div v-else>
+      <!-- Индикатор загрузки файлов и генерации договора -->
+      <div v-if="uploadingFiles || isGeneratingContract" class="quiz__form_contract_loading">
+        <div class="loading-spinner"></div>
+        <p v-if="uploadingFiles">Отправка файлов на сервер... {{ uploadedCount }}/{{ totalFilesCount }}</p>
+        <p v-else-if="isGeneratingContract">Генерация договора... Это может занять несколько секунд</p>
+      </div>
+      
+      <div class="form__flex" :class="{ 'blur-content': uploadingFiles || isGeneratingContract }">
+        <!-- Откуда узнали -->
+        <div class="form__group">
+          <label class="form__label button">откуда вы о нас узнали?<span>*</span></label>
+          <el-select
+            v-model="formData.platforms"
+            multiple
+            placeholder="Выберите площадки"
+            :class="{ 'error': errors.platforms }"
             size="large"
+            @change="validateForm"
             :disabled="uploadingFiles || isGeneratingContract"
-          />
-          <div v-if="errors.otherPlatform" class="error text_very">
-            {{ errors.otherPlatform }}
+          >
+            <el-option
+              v-for="platform in platformOptions"
+              :key="platform.value"
+              :label="platform.label"
+              :value="platform.value"
+            />
+          </el-select>
+          <div v-if="errors.platforms" class="error text_very">
+            {{ errors.platforms }}
+          </div>
+          <div v-if="formData.platforms.includes('other')" class="form__group_inner">
+            <el-input
+              v-model="formData.otherPlatform"
+              type="text"
+              placeholder="Укажите другие площадки"
+              :class="{ 'error': errors.otherPlatform }"
+              @blur="validateForm"
+              @input="errors.otherPlatform = ''"
+              size="large"
+              :disabled="uploadingFiles || isGeneratingContract"
+            />
+            <div v-if="errors.otherPlatform" class="error text_very">
+              {{ errors.otherPlatform }}
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Права на инструменты -->
-      <div class="form__group">
-        <label for="rightsInfo" class="form__label button">Правила на инструменты</label>
-        <p class="form__hint text_small">В поле ниже, пожалуйста, укажите в столбик «Название трека – тип прав».</p>
-        <el-input
-          v-model="formData.rightsInfo"
-          type="textarea"
-          :rows="6"
-          placeholder="1. Название первого трека - исключительная лицензия
+        <!-- Права на инструменты -->
+        <div class="form__group">
+          <label for="rightsInfo" class="form__label button">Правила на инструменты</label>
+          <p class="form__hint text_small">В поле ниже, пожалуйста, укажите в столбик «Название трека – тип прав».</p>
+          <el-input
+            v-model="formData.rightsInfo"
+            type="textarea"
+            :rows="6"
+            placeholder="1. Название первого трека - исключительная лицензия
 2. Название второго трека - wav лицензия"
-          @input="errors.rightsInfo = ''"
-          size="large"
-          :disabled="uploadingFiles || isGeneratingContract"
-        />
-        <div class="form__group_inner">
-          <label for="rightsContractLink" class="form__label button text_small">Ссылка на договор в Яндекс Диске (не обязательно)</label>
-          <el-input
-            v-model="formData.rightsContractLink"
-            type="text"
-            placeholder="https://disk.yandex.ru/..."
-            @blur="validateUrlField('rightsContractLink')"
-            @input="errors.rightsContractLink = ''"
+            @input="errors.rightsInfo = ''"
             size="large"
             :disabled="uploadingFiles || isGeneratingContract"
           />
-          <div v-if="errors.rightsContractLink" class="error text_very">
-            {{ errors.rightsContractLink }}
+          <div class="form__group_inner">
+            <label for="rightsContractLink" class="form__label button text_small">Ссылка на договор в Яндекс Диске (не обязательно)</label>
+            <el-input
+              v-model="formData.rightsContractLink"
+              type="text"
+              placeholder="https://disk.yandex.ru/..."
+              @blur="validateUrlField('rightsContractLink')"
+              @input="errors.rightsContractLink = ''"
+              size="large"
+              :disabled="uploadingFiles || isGeneratingContract"
+            />
+            <div v-if="errors.rightsContractLink" class="error text_very">
+              {{ errors.rightsContractLink }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Дополнительные комментарии -->
+        <div class="form__group">
+          <label for="additionalComments" class="form__label button">дополнительные комментарии</label>
+          <el-input
+            v-model="formData.additionalComments"
+            type="textarea"
+            :rows="4"
+            placeholder="Ваши комментарии и пожелания..."
+            @input="errors.additionalComments = ''"
+            size="large"
+            :disabled="uploadingFiles || isGeneratingContract"
+          />
+        </div>
+
+        <!-- Промо-план релиза -->
+        <div class="form__group">
+          <label for="promoPlan" class="form__label button">Промо-план релиза для редакторов площадок</label>
+          <el-input
+            v-model="formData.promoPlan"
+            type="textarea"
+            :rows="4"
+            placeholder="Информация об артисте, релизе, планах по рекламе..."
+            @input="errors.promoPlan = ''"
+            size="large"
+            :disabled="uploadingFiles || isGeneratingContract"
+          />
+        </div>
+
+        <!-- Ссылка на Bandlink -->
+        <div class="form__group">
+          <label for="bandlinkUrl" class="form__label button">ССЫЛКА НА ВАШ ПРЕДСТОЯЩИЙ РЕЛИЗ В BANDLINK</label>
+          <el-input
+            v-model="formData.bandlinkUrl"
+            type="text"
+            :class="{ 'error': errors.bandlinkUrl }"
+            placeholder="https://band.link/..."
+            @blur="validateUrlField('bandlinkUrl')"
+            @input="errors.bandlinkUrl = ''"
+            size="large"
+            :disabled="uploadingFiles || isGeneratingContract"
+          />
+          <div v-if="errors.bandlinkUrl" class="error text_very">
+            {{ errors.bandlinkUrl }}
+          </div>
+        </div>
+
+        <!-- Промокод -->
+        <div class="form__group">
+          <label for="promoCode" class="form__label button">промокод</label>
+          <div class="form__promo_input">
+            <el-input
+              v-model="formData.promoCode"
+              type="text"
+              placeholder="Введите промокод"
+              :disabled="promoApplied || uploadingFiles || isGeneratingContract"
+              @input="handlePromoInput"
+              size="large"
+              style="flex: 1;"
+            />
+            <el-button 
+              v-if="promoApplied && !uploadingFiles && !isGeneratingContract"
+              type="info" 
+              @click="removePromoCode"
+              size="default"
+            >
+              Отменить
+            </el-button>
+            <span v-if="promoLoading" class="promo_loading">Проверка...</span>
+          </div>
+          <div v-if="promoDiscount > 0" class="promo_discount_info">
+            Применена скидка {{ promoDiscount }}%
+          </div>
+        </div>
+
+        <!-- Бонусы -->
+        <div class="form__group">
+          <label for="bonuses" class="form__label button">Бонусы</label>
+          <p class="form__hint text_small">У вас доступно {{ userBonuses }} бонусов. 1 бонус = 1 {{ currencySymbol }}. Максимум можно использовать {{ maxBonuses }} бонусов.</p>
+          <div class="form__bonus_input">
+            <el-input-number
+              v-model="formData.usedBonuses"
+              :min="0"
+              :max="maxBonuses"
+              :step="1"
+              :precision="0"
+              placeholder="Введите количество бонусов"
+              @change="handleBonusesChange"
+              @input="validateField('usedBonuses')"
+              size="large"
+              style="width: 200px;"
+              :disabled="uploadingFiles || isGeneratingContract"
+            />
+            <span class="form__bonus_hint">доступно: {{ userBonuses }}</span>
+          </div>
+          <div v-if="errors.usedBonuses" class="error text_very">
+            {{ errors.usedBonuses }}
+          </div>
+          <div v-if="finalAmount < 1 && formData.usedBonuses > 0" class="warning text_very">
+            ⚠️ Минимальная сумма к оплате — 1 {{ currencySymbol }}. Бонусы будут скорректированы.
+          </div>
+        </div>
+
+        <!-- Итого к оплате -->
+        <div class="form__group">
+          <div class="quiz__form_sum">
+            <p class="quiz__form_sum_text">Итого к оплате:</p>
+            <div class="quiz__form_total_wrapper">
+              <div class="quiz__form_price_container">
+                <h4 class="quiz__form_total"><span>{{ formatPrice(finalAmount) }}</span> {{ currencySymbol }}</h4>
+                <span v-if="hasDiscount" class="quiz__form_original_price_strikethrough">{{ formatPrice(originalTotalAmount) }} {{ currencySymbol }}</span>
+              </div>
+              <div v-if="promoDiscount > 0" class="quiz__form_discount_info">
+                Скидка по промокоду: {{ promoDiscount }}%
+              </div>
+              <p v-if="finalAmount < 1" class="quiz__form_error_price">
+                Сумма не может быть меньше 1 {{ currencySymbol }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Подтверждение -->
+        <div class="form__group">
+          <div class="form__checkbox_group">
+            <el-checkbox
+              v-model="formData.confirmNoRightsViolation"
+              :class="{ 'error': errors.confirmNoRightsViolation }"
+              @change="validateField('confirmNoRightsViolation')"
+              :disabled="uploadingFiles || isGeneratingContract"
+            >
+              Я подтверждаю, что мои треки не нарушают права других авторов музыки и текста*
+            </el-checkbox>
+          </div>
+          <div v-if="errors.confirmNoRightsViolation" class="error text_very">
+            {{ errors.confirmNoRightsViolation }}
           </div>
         </div>
       </div>
-
-      <!-- Дополнительные комментарии -->
-      <div class="form__group">
-        <label for="additionalComments" class="form__label button">дополнительные комментарии</label>
-        <el-input
-          v-model="formData.additionalComments"
-          type="textarea"
-          :rows="4"
-          placeholder="Ваши комментарии и пожелания..."
-          @input="errors.additionalComments = ''"
-          size="large"
-          :disabled="uploadingFiles || isGeneratingContract"
-        />
+      
+      <!-- Прогресс загрузки файлов -->
+      <div v-if="uploadingFiles" class="upload_progress">
+        <div class="upload_progress_bar">
+          <div class="upload_progress_bar_fill" :style="{ width: uploadProgress + '%' }"></div>
+        </div>
+        <p class="upload_progress_count">Отправлено {{ uploadedCount }} из {{ totalFilesCount }}</p>
       </div>
-
-      <!-- Промо-план релиза -->
-      <div class="form__group">
-        <label for="promoPlan" class="form__label button">Промо-план релиза для редакторов площадок</label>
-        <el-input
-          v-model="formData.promoPlan"
-          type="textarea"
-          :rows="4"
-          placeholder="Информация об артисте, релизе, планах по рекламе..."
-          @input="errors.promoPlan = ''"
-          size="large"
-          :disabled="uploadingFiles || isGeneratingContract"
-        />
-      </div>
-
-      <!-- Ссылка на Bandlink -->
-      <div class="form__group">
-        <label for="bandlinkUrl" class="form__label button">ССЫЛКА НА ВАШ ПРЕДСТОЯЩИЙ РЕЛИЗ В BANDLINK</label>
-        <el-input
-          v-model="formData.bandlinkUrl"
-          type="text"
-          :class="{ 'error': errors.bandlinkUrl }"
-          placeholder="https://band.link/..."
-          @blur="validateUrlField('bandlinkUrl')"
-          @input="errors.bandlinkUrl = ''"
-          size="large"
-          :disabled="uploadingFiles || isGeneratingContract"
-        />
-        <div v-if="errors.bandlinkUrl" class="error text_very">
-          {{ errors.bandlinkUrl }}
+      
+      <!-- Результат генерации договора -->
+      <div v-if="contractData" class="quiz__form_contract_result">
+        <h5 class="quiz__form_contract_title">Договор сгенерирован!</h5>
+        <div class="quiz__form_contract_links">
+          <p><strong>PDF:</strong> <a :href="contractData.doc_pdf" target="_blank">{{ contractData.doc_pdf }}</a></p>
+          <p><strong>DOCX:</strong> <a :href="contractData.doc_docx" target="_blank">{{ contractData.doc_docx }}</a></p>
         </div>
       </div>
-
-      <!-- Промокод -->
-      <div class="form__group">
-        <label for="promoCode" class="form__label button">промокод</label>
-        <div class="form__promo_input">
-          <el-input
-            v-model="formData.promoCode"
-            type="text"
-            placeholder="Введите промокод"
-            :disabled="promoApplied || uploadingFiles || isGeneratingContract"
-            @input="handlePromoInput"
-            size="large"
-            style="flex: 1;"
-          />
-          <el-button 
-            v-if="promoApplied && !uploadingFiles && !isGeneratingContract"
-            type="info" 
-            @click="removePromoCode"
-            size="default"
+      
+      <div class="quiz__form_bottom">
+        <div class="quiz__form_buttons">
+          <button 
+            class="form__back button__second button" 
+            @click="goBack"
+            :disabled="isLoading || uploadingFiles || isGeneratingContract"
           >
-            Отменить
-          </el-button>
-          <span v-if="promoLoading" class="promo_loading">Проверка...</span>
-        </div>
-        <div v-if="promoDiscount > 0" class="promo_discount_info">
-          Применена скидка {{ promoDiscount }}%
-        </div>
-      </div>
-
-      <!-- Бонусы -->
-      <div class="form__group">
-        <label for="bonuses" class="form__label button">Бонусы</label>
-        <p class="form__hint text_small">У вас доступно {{ userBonuses }} бонусов. 1 бонус = 1 {{ currencySymbol }}. Максимум можно использовать {{ maxBonuses }} бонусов.</p>
-        <div class="form__bonus_input">
-          <el-input-number
-            v-model="formData.usedBonuses"
-            :min="0"
-            :max="maxBonuses"
-            :step="1"
-            :precision="0"
-            placeholder="Введите количество бонусов"
-            @change="handleBonusesChange"
-            @input="validateField('usedBonuses')"
-            size="large"
-            style="width: 200px;"
-            :disabled="uploadingFiles || isGeneratingContract"
-          />
-          <span class="form__bonus_hint">доступно: {{ userBonuses }}</span>
-        </div>
-        <div v-if="errors.usedBonuses" class="error text_very">
-          {{ errors.usedBonuses }}
-        </div>
-        <div v-if="finalAmount < 1 && formData.usedBonuses > 0" class="warning text_very">
-          ⚠️ Минимальная сумма к оплате — 1 {{ currencySymbol }}. Бонусы будут скорректированы.
-        </div>
-      </div>
-
-      <!-- Итого к оплате -->
-      <div class="form__group">
-        <div class="quiz__form_sum">
-          <p class="quiz__form_sum_text">Итого к оплате:</p>
-          <div class="quiz__form_total_wrapper">
-            <div class="quiz__form_price_container">
-              <h4 class="quiz__form_total"><span>{{ formatPrice(finalAmount) }}</span> {{ currencySymbol }}</h4>
-              <span v-if="hasDiscount" class="quiz__form_original_price_strikethrough">{{ formatPrice(originalTotalAmount) }} {{ currencySymbol }}</span>
-            </div>
-            <div v-if="promoDiscount > 0" class="quiz__form_discount_info">
-              Скидка по промокоду: {{ promoDiscount }}%
-            </div>
-            <p v-if="finalAmount < 1" class="quiz__form_error_price">
-              Сумма не может быть меньше 1 {{ currencySymbol }}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Подтверждение -->
-      <div class="form__group">
-        <div class="form__checkbox_group">
-          <el-checkbox
-            v-model="formData.confirmNoRightsViolation"
-            :class="{ 'error': errors.confirmNoRightsViolation }"
-            @change="validateField('confirmNoRightsViolation')"
-            :disabled="uploadingFiles || isGeneratingContract"
+            <span><BackSVG /></span>
+            <span>Назад</span>
+          </button>
+          <button 
+            class="quiz__form_button button__black button"
+            @click="handleContinue"
+            :disabled="!isReadyForNextStep || isLoading || uploadingFiles || isGeneratingContract || finalAmount < 1"
           >
-            Я подтверждаю, что мои треки не нарушают права других авторов музыки и текста*
-          </el-checkbox>
+            <span v-if="uploadingFiles">Отправка файлов...</span>
+            <span v-else-if="isGeneratingContract">Генерация договора...</span>
+            <span v-else-if="contractData">Далее: Просмотр договора</span>
+            <span v-else>{{ isLoading ? 'Загрузка...' : 'Сгенерировать договор' }}</span>
+          </button>
         </div>
-        <div v-if="errors.confirmNoRightsViolation" class="error text_very">
-          {{ errors.confirmNoRightsViolation }}
-        </div>
-      </div>
-    </div>
-    
-    <!-- Прогресс загрузки файлов -->
-    <div v-if="uploadingFiles" class="upload_progress">
-      <div class="upload_progress_bar">
-        <div class="upload_progress_bar_fill" :style="{ width: uploadProgress + '%' }"></div>
-      </div>
-      <p class="upload_progress_count">Отправлено {{ uploadedCount }} из {{ totalFilesCount }}</p>
-    </div>
-    
-    <!-- Результат генерации договора -->
-    <div v-if="contractData" class="quiz__form_contract_result">
-      <h5 class="quiz__form_contract_title">Договор сгенерирован!</h5>
-      <div class="quiz__form_contract_links">
-        <p><strong>PDF:</strong> <a :href="contractData.doc_pdf" target="_blank">{{ contractData.doc_pdf }}</a></p>
-        <p><strong>DOCX:</strong> <a :href="contractData.doc_docx" target="_blank">{{ contractData.doc_docx }}</a></p>
-      </div>
-    </div>
-    
-    <div class="quiz__form_bottom">
-      <div class="quiz__form_buttons">
-        <button 
-          class="form__back button__second button" 
-          @click="goBack"
-          :disabled="isLoading || uploadingFiles || isGeneratingContract"
-        >
-          <span><BackSVG /></span>
-          <span>Назад</span>
-        </button>
-        <button 
-          class="quiz__form_button button__black button"
-          @click="handleContinue"
-          :disabled="!isReadyForNextStep || isLoading || uploadingFiles || isGeneratingContract || finalAmount < 1"
-        >
-          <span v-if="uploadingFiles">Отправка файлов...</span>
-          <span v-else-if="isGeneratingContract">Генерация договора...</span>
-          <span v-else-if="contractData">Далее: Просмотр договора</span>
-          <span v-else>{{ isLoading ? 'Загрузка...' : 'Сгенерировать договор' }}</span>
-        </button>
       </div>
     </div>
   </div>
@@ -292,11 +300,13 @@ interface UploadedFileInfo {
 const STORAGE_KEY = 'quiz6_state';
 const DB_NAME = 'quizDB';
 const AUDIO_DB_NAME = 'audioDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Увеличиваем версию до 2
 
 const quizDB = ref<any>(null);
 const audioDB = ref<any>(null);
 const dataLoaded = ref(false);
+const dbInitialized = ref(false);
+const audioDBInitialized = ref(false);
 
 // Состояние загрузки
 const isLoading = ref(true);
@@ -369,24 +379,72 @@ const MINIMUM_AMOUNT = 1;
 
 // Инициализация IndexedDB
 const initDB = async () => {
-  quizDB.value = await openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('quizState')) {
-        const store = db.createObjectStore('quizState', { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp');
-      }
-    },
-  });
+  try {
+    console.log('Quiz6: Initializing databases...');
+    
+    quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz6: Upgrading DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (!db.objectStoreNames.contains('quizState')) {
+          const store = db.createObjectStore('quizState', { keyPath: 'id' });
+          store.createIndex('timestamp', 'timestamp');
+          console.log('Quiz6: Created quizState store');
+        }
+      },
+    });
+    
+    audioDB.value = await openDB(AUDIO_DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz6: Upgrading Audio DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (!db.objectStoreNames.contains('audio')) {
+          const store = db.createObjectStore('audio', { keyPath: 'id' });
+          store.createIndex('fileName', 'fileName');
+          store.createIndex('timestamp', 'timestamp');
+          console.log('Quiz6: Created audio store');
+        }
+      },
+    });
+    
+    dbInitialized.value = true;
+    audioDBInitialized.value = true;
+    console.log('Quiz6: Databases initialized successfully');
+    
+  } catch (error) {
+    console.error('Quiz6: Error initializing databases:', error);
+    dbInitialized.value = false;
+    audioDBInitialized.value = false;
+  }
+};
+
+// Безопасное выполнение операций с БД
+const safeDBOperation = async <T>(
+  operation: () => Promise<T>, 
+  fallback: T,
+  dbType: 'quiz' | 'audio' = 'quiz'
+): Promise<T> => {
+  const db = dbType === 'quiz' ? quizDB.value : audioDB.value;
+  const initialized = dbType === 'quiz' ? dbInitialized.value : audioDBInitialized.value;
+  const storeName = dbType === 'quiz' ? 'quizState' : 'audio';
   
-  audioDB.value = await openDB(AUDIO_DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('audio')) {
-        const store = db.createObjectStore('audio', { keyPath: 'id' });
-        store.createIndex('fileName', 'fileName');
-        store.createIndex('timestamp', 'timestamp');
-      }
-    },
-  });
+  if (!initialized || !db) {
+    console.log(`Quiz6: ${dbType} DB not initialized`);
+    return fallback;
+  }
+  
+  try {
+    if (!db.objectStoreNames || !db.objectStoreNames.contains(storeName)) {
+      console.log(`Quiz6: Store ${storeName} not found in ${dbType} DB. Available stores:`, 
+                  db.objectStoreNames ? Array.from(db.objectStoreNames) : []);
+      return fallback;
+    }
+    
+    return await operation();
+  } catch (error) {
+    console.error(`Quiz6: Error in ${dbType} DB operation:`, error);
+    return fallback;
+  }
 };
 
 // Функция для создания безопасной копии состояния
@@ -415,51 +473,61 @@ const createSafeStateCopy = () => {
 
 // Сохранение состояния в IndexedDB
 const saveStateToDB = async () => {
-  if (isLoading.value || !dataLoaded.value) return;
+  if (isLoading.value || !dataLoaded.value || !dbInitialized.value) return;
   
-  try {
-    const stateToSave = createSafeStateCopy();
-    await quizDB.value.put('quizState', stateToSave);
-    console.log('Quiz6 state saved to IndexedDB');
-  } catch (error) {
-    console.error('Error saving state to IndexedDB:', error);
-  }
+  await safeDBOperation(
+    async () => {
+      const stateToSave = createSafeStateCopy();
+      await quizDB.value.put('quizState', stateToSave);
+      console.log('Quiz6: State saved to IndexedDB');
+      
+      // Отправляем событие об обновлении данных для QuizMenu
+      window.dispatchEvent(new CustomEvent('quiz-data-updated'));
+    },
+    null
+  );
 };
 
 // Загрузка состояния из IndexedDB
 const loadStateFromDB = async () => {
-  try {
-    const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
-    if (savedState) {
-      console.log('Loading Quiz6 from IndexedDB:', savedState);
-      
-      // Восстанавливаем данные формы
-      if (savedState.formData) {
-        formData.platforms = savedState.formData.platforms || [];
-        formData.otherPlatform = savedState.formData.otherPlatform || '';
-        formData.rightsInfo = savedState.formData.rightsInfo || '';
-        formData.rightsContractLink = savedState.formData.rightsContractLink || '';
-        formData.additionalComments = savedState.formData.additionalComments || '';
-        formData.promoPlan = savedState.formData.promoPlan || '';
-        formData.bandlinkUrl = savedState.formData.bandlinkUrl || '';
-        formData.promoCode = savedState.formData.promoCode || '';
-        formData.usePartnerBonuses = savedState.formData.usePartnerBonuses || false;
-        formData.usedBonuses = savedState.formData.usedBonuses || 0;
-        formData.confirmNoRightsViolation = savedState.formData.confirmNoRightsViolation || false;
-      }
-      
-      // Восстанавливаем состояние промокода
-      promoApplied.value = savedState.promoApplied || false;
-      promoDiscount.value = savedState.promoDiscount || 0;
-      
-      // Восстанавливаем данные договора
-      if (savedState.contractData) {
-        contractData.value = savedState.contractData;
-      }
-    }
-  } catch (error) {
-    console.error('Error loading state from IndexedDB:', error);
+  if (!dbInitialized.value) {
+    console.log('Quiz6: DB not initialized, skipping load');
+    return;
   }
+  
+  await safeDBOperation(
+    async () => {
+      const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
+      if (savedState) {
+        console.log('Quiz6: Loading from IndexedDB:', savedState);
+        
+        // Восстанавливаем данные формы
+        if (savedState.formData) {
+          formData.platforms = savedState.formData.platforms || [];
+          formData.otherPlatform = savedState.formData.otherPlatform || '';
+          formData.rightsInfo = savedState.formData.rightsInfo || '';
+          formData.rightsContractLink = savedState.formData.rightsContractLink || '';
+          formData.additionalComments = savedState.formData.additionalComments || '';
+          formData.promoPlan = savedState.formData.promoPlan || '';
+          formData.bandlinkUrl = savedState.formData.bandlinkUrl || '';
+          formData.promoCode = savedState.formData.promoCode || '';
+          formData.usePartnerBonuses = savedState.formData.usePartnerBonuses || false;
+          formData.usedBonuses = savedState.formData.usedBonuses || 0;
+          formData.confirmNoRightsViolation = savedState.formData.confirmNoRightsViolation || false;
+        }
+        
+        // Восстанавливаем состояние промокода
+        promoApplied.value = savedState.promoApplied || false;
+        promoDiscount.value = savedState.promoDiscount || 0;
+        
+        // Восстанавливаем данные договора
+        if (savedState.contractData) {
+          contractData.value = savedState.contractData;
+        }
+      }
+    },
+    null
+  );
 };
 
 // Максимальное количество бонусов, которое можно использовать
@@ -492,6 +560,8 @@ const hasDiscount = computed(() => {
 // Загрузка данных из API
 const loadBasketData = async () => {
   try {
+    console.log('Quiz6: Loading basket data...');
+    
     // Загружаем данные корзины для получения итоговой суммы
     const response = await sendRequest("post", '/ajax_vue/ajax/basket/updateBasket.php', {});
     
@@ -500,6 +570,7 @@ const loadBasketData = async () => {
     if (data.data) {
       originalTotalAmount.value = data.data.total || 0;
       currencySymbol.value = data.data.currency_symbol || '₽';
+      console.log('Quiz6: Original total amount:', originalTotalAmount.value);
     }
     
     // Загружаем данные пользователя для получения бонусов
@@ -509,9 +580,26 @@ const loadBasketData = async () => {
     
     if (userData.user?.uf_bonus) {
       userBonuses.value = parseInt(userData.user.uf_bonus) || 0;
+      console.log('Quiz6: User bonuses:', userBonuses.value);
     }
     
-    // Загружаем состояние из IndexedDB после получения данных из API
+  } catch (error) {
+    console.error('Quiz6: Ошибка загрузки данных:', error);
+  }
+};
+
+// Загрузка данных при монтировании
+const loadInitialData = async () => {
+  isLoading.value = true;
+  
+  try {
+    // Сначала инициализируем БД
+    await initDB();
+    
+    // Загружаем данные из API
+    await loadBasketData();
+    
+    // Затем загружаем сохраненное состояние из IndexedDB (после загрузки API)
     await loadStateFromDB();
     
     // Проверяем, что использованные бонусы не превышают максимум
@@ -520,11 +608,11 @@ const loadBasketData = async () => {
     }
     
     dataLoaded.value = true;
+    console.log('Quiz6: Initialization complete');
     
   } catch (error) {
-    console.error('Ошибка загрузки данных корзины:', error);
-    await loadStateFromDB();
-    dataLoaded.value = true;
+    console.error('Quiz6: Error in loadInitialData:', error);
+    ElMessage.error('Ошибка при загрузке данных');
   } finally {
     isLoading.value = false;
   }
@@ -539,9 +627,10 @@ const updatePriceWithPromo = async () => {
     
     if (data.data?.total) {
       originalTotalAmount.value = data.data.total;
+      console.log('Quiz6: Price updated with promo:', originalTotalAmount.value);
     }
   } catch (error) {
-    console.error('Ошибка обновления цены после промокода:', error);
+    console.error('Quiz6: Ошибка обновления цены после промокода:', error);
   }
 };
 
@@ -587,7 +676,7 @@ const checkPromoCode = async (code: string) => {
       await updatePriceWithPromo();
     }
   } catch (error) {
-    console.error('Ошибка применения промокода:', error);
+    console.error('Quiz6: Ошибка применения промокода:', error);
     promoApplied.value = false;
     promoDiscount.value = 0;
     ElMessage.error('Ошибка при проверке промокода');
@@ -833,187 +922,191 @@ const isReadyForNextStep = computed(() => {
 const getAllAudioFiles = async (): Promise<Array<{ file: File; type: 'single' | 'album'; trackIndex?: number; albumIndex?: number }>> => {
   const files: Array<{ file: File; type: 'single' | 'album'; trackIndex?: number; albumIndex?: number }> = [];
   
-  try {
-    // Получаем состояние Quiz2
-    const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
-    
-    if (!quiz2State) {
-      console.log('No Quiz2 state found');
-      return files;
-    }
-    
-    console.log('Quiz2 state:', quiz2State);
-    
-    // Собираем синглы
-    if (quiz2State.singleTracks && Array.isArray(quiz2State.singleTracks)) {
-      for (let i = 0; i < quiz2State.singleTracks.length; i++) {
-        const track = quiz2State.singleTracks[i];
-        
-        if (track.audioFileId) {
-          const audioData = await audioDB.value.get('audio', track.audioFileId);
-          if (audioData) {
-            console.log(`Loaded single file ${i}: ${audioData.fileName}`);
-            
-            // Создаем File из Blob
-            const blob = audioData.data;
-            const file = new File([blob], audioData.fileName, { 
-              type: audioData.fileType || 'audio/mpeg' 
-            });
-            
-            files.push({ file, type: 'single', trackIndex: i });
+  if (!audioDBInitialized.value) {
+    console.log('Quiz6: Audio DB not initialized');
+    return files;
+  }
+  
+  await safeDBOperation(
+    async () => {
+      // Получаем состояние Quiz2
+      const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
+      
+      if (!quiz2State) {
+        console.log('Quiz6: No Quiz2 state found');
+        return;
+      }
+      
+      console.log('Quiz6: Quiz2 state:', quiz2State);
+      
+      // Собираем синглы
+      if (quiz2State.singleTracks && Array.isArray(quiz2State.singleTracks)) {
+        for (let i = 0; i < quiz2State.singleTracks.length; i++) {
+          const track = quiz2State.singleTracks[i];
+          
+          if (track.audioFileId) {
+            const audioData = await audioDB.value.get('audio', track.audioFileId);
+            if (audioData) {
+              console.log(`Quiz6: Loaded single file ${i}: ${audioData.fileName}`);
+              
+              // Создаем File из Blob
+              const blob = audioData.data;
+              const file = new File([blob], audioData.fileName, { 
+                type: audioData.fileType || 'audio/mpeg' 
+              });
+              
+              files.push({ file, type: 'single', trackIndex: i });
+            }
           }
         }
       }
-    }
-    
-    // Собираем альбомы
-    if (quiz2State.albums && Array.isArray(quiz2State.albums)) {
-      for (let a = 0; a < quiz2State.albums.length; a++) {
-        const album = quiz2State.albums[a];
-        
-        if (album.tracks && Array.isArray(album.tracks)) {
-          for (let t = 0; t < album.tracks.length; t++) {
-            const track = album.tracks[t];
-            
-            if (track.audioFileId) {
-              const audioData = await audioDB.value.get('audio', track.audioFileId);
-              if (audioData) {
-                console.log(`Loaded album ${a} track ${t} file: ${audioData.fileName}`);
-                
-                const blob = audioData.data;
-                const file = new File([blob], audioData.fileName, { 
-                  type: audioData.fileType || 'audio/mpeg' 
-                });
-                
-                files.push({ file, type: 'album', albumIndex: a, trackIndex: t });
+      
+      // Собираем альбомы
+      if (quiz2State.albums && Array.isArray(quiz2State.albums)) {
+        for (let a = 0; a < quiz2State.albums.length; a++) {
+          const album = quiz2State.albums[a];
+          
+          if (album.tracks && Array.isArray(album.tracks)) {
+            for (let t = 0; t < album.tracks.length; t++) {
+              const track = album.tracks[t];
+              
+              if (track.audioFileId) {
+                const audioData = await audioDB.value.get('audio', track.audioFileId);
+                if (audioData) {
+                  console.log(`Quiz6: Loaded album ${a} track ${t} file: ${audioData.fileName}`);
+                  
+                  const blob = audioData.data;
+                  const file = new File([blob], audioData.fileName, { 
+                    type: audioData.fileType || 'audio/mpeg' 
+                  });
+                  
+                  files.push({ file, type: 'album', albumIndex: a, trackIndex: t });
+                }
               }
             }
           }
         }
       }
-    }
-    
-    console.log(`Total files loaded: ${files.length}`);
-    return files;
-  } catch (error) {
-    console.error('Error loading audio files from DB:', error);
-    return [];
-  }
+    },
+    null,
+    'audio'
+  );
+  
+  console.log(`Quiz6: Total files loaded: ${files.length}`);
+  return files;
 };
 
 // Очистка старых номеров перед отправкой
 const clearOldNumbers = async (): Promise<void> => {
-  try {
-    console.log('Clearing old product numbers...');
-    
-    // Получаем состояние Quiz2
-    const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
-    
-    if (!quiz2State) {
-      console.log('No Quiz2 state to clear');
-      return;
-    }
-    
-    // Очищаем номера у синглов
-    if (quiz2State.singleTracks && Array.isArray(quiz2State.singleTracks)) {
-      quiz2State.singleTracks.forEach((track: any) => {
-        if (track.product_id) {
-          console.log(`Clearing product_id ${track.product_id} from single track`);
-          delete track.product_id;
-        }
-      });
-    }
-    
-    // Очищаем номера у альбомов
-    if (quiz2State.albums && Array.isArray(quiz2State.albums)) {
-      quiz2State.albums.forEach((album: any) => {
-        if (album.tracks && Array.isArray(album.tracks)) {
-          album.tracks.forEach((track: any) => {
-            if (track.product_id) {
-              console.log(`Clearing product_id ${track.product_id} from album track`);
-              delete track.product_id;
-            }
-          });
-        }
-      });
-    }
-    
-    // Сохраняем очищенное состояние
-    await quizDB.value.put('quizState', quiz2State);
-    console.log('Old product numbers cleared');
-    
-  } catch (error) {
-    console.error('Error clearing old numbers:', error);
-  }
+  await safeDBOperation(
+    async () => {
+      console.log('Quiz6: Clearing old product numbers...');
+      
+      // Получаем состояние Quiz2
+      const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
+      
+      if (!quiz2State) {
+        console.log('Quiz6: No Quiz2 state to clear');
+        return;
+      }
+      
+      // Очищаем номера у синглов
+      if (quiz2State.singleTracks && Array.isArray(quiz2State.singleTracks)) {
+        quiz2State.singleTracks.forEach((track: any) => {
+          if (track.product_id) {
+            console.log(`Quiz6: Clearing product_id ${track.product_id} from single track`);
+            delete track.product_id;
+          }
+        });
+      }
+      
+      // Очищаем номера у альбомов
+      if (quiz2State.albums && Array.isArray(quiz2State.albums)) {
+        quiz2State.albums.forEach((album: any) => {
+          if (album.tracks && Array.isArray(album.tracks)) {
+            album.tracks.forEach((track: any) => {
+              if (track.product_id) {
+                console.log(`Quiz6: Clearing product_id ${track.product_id} from album track`);
+                delete track.product_id;
+              }
+            });
+          }
+        });
+      }
+      
+      // Сохраняем очищенное состояние
+      await quizDB.value.put('quizState', quiz2State);
+      console.log('Quiz6: Old product numbers cleared');
+    },
+    null
+  );
 };
 
 // Сохранение полученных номеров
 const saveProductNumbers = async (uploadedFiles: UploadedFileInfo[]): Promise<void> => {
-  try {
-    console.log('Saving product numbers:', uploadedFiles);
-    
-    // Получаем состояние Quiz2
-    const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
-    
-    if (!quiz2State) {
-      console.log('No Quiz2 state to save numbers');
-      return;
-    }
-    
-    let updated = false;
-    
-    // Для каждого загруженного файла
-    uploadedFiles.forEach((file: UploadedFileInfo) => {
-      const fileName = file.file_name;
-      const productId = file.product_id;
+  await safeDBOperation(
+    async () => {
+      console.log('Quiz6: Saving product numbers:', uploadedFiles);
       
-      console.log(`Saving product_id ${productId} for file: ${fileName}`);
+      // Получаем состояние Quiz2
+      const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
       
-      // Ищем соответствующий трек по имени файла и сохраняем product_id
+      if (!quiz2State) {
+        console.log('Quiz6: No Quiz2 state to save numbers');
+        return;
+      }
       
-      // Сначала ищем в синглах
-      if (quiz2State.singleTracks && Array.isArray(quiz2State.singleTracks)) {
-        const singleTrack = quiz2State.singleTracks.find((track: any) => 
-          track.audioFileName === fileName
-        );
+      let updated = false;
+      
+      // Для каждого загруженного файла
+      uploadedFiles.forEach((file: UploadedFileInfo) => {
+        const fileName = file.file_name;
+        const productId = file.product_id;
         
-        if (singleTrack) {
-          console.log(`Found matching single track, saving product_id ${productId}`);
-          singleTrack.product_id = productId;
-          updated = true;
-          return;
-        }
-      }
-      
-      // Если не нашли в синглах, ищем в альбомах
-      if (quiz2State.albums && Array.isArray(quiz2State.albums)) {
-        quiz2State.albums.forEach((album: any) => {
-          if (album.tracks && Array.isArray(album.tracks)) {
-            const albumTrack = album.tracks.find((track: any) => 
-              track.audioFileName === fileName
-            );
-            
-            if (albumTrack) {
-              console.log(`Found matching album track, saving product_id ${productId}`);
-              albumTrack.product_id = productId;
-              updated = true;
-            }
+        console.log(`Quiz6: Saving product_id ${productId} for file: ${fileName}`);
+        
+        // Сначала ищем в синглах
+        if (quiz2State.singleTracks && Array.isArray(quiz2State.singleTracks)) {
+          const singleTrack = quiz2State.singleTracks.find((track: any) => 
+            track.audioFileName === fileName
+          );
+          
+          if (singleTrack) {
+            console.log(`Quiz6: Found matching single track, saving product_id ${productId}`);
+            singleTrack.product_id = productId;
+            updated = true;
+            return;
           }
-        });
+        }
+        
+        // Если не нашли в синглах, ищем в альбомах
+        if (quiz2State.albums && Array.isArray(quiz2State.albums)) {
+          quiz2State.albums.forEach((album: any) => {
+            if (album.tracks && Array.isArray(album.tracks)) {
+              const albumTrack = album.tracks.find((track: any) => 
+                track.audioFileName === fileName
+              );
+              
+              if (albumTrack) {
+                console.log(`Quiz6: Found matching album track, saving product_id ${productId}`);
+                albumTrack.product_id = productId;
+                updated = true;
+              }
+            }
+          });
+        }
+      });
+      
+      if (updated) {
+        // Сохраняем обновленное состояние
+        await quizDB.value.put('quizState', quiz2State);
+        console.log('Quiz6: Product numbers saved successfully');
+      } else {
+        console.log('Quiz6: No tracks were updated');
       }
-    });
-    
-    if (updated) {
-      // Сохраняем обновленное состояние
-      await quizDB.value.put('quizState', quiz2State);
-      console.log('Product numbers saved successfully');
-    } else {
-      console.log('No tracks were updated');
-    }
-    
-  } catch (error) {
-    console.error('Error saving product numbers:', error);
-  }
+    },
+    null
+  );
 };
 
 // Отправка одного файла на сервер
@@ -1040,7 +1133,7 @@ const uploadFile = async (file: File, type: 'single' | 'album', trackIndex?: num
     : '/ajax_vue/ajax/quiz/loadAlbum.php';
   
   try {
-    console.log(`Uploading ${type} file:`, file.name, 'size:', file.size, 'type:', file.type);
+    console.log(`Quiz6: Uploading ${type} file:`, file.name, 'size:', file.size, 'type:', file.type);
     
     const response = await fetch(url, {
       method: 'POST',
@@ -1049,18 +1142,17 @@ const uploadFile = async (file: File, type: 'single' | 'album', trackIndex?: num
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Server response:', errorText);
+      console.error('Quiz6: Server response:', errorText);
       throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
     
     const data = await response.json();
     
-    // Логируем ответ от сервера
-    console.log(`${type} file response:`, data);
+    console.log(`Quiz6: ${type} file response:`, data);
     
     return data;
   } catch (error) {
-    console.error(`Error uploading ${type} file:`, error);
+    console.error(`Quiz6: Error uploading ${type} file:`, error);
     throw error;
   }
 };
@@ -1070,7 +1162,7 @@ const uploadAllFiles = async (): Promise<UploadedFileInfo[]> => {
   const files = await getAllAudioFiles();
   
   if (files.length === 0) {
-    console.log('No files to upload');
+    console.log('Quiz6: No files to upload');
     return [];
   }
   
@@ -1079,7 +1171,7 @@ const uploadAllFiles = async (): Promise<UploadedFileInfo[]> => {
   uploadingFiles.value = true;
   uploadProgress.value = 0;
   
-  console.log(`Starting upload of ${files.length} files...`);
+  console.log(`Quiz6: Starting upload of ${files.length} files...`);
   
   // Сначала очищаем старые номера
   await clearOldNumbers();
@@ -1094,19 +1186,19 @@ const uploadAllFiles = async (): Promise<UploadedFileInfo[]> => {
       
       // Проверяем структуру ответа
       if (response && response.error === 0) {
-        console.log(`File ${i + 1}/${files.length} uploaded successfully`);
+        console.log(`Quiz6: File ${i + 1}/${files.length} uploaded successfully`);
         
         // В ответе может быть data.uploaded (массив) или сразу uploaded
         const uploaded = response.data?.uploaded || response.uploaded;
         
         if (uploaded && Array.isArray(uploaded)) {
-          console.log(`Received ${uploaded.length} file entries in response`);
+          console.log(`Quiz6: Received ${uploaded.length} file entries in response`);
           uploadedFilesData.push(...uploaded);
         } else {
-          console.log('No uploaded array in response:', response);
+          console.log('Quiz6: No uploaded array in response:', response);
         }
       } else {
-        console.log(`File ${i + 1}/${files.length} upload returned error:`, response);
+        console.log(`Quiz6: File ${i + 1}/${files.length} upload returned error:`, response);
       }
       
       uploadedCount.value = i + 1;
@@ -1115,16 +1207,16 @@ const uploadAllFiles = async (): Promise<UploadedFileInfo[]> => {
     
     // Сохраняем все полученные product_id
     if (uploadedFilesData.length > 0) {
-      console.log('Saving product numbers:', uploadedFilesData);
+      console.log('Quiz6: Saving product numbers:', uploadedFilesData);
       await saveProductNumbers(uploadedFilesData);
     } else {
-      console.log('No product numbers to save');
+      console.log('Quiz6: No product numbers to save');
     }
     
-    console.log('All files uploaded successfully');
+    console.log('Quiz6: All files uploaded successfully');
     return uploadedFilesData;
   } catch (error) {
-    console.error('Error during file upload:', error);
+    console.error('Quiz6: Error during file upload:', error);
     ElMessage.error('Ошибка при отправке файлов на сервер');
     throw error;
   } finally {
@@ -1156,231 +1248,229 @@ const formatCitizenship = (citizenship?: string, other?: string): string => {
 
 // Получение всех данных из всех шагов для отправки на генерацию договора
 const getAllFormDataForContract = async (): Promise<any> => {
-  try {
-    // Загружаем данные всех шагов
-    const quiz1State = await quizDB.value.get('quizState', 'quiz1_state');
-    const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
-    const quiz3State = await quizDB.value.get('quizState', 'quiz3_state');
-    const quiz4State = await quizDB.value.get('quizState', 'quiz4_state');
-    const quiz5State = await quizDB.value.get('quizState', 'quiz5_state');
-    
-    console.log('Loading all quiz states for contract generation');
-    
-    // Собираем все данные в одну структуру для отправки
-    const allData: any = {};
-    
-    // Шаг 1 - количества и чекбоксы
-    if (quiz1State) {
-      allData['check-single'] = quiz1State.singleCount > 0 ? 'on' : 'off';
-      allData['check-album'] = quiz1State.albumCount > 0 ? 'on' : 'off';
-      allData['check-klip'] = quiz1State.clipCount > 0 ? 'on' : 'off';
-      allData['check-karta'] = quiz1State.cardCount > 0 ? 'on' : 'off';
-      allData.countSingle = String(quiz1State.singleCount || 0);
-      allData.countAlbum = String(quiz1State.albumCount || 0);
-    }
-    
-    // Шаг 2 - Синглы
-    if (quiz2State?.singleTracks) {
-      quiz2State.singleTracks.forEach((track: any) => {
-        if (track.product_id) {
-          // Добавляем trackID
-          if (!allData['trackID[]']) allData['trackID[]'] = [];
-          allData['trackID[]'].push(track.product_id);
-          
-          // Добавляем путь к файлу
-          allData[`path-file[${track.product_id}]`] = track.audioFileName || '';
-          
-          // Добавляем название файла
-          allData[`name-file[${track.product_id}]`] = track.audioFileName || '';
-          
-          // Добавляем артиста
-          allData[`artist[${track.product_id}]`] = track.performerName || '';
-          
-          // Добавляем автора музыки
-          allData[`autor-music[${track.product_id}]`] = track.musicAuthor || '';
-          
-          // Добавляем автора слов
-          allData[`autor-words[${track.product_id}]`] = track.textAuthor || '';
-          
-          // Добавляем автора файла
-          allData[`autor-files[${track.product_id}]`] = track.performerName || '';
-        }
-      });
-    }
-    
-    // Шаг 2 - Альбомы
-    if (quiz2State?.albums) {
-      quiz2State.albums.forEach((album: any) => {
-        if (album.tracks) {
-          album.tracks.forEach((track: any) => {
-            if (track.product_id) {
-              // Добавляем albumID
-              if (!allData['albumID[]']) allData['albumID[]'] = [];
-              allData['albumID[]'].push(track.product_id);
-              
-              // Добавляем путь к файлу альбома
-              allData[`path-file-album[${track.product_id}]`] = track.audioFileName || '';
-              
-              // Добавляем название файла альбома
-              allData[`name-file-album[${track.product_id}]`] = track.audioFileName || '';
-              
-              // Добавляем артиста альбома
-              allData[`artist-album[${track.product_id}]`] = track.performerName || '';
-              
-              // Добавляем автора музыки альбома
-              allData[`autor-music-album[${track.product_id}]`] = track.musicAuthor || '';
-              
-              // Добавляем автора слов альбома
-              allData[`autor-words-album[${track.product_id}]`] = track.textAuthor || '';
-              
-              // Добавляем автора файла альбома
-              allData[`autor-files-album[${track.product_id}]`] = track.performerName || '';
-            }
-          });
-        }
-      });
-    }
-    
-    // Шаг 3 - Информация о релизе
-    if (quiz3State?.formData) {
-      const f = quiz3State.formData;
-      allData.alias = f.performerName || '';
-      allData['name-relize'] = f.releaseName || '';
-      allData.kuda_reliz1 = '1';
-      allData['kuda-reliz'] = '1';
-      allData['others-kuda'] = f.otherPlatform || '';
-      allData['calendar-reliz'] = f.releaseDate || '';
-      allData.mat1 = f.hasProfanity === 'yes' ? '12' : '13';
-      allData.mat = f.hasProfanity === 'yes' ? '12' : '13';
-      allData['others-mat'] = f.profanityTracks || '';
-      allData.mat1ai = '13';
-      allData.matai = '13';
-      allData['others-matai'] = '';
-      allData['all-obl'] = '1';
-      // file-obl1 - будет добавлен позже как бинарный файл
-      allData.vk = f.vkLink || '';
-      allData['email-clear'] = f.email || '';
-      
-      // Альбомные версии
-      allData['alias-album'] = f.performerName || '';
-      allData['name-relize-album'] = '';
-      allData['kuda-reliz-album1'] = '';
-      allData['kuda-reliz-album'] = '1';
-      allData['others-kuda-album'] = '';
-      allData['calendar-reliz-album'] = '';
-      allData['mat-album1'] = '13';
-      allData['mat-album'] = '13';
-      allData['others-mat-album'] = '';
-      allData['mat-album1ai'] = '13';
-      allData['mat-albumai'] = '13';
-      allData['others-matai-album'] = '';
-      allData['vk-album'] = f.vkLink || '';
-      allData['email-clear-album'] = f.email || '';
-    }
-    
-    // Шаг 4 - Данные пользователя
-    if (quiz4State?.formData) {
-      const u = quiz4State.formData;
-      allData.citysenship1 = '';
-      allData.citysenship = u.userType === 'individual' ? 'Физическое лицо' : 'Индивидуальный предприниматель';
-      allData.select__fizurlico = '';
-      allData.others = '';
-      allData.yur_arg_org = u.legalAddress || '';
-      allData.inn = u.inn || '';
-      allData.ogrn = u.ogrn || '';
-      allData.rasy = u.accountNumber || '';
-      allData.bank = u.bankName || '';
-      allData.inn_bank = u.bankInn || '';
-      allData.bik = u.bankBik || '';
-      allData.kor_s = u.correspondentAccount || '';
-      allData.yur_adr_bank = u.bankLegalAddress || '';
-      
-      // Паспортные данные
-      allData.citysenship1 = '';
-      allData.citysenship = formatCitizenship(u.citizenship, u.otherCitizenship);
-      allData.others = '';
-      allData.FAM = u.lastName || '';
-      allData.IMYA = u.firstName || '';
-      allData.OTCH = u.middleName || '';
-      allData.passport = u.passportNumber || '';
-      allData['who-doing'] = u.passportIssuedBy || '';
-      allData.kemvidan = '';
-      allData['when-doing'] = formatDateForAPI(u.passportIssueDate) || '';
-      allData.adress = u.registrationAddress || '';
-    }
-    
-    // Шаг 5 - Жанр и текст
-    if (quiz5State?.formData) {
-      const g = quiz5State.formData;
-      allData.genre = g.genre || '';
-      allData['time-play'] = g.tiktokStartSeconds || '';
-      allData.nark = g.hasDrugsMention === 'yes' ? '12' : '13';
-      allData.narc = g.hasDrugsMention === 'yes' ? '12' : '13';
-      allData['others-narc'] = g.drugsTracks || '';
-      // file-apple - бинарный файл
-      // file-karaoke-apple1 - бинарный файл
-      allData.apple = g.appleMusicLinks || '';
-      allData.spotify = g.spotifyLinks || '';
-      allData['link-vk'] = g.vkLinks || '';
-      allData['link-yandex'] = g.yandexMusicLinks || '';
-      allData.socialartist = g.socialLinks || '';
-    }
-    
-    // Шаг 6 (текущий)
-    allData['otkuda-uznali1'] = formData.platforms[0] || '';
-    allData['otkuda-uznali'] = formData.platforms[0] || '';
-    allData['others-otkuda'] = formData.otherPlatform || '';
-    allData.instrumentals = formData.rightsInfo || '';
-    allData.comments = formData.additionalComments || '';
-    allData.plan = formData.promoPlan || '';
-    allData['link-bandlink'] = formData.bandlinkUrl || '';
-    allData.promocode = formData.promoCode || '';
-    allData.promosum = '';
-    allData.sumOrder = String(finalAmount.value || 0);
-    allData.policy = formData.confirmNoRightsViolation ? 'on' : 'off';
-    
-    return allData;
-    
-  } catch (error) {
-    console.error('Error collecting form data for contract:', error);
-    throw error;
+  if (!dbInitialized.value) {
+    console.log('Quiz6: DB not initialized');
+    throw new Error('База данных не инициализирована');
   }
+  
+  return safeDBOperation(
+    async () => {
+      console.log('Quiz6: Loading all quiz states for contract generation');
+      
+      // Загружаем данные всех шагов
+      const quiz1State = await quizDB.value.get('quizState', 'quiz1_state');
+      const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
+      const quiz3State = await quizDB.value.get('quizState', 'quiz3_state');
+      const quiz4State = await quizDB.value.get('quizState', 'quiz4_state');
+      const quiz5State = await quizDB.value.get('quizState', 'quiz5_state');
+      
+      // Собираем все данные в одну структуру для отправки
+      const allData: any = {};
+      
+      // Шаг 1 - количества и чекбоксы
+      if (quiz1State) {
+        allData['check-single'] = quiz1State.singleCount > 0 ? 'on' : 'off';
+        allData['check-album'] = quiz1State.albumCount > 0 ? 'on' : 'off';
+        allData['check-klip'] = quiz1State.clipCount > 0 ? 'on' : 'off';
+        allData['check-karta'] = quiz1State.cardCount > 0 ? 'on' : 'off';
+        allData.countSingle = String(quiz1State.singleCount || 0);
+        allData.countAlbum = String(quiz1State.albumCount || 0);
+      }
+      
+      // Шаг 2 - Синглы
+      if (quiz2State?.singleTracks) {
+        quiz2State.singleTracks.forEach((track: any) => {
+          if (track.product_id) {
+            // Добавляем trackID
+            if (!allData['trackID[]']) allData['trackID[]'] = [];
+            allData['trackID[]'].push(track.product_id);
+            
+            // Добавляем путь к файлу
+            allData[`path-file[${track.product_id}]`] = track.audioFileName || '';
+            
+            // Добавляем название файла
+            allData[`name-file[${track.product_id}]`] = track.audioFileName || '';
+            
+            // Добавляем артиста
+            allData[`artist[${track.product_id}]`] = track.performerName || '';
+            
+            // Добавляем автора музыки
+            allData[`autor-music[${track.product_id}]`] = track.musicAuthor || '';
+            
+            // Добавляем автора слов
+            allData[`autor-words[${track.product_id}]`] = track.textAuthor || '';
+            
+            // Добавляем автора файла
+            allData[`autor-files[${track.product_id}]`] = track.performerName || '';
+          }
+        });
+      }
+      
+      // Шаг 2 - Альбомы
+      if (quiz2State?.albums) {
+        quiz2State.albums.forEach((album: any) => {
+          if (album.tracks) {
+            album.tracks.forEach((track: any) => {
+              if (track.product_id) {
+                // Добавляем albumID
+                if (!allData['albumID[]']) allData['albumID[]'] = [];
+                allData['albumID[]'].push(track.product_id);
+                
+                // Добавляем путь к файлу альбома
+                allData[`path-file-album[${track.product_id}]`] = track.audioFileName || '';
+                
+                // Добавляем название файла альбома
+                allData[`name-file-album[${track.product_id}]`] = track.audioFileName || '';
+                
+                // Добавляем артиста альбома
+                allData[`artist-album[${track.product_id}]`] = track.performerName || '';
+                
+                // Добавляем автора музыки альбома
+                allData[`autor-music-album[${track.product_id}]`] = track.musicAuthor || '';
+                
+                // Добавляем автора слов альбома
+                allData[`autor-words-album[${track.product_id}]`] = track.textAuthor || '';
+                
+                // Добавляем автора файла альбома
+                allData[`autor-files-album[${track.product_id}]`] = track.performerName || '';
+              }
+            });
+          }
+        });
+      }
+      
+      // Шаг 3 - Информация о релизе
+      if (quiz3State?.formData) {
+        const f = quiz3State.formData;
+        allData.alias = f.performerName || '';
+        allData['name-relize'] = f.releaseName || '';
+        allData.kuda_reliz1 = '1';
+        allData['kuda-reliz'] = '1';
+        allData['others-kuda'] = f.otherPlatform || '';
+        allData['calendar-reliz'] = f.releaseDate || '';
+        allData.mat1 = f.hasProfanity === 'yes' ? '12' : '13';
+        allData.mat = f.hasProfanity === 'yes' ? '12' : '13';
+        allData['others-mat'] = f.profanityTracks || '';
+        allData.mat1ai = '13';
+        allData.matai = '13';
+        allData['others-matai'] = '';
+        allData['all-obl'] = '1';
+        allData.vk = f.vkLink || '';
+        allData['email-clear'] = f.email || '';
+        
+        // Альбомные версии
+        allData['alias-album'] = f.performerName || '';
+        allData['name-relize-album'] = '';
+        allData['kuda-reliz-album1'] = '';
+        allData['kuda-reliz-album'] = '1';
+        allData['others-kuda-album'] = '';
+        allData['calendar-reliz-album'] = '';
+        allData['mat-album1'] = '13';
+        allData['mat-album'] = '13';
+        allData['others-mat-album'] = '';
+        allData['mat-album1ai'] = '13';
+        allData['mat-albumai'] = '13';
+        allData['others-matai-album'] = '';
+        allData['vk-album'] = f.vkLink || '';
+        allData['email-clear-album'] = f.email || '';
+      }
+      
+      // Шаг 4 - Данные пользователя
+      if (quiz4State?.formData) {
+        const u = quiz4State.formData;
+        allData.citysenship1 = '';
+        allData.citysenship = u.userType === 'individual' ? 'Физическое лицо' : 'Индивидуальный предприниматель';
+        allData.select__fizurlico = '';
+        allData.others = '';
+        allData.yur_arg_org = u.legalAddress || '';
+        allData.inn = u.inn || '';
+        allData.ogrn = u.ogrn || '';
+        allData.rasy = u.accountNumber || '';
+        allData.bank = u.bankName || '';
+        allData.inn_bank = u.bankInn || '';
+        allData.bik = u.bankBik || '';
+        allData.kor_s = u.correspondentAccount || '';
+        allData.yur_adr_bank = u.bankLegalAddress || '';
+        
+        // Паспортные данные
+        allData.citysenship1 = '';
+        allData.citysenship = formatCitizenship(u.citizenship, u.otherCitizenship);
+        allData.others = '';
+        allData.FAM = u.lastName || '';
+        allData.IMYA = u.firstName || '';
+        allData.OTCH = u.middleName || '';
+        allData.passport = u.passportNumber || '';
+        allData['who-doing'] = u.passportIssuedBy || '';
+        allData.kemvidan = '';
+        allData['when-doing'] = formatDateForAPI(u.passportIssueDate) || '';
+        allData.adress = u.registrationAddress || '';
+      }
+      
+      // Шаг 5 - Жанр и текст
+      if (quiz5State?.formData) {
+        const g = quiz5State.formData;
+        allData.genre = g.genre || '';
+        allData['time-play'] = g.tiktokStartSeconds || '';
+        allData.nark = g.hasDrugsMention === 'yes' ? '12' : '13';
+        allData.narc = g.hasDrugsMention === 'yes' ? '12' : '13';
+        allData['others-narc'] = g.drugsTracks || '';
+        // file-apple и file-karaoke-apple1 - бинарные файлы (будут добавлены позже)
+        allData.apple = g.appleMusicLinks || '';
+        allData.spotify = g.spotifyLinks || '';
+        allData['link-vk'] = g.vkLinks || '';
+        allData['link-yandex'] = g.yandexMusicLinks || '';
+        allData.socialartist = g.socialLinks || '';
+      }
+      
+      // Шаг 6 (текущий)
+      allData['otkuda-uznali1'] = formData.platforms[0] || '';
+      allData['otkuda-uznali'] = formData.platforms[0] || '';
+      allData['others-otkuda'] = formData.otherPlatform || '';
+      allData.instrumentals = formData.rightsInfo || '';
+      allData.comments = formData.additionalComments || '';
+      allData.plan = formData.promoPlan || '';
+      allData['link-bandlink'] = formData.bandlinkUrl || '';
+      allData.promocode = formData.promoCode || '';
+      allData.promosum = '';
+      allData.sumOrder = String(finalAmount.value || 0);
+      allData.policy = formData.confirmNoRightsViolation ? 'on' : 'off';
+      
+      console.log('Quiz6: Collected all form data:', allData);
+      
+      return allData;
+    },
+    null
+  );
 };
 
-// Отправка запроса на генерацию договора - отправляем ВСЕ данные формы
+// Отправка запроса на генерацию договора
 const generateContract = async (): Promise<ContractData> => {
-  try {
-    // Получаем все данные из всех шагов для отправки
-    const allFormData = await getAllFormDataForContract();
+  // Получаем все данные из всех шагов для отправки
+  const allFormData = await getAllFormDataForContract();
+  
+  console.log('Quiz6: Sending ALL form data to generate contract:', allFormData);
+  
+  // Отправляем ВСЕ данные формы
+  const response = await sendRequest("post", '/ajax_vue/ajax/newDock.php', allFormData);
+  
+  console.log('Quiz6: Contract generation response:', response.data);
+  
+  // Проверяем структуру ответа
+  if (response.data && response.data.error === 0 && response.data.data) {
+    const data = response.data.data;
     
-    console.log('Sending ALL form data to generate contract:', allFormData);
-    
-    // Отправляем ВСЕ данные формы
-    const response = await sendRequest("post", '/ajax_vue/ajax/newDock.php', allFormData);
-    
-    console.log('Contract generation response:', response.data);
-    
-    // Проверяем структуру ответа
-    if (response.data && response.data.error === 0 && response.data.data) {
-      const data = response.data.data;
-      
-      // Проверяем, что пришли все необходимые данные
-      if (data.doc_pdf && data.doc_docx && Array.isArray(data.images)) {
-        return {
-          doc_pdf: data.doc_pdf,
-          doc_docx: data.doc_docx,
-          images: data.images
-        };
-      } else {
-        throw new Error('Неполные данные в ответе сервера');
-      }
+    // Проверяем, что пришли все необходимые данные
+    if (data.doc_pdf && data.doc_docx && Array.isArray(data.images)) {
+      return {
+        doc_pdf: data.doc_pdf,
+        doc_docx: data.doc_docx,
+        images: data.images
+      };
     } else {
-      throw new Error(response.data?.message || 'Ошибка генерации договора');
+      throw new Error('Неполные данные в ответе сервера');
     }
-    
-  } catch (error) {
-    console.error('Error generating contract:', error);
-    throw error;
+  } else {
+    throw new Error(response.data?.message || 'Ошибка генерации договора');
   }
 };
 
@@ -1404,7 +1494,7 @@ const handleContinue = async () => {
   try {
     // Если договор уже сгенерирован, переходим к следующему шагу
     if (contractData.value) {
-      console.log('Contract already generated, proceeding to next step');
+      console.log('Quiz6: Contract already generated, proceeding to next step');
       emit('go-next', contractData.value);
       return;
     }
@@ -1431,7 +1521,7 @@ const handleContinue = async () => {
     ElMessage.success('Договор успешно сгенерирован!');
     
   } catch (error: any) {
-    console.error('Error in handleContinue:', error);
+    console.error('Quiz6: Error in handleContinue:', error);
     ElMessage.error(error.message || 'Ошибка при обработке данных');
   } finally {
     isGeneratingContract.value = false;
@@ -1444,7 +1534,7 @@ const debouncedSave = () => {
     clearTimeout(saveTimeout);
   }
   saveTimeout = setTimeout(() => {
-    if (dataLoaded.value) {
+    if (dataLoaded.value && dbInitialized.value) {
       saveStateToDB();
     }
   }, 500);
@@ -1484,35 +1574,33 @@ watch(() => formData.usedBonuses, (newValue, oldValue) => {
   }
 });
 
-// Загрузка данных при монтировании компонента
+// При монтировании компонента
 onMounted(async () => {
-  try {
-    await initDB();
-    await loadBasketData();
-  } catch (error) {
-    console.error('Error in onMounted:', error);
-    isLoading.value = false;
-  }
+  await loadInitialData();
 });
 
 // Сохраняем состояние при покидании страницы
-const handleBeforeUnload = () => {
+const handleBeforeUnload = async () => {
   if (saveTimeout) {
     clearTimeout(saveTimeout);
   }
-  saveStateToDB();
+  await saveStateToDB();
 };
 
-const handleVisibilityChange = () => {
+const handleVisibilityChange = async () => {
   if (document.visibilityState === 'hidden') {
     if (saveTimeout) {
       clearTimeout(saveTimeout);
     }
-    saveStateToDB();
+    await saveStateToDB();
   }
 };
 
-// Очистка при размонтировании
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+});
+
 onUnmounted(() => {
   if (saveTimeout) {
     clearTimeout(saveTimeout);
@@ -1523,9 +1611,6 @@ onUnmounted(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
-
-window.addEventListener('beforeunload', handleBeforeUnload);
-document.addEventListener('visibilitychange', handleVisibilityChange);
 </script>
 
 <style lang="css" scoped>

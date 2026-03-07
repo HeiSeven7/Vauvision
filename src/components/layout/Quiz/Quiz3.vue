@@ -1,4 +1,777 @@
+<script lang="ts" setup>
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ElInput, ElMessage, ElSelect, ElOption, ElDatePicker } from 'element-plus';
+import { sendRequest } from '@/utils/api';
+import BackSVG from "@/uikit/icon/BackSVG.vue";
+import CloseSVG from "@/uikit/icon/CloseSVG.vue";
+import ClipSVG from "@/uikit/icon/ClipSVG.vue";
+import dayjs from 'dayjs';
+import { openDB } from 'idb';
+
+const emit = defineEmits<{
+  'go-back': [];
+  'go-next': [];
+}>();
+
+// Ключи для хранения
+const STORAGE_KEY = 'quiz3_state';
+const DB_NAME = 'quizDB';
+const FILES_DB_NAME = 'filesDB';
+const DB_VERSION = 2; // Увеличиваем версию до 2
+
+// Состояние для отображения важной информации
+const showImportantBlock = ref(false);
+
+// Состояние загрузки данных
+const isLoading = ref(true);
+const dataLoaded = ref(false);
+
+// Базы данных
+const quizDB = ref<any>(null);
+const filesDB = ref<any>(null);
+const dbInitialized = ref(false);
+const filesDBInitialized = ref(false);
+
+// Данные формы - используем reactive для реактивности
+const formData = reactive({
+  performerName: '',
+  releaseName: '',
+  platforms: [] as string[],
+  otherPlatform: '',
+  releaseDate: '',
+  hasProfanity: '',
+  profanityTracks: '',
+  coverFile: null as File | null,
+  coverFileId: null as string | null,
+  vkLink: '',
+  email: ''
+});
+
+// Отдельные ref для отображения информации о файле
+const coverFileName = ref('');
+const coverFileSize = ref(0);
+
+// Ошибки валидации
+const errors = reactive({
+  performerName: '',
+  releaseName: '',
+  platforms: '',
+  otherPlatform: '',
+  releaseDate: '',
+  hasProfanity: '',
+  profanityTracks: '',
+  coverFile: '',
+  vkLink: '',
+  email: ''
+});
+
+// Состояния для загрузки файлов
+const isUploading = ref(false);
+const dragOver = ref(false);
+
+// Таймер для debounce сохранения
+let saveTimeout: NodeJS.Timeout | null = null;
+
+// Флаг для отслеживания, было ли уже загружено состояние из IndexedDB
+const isStateLoaded = ref(false);
+
+// Опции для выбора
+const platformOptions = [
+  { label: 'Все площадки', value: 'all' },
+  { label: 'Другое', value: 'other' }
+];
+
+const profanityOptions = [
+  { label: 'Да', value: 'yes' },
+  { label: 'Нет', value: 'no' }
+];
+
+// Инициализация IndexedDB
+const initDB = async () => {
+  try {
+    console.log('Quiz3: Initializing databases...');
+    
+    // База для текстовых данных состояний
+    quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz3: Upgrading DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (!db.objectStoreNames.contains('quizState')) {
+          const store = db.createObjectStore('quizState', { keyPath: 'id' });
+          store.createIndex('timestamp', 'timestamp');
+          console.log('Quiz3: Created quizState store');
+        }
+      },
+    });
+    
+    // Отдельная база для файлов (обложек)
+    filesDB.value = await openDB(FILES_DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz3: Upgrading Files DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (!db.objectStoreNames.contains('files')) {
+          const store = db.createObjectStore('files', { keyPath: 'id' });
+          store.createIndex('fileName', 'fileName');
+          store.createIndex('type', 'type');
+          store.createIndex('timestamp', 'timestamp');
+          console.log('Quiz3: Created files store');
+        }
+      },
+    });
+    
+    dbInitialized.value = true;
+    filesDBInitialized.value = true;
+    console.log('Quiz3: Databases initialized successfully');
+    
+  } catch (error) {
+    console.error('Quiz3: Error initializing databases:', error);
+    dbInitialized.value = false;
+    filesDBInitialized.value = false;
+  }
+};
+
+// Безопасное выполнение операций с БД
+const safeDBOperation = async <T>(
+  operation: () => Promise<T>, 
+  fallback: T,
+  dbType: 'quiz' | 'files' = 'quiz'
+): Promise<T> => {
+  const db = dbType === 'quiz' ? quizDB.value : filesDB.value;
+  const initialized = dbType === 'quiz' ? dbInitialized.value : filesDBInitialized.value;
+  const storeName = dbType === 'quiz' ? 'quizState' : 'files';
+  
+  if (!initialized || !db) {
+    console.log(`Quiz3: ${dbType} DB not initialized`);
+    return fallback;
+  }
+  
+  try {
+    if (!db.objectStoreNames || !db.objectStoreNames.contains(storeName)) {
+      console.log(`Quiz3: Store ${storeName} not found in ${dbType} DB. Available stores:`, 
+                  db.objectStoreNames ? Array.from(db.objectStoreNames) : []);
+      return fallback;
+    }
+    
+    return await operation();
+  } catch (error) {
+    console.error(`Quiz3: Error in ${dbType} DB operation:`, error);
+    return fallback;
+  }
+};
+
+// Сохранение файла в IndexedDB
+const saveFileToDB = async (file: File, fileId: string): Promise<void> => {
+  await safeDBOperation(
+    async () => {
+      const blob = new Blob([file], { type: file.type });
+      await filesDB.value.put('files', {
+        id: fileId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        data: blob,
+        timestamp: Date.now()
+      });
+      console.log(`Quiz3: File saved to DB with ID: ${fileId}`);
+    },
+    null,
+    'files'
+  );
+};
+
+// Загрузка файла из IndexedDB
+const loadFileFromDB = async (fileId: string): Promise<{ file: File; fileName: string; fileSize: number } | null> => {
+  return safeDBOperation(
+    async () => {
+      const stored = await filesDB.value.get('files', fileId);
+      if (stored) {
+        const file = new File([stored.data], stored.fileName, { type: stored.fileType });
+        return {
+          file,
+          fileName: stored.fileName,
+          fileSize: stored.fileSize
+        };
+      }
+      return null;
+    },
+    null,
+    'files'
+  );
+};
+
+// Удаление файла из IndexedDB
+const removeFileFromDB = async (fileId: string) => {
+  await safeDBOperation(
+    async () => {
+      await filesDB.value.delete('files', fileId);
+      console.log(`Quiz3: File removed from DB with ID: ${fileId}`);
+    },
+    null,
+    'files'
+  );
+};
+
+// Генерация ID для файла
+const generateFileId = (): string => {
+  return `cover-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
+// Сохранение состояния в IndexedDB
+const saveStateToDB = async () => {
+  // Не сохраняем во время загрузки или если данные еще не загружены
+  if (isLoading.value || !dataLoaded.value || !dbInitialized.value) {
+    return;
+  }
+  
+  await safeDBOperation(
+    async () => {
+      const stateToSave = {
+        id: STORAGE_KEY,
+        formData: {
+          performerName: formData.performerName || '',
+          releaseName: formData.releaseName || '',
+          platforms: Array.isArray(formData.platforms) ? [...formData.platforms] : [],
+          otherPlatform: formData.otherPlatform || '',
+          releaseDate: formData.releaseDate || '',
+          hasProfanity: formData.hasProfanity || '',
+          profanityTracks: formData.profanityTracks || '',
+          vkLink: formData.vkLink || '',
+          email: formData.email || ''
+        },
+        coverFileInfo: formData.coverFileId ? {
+          name: coverFileName.value,
+          size: coverFileSize.value,
+          fileId: formData.coverFileId
+        } : null,
+        showImportantBlock: showImportantBlock.value,
+        timestamp: Date.now()
+      };
+      
+      await quizDB.value.put('quizState', stateToSave);
+      console.log('Quiz3: State saved to IndexedDB');
+      
+      // Отправляем событие об обновлении данных для QuizMenu
+      window.dispatchEvent(new CustomEvent('quiz-data-updated'));
+    },
+    null
+  );
+};
+
+// Загрузка состояния из IndexedDB
+const loadStateFromDB = async () => {
+  if (!dbInitialized.value) {
+    console.log('Quiz3: DB not initialized, skipping load');
+    return;
+  }
+  
+  await safeDBOperation(
+    async () => {
+      const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
+      
+      if (savedState) {
+        console.log('Quiz3: Loading from IndexedDB:', savedState);
+        
+        // Восстанавливаем основные данные формы
+        if (savedState.formData) {
+          formData.performerName = savedState.formData.performerName || '';
+          formData.releaseName = savedState.formData.releaseName || '';
+          formData.platforms = Array.isArray(savedState.formData.platforms) ? [...savedState.formData.platforms] : [];
+          formData.otherPlatform = savedState.formData.otherPlatform || '';
+          formData.releaseDate = savedState.formData.releaseDate || '';
+          formData.hasProfanity = savedState.formData.hasProfanity || '';
+          formData.profanityTracks = savedState.formData.profanityTracks || '';
+          formData.vkLink = savedState.formData.vkLink || '';
+          formData.email = savedState.formData.email || '';
+        }
+        
+        // Восстанавливаем showImportantBlock
+        if (savedState.showImportantBlock !== undefined) {
+          showImportantBlock.value = savedState.showImportantBlock;
+        }
+        
+        // Восстанавливаем информацию об обложке
+        if (savedState.coverFileInfo) {
+          const fileInfo = savedState.coverFileInfo;
+          coverFileName.value = fileInfo.name || '';
+          coverFileSize.value = fileInfo.size || 0;
+          formData.coverFileId = fileInfo.fileId || null;
+          
+          // Загружаем сам файл из отдельной базы
+          if (formData.coverFileId && filesDBInitialized.value) {
+            const fileData = await loadFileFromDB(formData.coverFileId);
+            if (fileData) {
+              formData.coverFile = fileData.file;
+              coverFileName.value = fileData.fileName;
+              coverFileSize.value = fileData.fileSize;
+              console.log('Quiz3: Cover file loaded from DB');
+            }
+          }
+        }
+        
+        isStateLoaded.value = true;
+      }
+    },
+    null
+  );
+};
+
+// Загрузка данных с сервера
+const loadUserData = async () => {
+  try {
+    console.log('Quiz3: Loading user data...');
+    const response = await sendRequest("post", '/ajax_vue/ajax/getData.php', {});
+    console.log('Quiz3: getData response:', response.data);
+    
+    const data = response.data as any;
+    
+    // Сохраняем данные из API
+    if (data.user?.email) {
+      formData.email = data.user.email;
+      console.log('Quiz3: User email loaded:', data.user.email);
+    }
+    
+    if (data.user?.login) {
+      // Загружаем псевдоним, НО только если поле пустое (чтобы не перезаписать то, что пользователь уже ввел)
+      if (!formData.performerName) {
+        formData.performerName = data.user.login;
+        console.log('✅ Quiz3: Performer name loaded from user.login:', data.user.login);
+      }
+    } else {
+      console.log('❌ Quiz3: user.login not found in response');
+    }
+    
+  } catch (error) {
+    console.error('Quiz3: Ошибка загрузки данных пользователя:', error);
+  }
+};
+
+// Вычисляемое свойство для проверки готовности к продолжению
+const isReadyForNextStep = computed(() => {
+  const requiredFields = [
+    formData.performerName?.trim() || '',
+    formData.releaseName?.trim() || '',
+    (formData.platforms?.length || 0) > 0,
+    formData.releaseDate?.trim() || '',
+    formData.hasProfanity?.trim() || '',
+    formData.coverFile !== null,
+    formData.vkLink?.trim() || '',
+    formData.email?.trim() || ''
+  ];
+  
+  if (formData.platforms?.includes('other')) {
+    requiredFields.push((formData.otherPlatform?.trim() || '').length > 0);
+  }
+  
+  if (formData.hasProfanity === 'yes') {
+    requiredFields.push((formData.profanityTracks?.trim() || '').length > 0);
+  }
+  
+  return requiredFields.every(Boolean);
+});
+
+// Валидация URL
+const isValidUrl = (url: string) => {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// Валидация email
+const isValidEmail = (email: string) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+// Валидация всей формы
+const validateForm = () => {
+  let isValid = true;
+  
+  Object.keys(errors).forEach(key => {
+    errors[key as keyof typeof errors] = '';
+  });
+  
+  if (!formData.performerName?.trim()) {
+    errors.performerName = 'Псевдоним артиста обязателен для заполнения';
+    isValid = false;
+  } else if (formData.performerName.trim().length < 2) {
+    errors.performerName = 'Псевдоним артиста должен содержать минимум 2 символа';
+    isValid = false;
+  }
+  
+  if (!formData.releaseName?.trim()) {
+    errors.releaseName = 'Название релиза обязательно для заполнения';
+    isValid = false;
+  } else if (formData.releaseName.trim().length < 2) {
+    errors.releaseName = 'Название релиза должно содержать минимум 2 символа';
+    isValid = false;
+  }
+  
+  if (!formData.platforms || formData.platforms.length === 0) {
+    errors.platforms = 'Выберите хотя бы одну площадку для загрузки';
+    isValid = false;
+  }
+  
+  if (formData.platforms?.includes('other') && !formData.otherPlatform?.trim()) {
+    errors.otherPlatform = 'Напишите в свободной форме, на какие площадки нужно (или не нужно) загрузить релиз';
+    isValid = false;
+  }
+  
+  if (!formData.releaseDate) {
+    errors.releaseDate = 'Выберите желаемую дату выхода';
+    isValid = false;
+  } else {
+    const selectedDate = dayjs(formData.releaseDate);
+    const today = dayjs().startOf('day');
+    
+    if (selectedDate.isBefore(today)) {
+      errors.releaseDate = 'Дата релиза не может быть в прошлом';
+      isValid = false;
+    }
+  }
+  
+  if (!formData.hasProfanity) {
+    errors.hasProfanity = 'Укажите, есть ли в треках мат';
+    isValid = false;
+  }
+  
+  if (formData.hasProfanity === 'yes' && !formData.profanityTracks?.trim()) {
+    errors.profanityTracks = 'Укажите номера треков с матом';
+    isValid = false;
+  }
+  
+  if (!formData.coverFile) {
+    errors.coverFile = 'Обложка релиза обязательна для загрузки';
+    isValid = false;
+  }
+  
+  if (!formData.vkLink?.trim()) {
+    errors.vkLink = 'Ссылка на страницу обязательна для заполнения';
+    isValid = false;
+  } else if (!isValidUrl(formData.vkLink)) {
+    errors.vkLink = 'Введите корректную ссылку (начинается с https://)';
+    isValid = false;
+  } else if (!formData.vkLink.includes('vk.com/') && !formData.vkLink.includes('instagram.com/')) {
+    errors.vkLink = 'Ссылка должна вести на VK (vk.com) или Instagram (instagram.com)';
+    isValid = false;
+  }
+  
+  if (!formData.email?.trim()) {
+    errors.email = 'Электронная почта обязательна для заполнения';
+    isValid = false;
+  } else if (!isValidEmail(formData.email)) {
+    errors.email = 'Введите корректный адрес электронной почты';
+    isValid = false;
+  }
+  
+  return isValid;
+};
+
+// Общая функция для обработки файла
+const processCoverFile = async (file: File) => {
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+  if (!allowedTypes.includes(file.type)) {
+    errors.coverFile = 'Недопустимый формат файла. Разрешенные форматы: JPG, JPEG, PNG';
+    ElMessage.error('Недопустимый формат изображения');
+    return;
+  }
+  
+  const maxSize = 12 * 1024 * 1024;
+  if (file.size > maxSize) {
+    errors.coverFile = 'Файл слишком большой. Максимальный размер: 12MB';
+    ElMessage.error('Файл превышает максимальный допустимый размер');
+    return;
+  }
+  
+  isUploading.value = true;
+  
+  const img = new Image();
+  img.onload = async () => {
+    if (img.width < 1500 || img.height < 1500) {
+      errors.coverFile = 'Изображение слишком маленькое. Минимальный размер: 1500x1500 пикселей';
+      ElMessage.error('Изображение не соответствует требованиям по размеру');
+      isUploading.value = false;
+      return;
+    }
+    
+    if (img.width > 4000 || img.height > 4000) {
+      errors.coverFile = 'Изображение слишком большое. Максимальный размер: 4000x4000 пикселей';
+      ElMessage.error('Изображение не соответствует требованиям по размеру');
+      isUploading.value = false;
+      return;
+    }
+    
+    if (Math.abs(img.width - img.height) > 1) {
+      errors.coverFile = 'Изображение должно быть квадратным (одинаковая ширина и высота)';
+      ElMessage.error('Изображение должно быть квадратным');
+      isUploading.value = false;
+      return;
+    }
+    
+    try {
+      // Проверяем инициализацию БД
+      if (!filesDBInitialized.value) {
+        throw new Error('Files DB not initialized');
+      }
+      
+      // Генерируем ID для файла
+      const fileId = generateFileId();
+      
+      // Удаляем старый файл если был
+      if (formData.coverFileId) {
+        await removeFileFromDB(formData.coverFileId);
+      }
+      
+      // Сохраняем в IndexedDB
+      await saveFileToDB(file, fileId);
+      
+      errors.coverFile = '';
+      formData.coverFile = file;
+      formData.coverFileId = fileId;
+      coverFileName.value = file.name;
+      coverFileSize.value = file.size;
+      
+      await saveStateToDB();
+      
+      ElMessage.success('Обложка успешно загружена');
+    } catch (error) {
+      console.error('Quiz3: Error saving cover:', error);
+      ElMessage.error('Ошибка при сохранении обложки');
+    } finally {
+      isUploading.value = false;
+    }
+  };
+  
+  img.onerror = () => {
+    errors.coverFile = 'Не удалось загрузить изображение. Проверьте файл';
+    ElMessage.error('Ошибка загрузки изображения');
+    isUploading.value = false;
+  };
+  
+  img.src = URL.createObjectURL(file);
+};
+
+const handleCoverUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  
+  if (!file) return;
+  processCoverFile(file);
+};
+
+const handleCoverButtonClick = () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/jpeg,image/jpg,image/png';
+  input.style.display = 'none';
+  input.onchange = handleCoverUpload;
+  document.body.appendChild(input);
+  input.click();
+  document.body.removeChild(input);
+};
+
+const handleDragOver = (event: DragEvent) => {
+  event.preventDefault();
+  dragOver.value = true;
+};
+
+const handleDragLeave = (event: DragEvent) => {
+  event.preventDefault();
+  dragOver.value = false;
+};
+
+const handleDrop = (event: DragEvent) => {
+  event.preventDefault();
+  dragOver.value = false;
+  
+  const files = event.dataTransfer?.files;
+  if (!files || files.length === 0) return;
+  
+  const file = files[0];
+  processCoverFile(file);
+};
+
+const removeUploadedCover = async () => {
+  if (formData.coverFileId) {
+    await removeFileFromDB(formData.coverFileId);
+  }
+  
+  formData.coverFile = null;
+  formData.coverFileId = null;
+  coverFileName.value = '';
+  coverFileSize.value = 0;
+  errors.coverFile = '';
+  
+  await saveStateToDB();
+  
+  ElMessage.info('Обложка удалена');
+};
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const disabledDate = (time: Date) => {
+  return time.getTime() < Date.now() - 24 * 60 * 60 * 1000;
+};
+
+const goBack = async () => {
+  if (showImportantBlock.value) {
+    showImportantBlock.value = false;
+    await saveStateToDB();
+  } else {
+    emit('go-back');
+  }
+};
+
+const handleContinue = async () => {
+  if (validateForm()) {
+    showImportantBlock.value = true;
+    await saveStateToDB();
+  }
+};
+
+const handleAccept = async () => {
+  await saveStateToDB();
+  emit('go-next');
+};
+
+// Debounced save
+const debouncedSave = () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  saveTimeout = setTimeout(() => {
+    if (dataLoaded.value && dbInitialized.value) {
+      saveStateToDB();
+    }
+  }, 500);
+};
+
+// Watchers с debounce (только если данные уже загружены)
+watch(() => formData.performerName, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.releaseName, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.otherPlatform, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.releaseDate, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.hasProfanity, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.profanityTracks, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.vkLink, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.email, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => coverFileName.value, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => coverFileSize.value, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(showImportantBlock, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+
+// Специальный watch для platforms с debounce
+watch(() => formData.platforms, () => {
+  if (dataLoaded.value) debouncedSave();
+}, { deep: false });
+
+// Логика очистки зависимых полей
+watch(() => formData.hasProfanity, (newValue) => {
+  if (newValue === 'no') {
+    formData.profanityTracks = '';
+  }
+});
+
+watch(() => formData.platforms, (newValue) => {
+  if (!newValue?.includes('other')) {
+    formData.otherPlatform = '';
+  }
+});
+
+onMounted(async () => {
+  console.log('Quiz3: Component mounted, initializing...');
+  isLoading.value = true;
+  
+  try {
+    // Сначала инициализируем БД
+    await initDB();
+    
+    // Затем загружаем сохраненное состояние из IndexedDB
+    await loadStateFromDB();
+    
+    // Затем загружаем данные с сервера (они перезапишут только пустые поля)
+    await loadUserData();
+    
+    // Помечаем, что данные загружены
+    dataLoaded.value = true;
+    
+    console.log('Quiz3: Initialization complete');
+    console.log('Quiz3: Final form data:', {
+      performerName: formData.performerName,
+      email: formData.email,
+      coverFile: formData.coverFile ? 'File exists' : 'No file',
+      platforms: formData.platforms
+    });
+  } catch (error) {
+    console.error('Quiz3: Error during initialization:', error);
+    ElMessage.error('Ошибка при загрузке данных');
+  } finally {
+    isLoading.value = false;
+  }
+});
+
+const handleBeforeUnload = async () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  await saveStateToDB();
+};
+
+const handleVisibilityChange = async () => {
+  if (document.visibilityState === 'hidden') {
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+    await saveStateToDB();
+  }
+};
+
+// Добавляем обработчики событий
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+});
+
+onUnmounted(() => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+});
+</script>
+
 <template>
+<!-- Template остается без изменений -->
 <div class="quiz__form quiz__form_three" v-if="!showImportantBlock">
   <h4 class="quiz__form_head">Информация о треке</h4>
   
@@ -340,715 +1113,8 @@
 </div>
 </template>
 
-<script lang="ts" setup>
-import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
-import { ElInput, ElMessage, ElSelect, ElOption, ElDatePicker } from 'element-plus';
-import { sendRequest } from '@/utils/api';
-import BackSVG from "@/uikit/icon/BackSVG.vue";
-import CloseSVG from "@/uikit/icon/CloseSVG.vue";
-import ClipSVG from "@/uikit/icon/ClipSVG.vue";
-import dayjs from 'dayjs';
-import { openDB } from 'idb';
-
-const emit = defineEmits<{
-  'go-back': [];
-  'go-next': [];
-}>();
-
-// Ключи для хранения
-const STORAGE_KEY = 'quiz3_state';
-const DB_NAME = 'quizDB';
-const FILES_DB_NAME = 'filesDB';
-const DB_VERSION = 1;
-
-// Состояние для отображения важной информации
-const showImportantBlock = ref(false);
-
-// Состояние загрузки данных
-const isLoading = ref(true);
-const dataLoaded = ref(false);
-
-// Базы данных
-const quizDB = ref<any>(null);
-const filesDB = ref<any>(null);
-
-// Данные формы - используем reactive для реактивности
-const formData = reactive({
-  performerName: '',
-  releaseName: '',
-  platforms: [] as string[],
-  otherPlatform: '',
-  releaseDate: '',
-  hasProfanity: '',
-  profanityTracks: '',
-  coverFile: null as File | null,
-  coverFileId: null as string | null,
-  vkLink: '',
-  email: ''
-});
-
-// Отдельные ref для отображения информации о файле
-const coverFileName = ref('');
-const coverFileSize = ref(0);
-
-// Ошибки валидации
-const errors = reactive({
-  performerName: '',
-  releaseName: '',
-  platforms: '',
-  otherPlatform: '',
-  releaseDate: '',
-  hasProfanity: '',
-  profanityTracks: '',
-  coverFile: '',
-  vkLink: '',
-  email: ''
-});
-
-// Состояния для загрузки файлов
-const isUploading = ref(false);
-const dragOver = ref(false);
-
-// Таймер для debounce сохранения
-let saveTimeout: NodeJS.Timeout | null = null;
-
-// Флаг для отслеживания, было ли уже загружено состояние из IndexedDB
-const isStateLoaded = ref(false);
-
-// Опции для выбора
-const platformOptions = [
-  { label: 'Все площадки', value: 'all' },
-  { label: 'Другое', value: 'other' }
-];
-
-const profanityOptions = [
-  { label: 'Да', value: 'yes' },
-  { label: 'Нет', value: 'no' }
-];
-
-// Инициализация IndexedDB
-const initDB = async () => {
-  try {
-    // База для текстовых данных состояний
-    quizDB.value = await openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('quizState')) {
-          const store = db.createObjectStore('quizState', { keyPath: 'id' });
-          store.createIndex('timestamp', 'timestamp');
-        }
-      },
-    });
-    
-    // Отдельная база для файлов (обложек)
-    filesDB.value = await openDB(FILES_DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('files')) {
-          const store = db.createObjectStore('files', { keyPath: 'id' });
-          store.createIndex('fileName', 'fileName');
-          store.createIndex('type', 'type');
-        }
-      },
-    });
-    
-    console.log('Databases initialized');
-  } catch (error) {
-    console.error('Error initializing databases:', error);
-  }
-};
-
-// Сохранение файла в IndexedDB
-const saveFileToDB = async (file: File, fileId: string): Promise<void> => {
-  try {
-    const blob = new Blob([file], { type: file.type });
-    await filesDB.value.put('files', {
-      id: fileId,
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.type,
-      data: blob,
-      timestamp: Date.now()
-    });
-    console.log(`File saved to DB with ID: ${fileId}`);
-  } catch (error) {
-    console.error('Error saving file to DB:', error);
-    throw error;
-  }
-};
-
-// Загрузка файла из IndexedDB
-const loadFileFromDB = async (fileId: string): Promise<{ file: File, fileName: string, fileSize: number } | null> => {
-  try {
-    const stored = await filesDB.value.get('files', fileId);
-    if (stored) {
-      const file = new File([stored.data], stored.fileName, { type: stored.fileType });
-      return {
-        file,
-        fileName: stored.fileName,
-        fileSize: stored.fileSize
-      };
-    }
-    return null;
-  } catch (error) {
-    console.error('Error loading file from DB:', error);
-    return null;
-  }
-};
-
-// Удаление файла из IndexedDB
-const removeFileFromDB = async (fileId: string) => {
-  try {
-    await filesDB.value.delete('files', fileId);
-    console.log(`File removed from DB with ID: ${fileId}`);
-  } catch (error) {
-    console.error('Error removing file from DB:', error);
-  }
-};
-
-// Генерация ID для файла
-const generateFileId = (): string => {
-  return `cover-${Date.now()}-${Math.random()}`;
-};
-
-// Сохранение состояния в IndexedDB
-const saveStateToDB = async () => {
-  // Не сохраняем во время загрузки или если данные еще не загружены
-  if (isLoading.value || !dataLoaded.value) {
-    return;
-  }
-  
-  try {
-    const stateToSave = {
-      id: STORAGE_KEY,
-      formData: {
-        performerName: formData.performerName || '',
-        releaseName: formData.releaseName || '',
-        platforms: Array.isArray(formData.platforms) ? [...formData.platforms] : [],
-        otherPlatform: formData.otherPlatform || '',
-        releaseDate: formData.releaseDate || '',
-        hasProfanity: formData.hasProfanity || '',
-        profanityTracks: formData.profanityTracks || '',
-        vkLink: formData.vkLink || '',
-        email: formData.email || ''
-      },
-      coverFileInfo: formData.coverFileId ? {
-        name: coverFileName.value,
-        size: coverFileSize.value,
-        fileId: formData.coverFileId
-      } : null,
-      showImportantBlock: showImportantBlock.value,
-      timestamp: Date.now()
-    };
-    
-    await quizDB.value.put('quizState', stateToSave);
-    console.log('State saved to IndexedDB');
-  } catch (error) {
-    console.error('Error saving state to IndexedDB:', error);
-  }
-};
-
-// Загрузка состояния из IndexedDB
-const loadStateFromDB = async () => {
-  try {
-    const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
-    
-    if (savedState) {
-      console.log('Loading from IndexedDB:', savedState);
-      
-      // Восстанавливаем основные данные формы
-      if (savedState.formData) {
-        formData.performerName = savedState.formData.performerName || '';
-        formData.releaseName = savedState.formData.releaseName || '';
-        formData.platforms = Array.isArray(savedState.formData.platforms) ? [...savedState.formData.platforms] : [];
-        formData.otherPlatform = savedState.formData.otherPlatform || '';
-        formData.releaseDate = savedState.formData.releaseDate || '';
-        formData.hasProfanity = savedState.formData.hasProfanity || '';
-        formData.profanityTracks = savedState.formData.profanityTracks || '';
-        formData.vkLink = savedState.formData.vkLink || '';
-        formData.email = savedState.formData.email || '';
-      }
-      
-      // Восстанавливаем showImportantBlock
-      if (savedState.showImportantBlock !== undefined) {
-        showImportantBlock.value = savedState.showImportantBlock;
-      }
-      
-      // Восстанавливаем информацию об обложке
-      if (savedState.coverFileInfo) {
-        const fileInfo = savedState.coverFileInfo;
-        coverFileName.value = fileInfo.name || '';
-        coverFileSize.value = fileInfo.size || 0;
-        formData.coverFileId = fileInfo.fileId || null;
-        
-        // Загружаем сам файл из отдельной базы
-        if (formData.coverFileId) {
-          const fileData = await loadFileFromDB(formData.coverFileId);
-          if (fileData) {
-            formData.coverFile = fileData.file;
-            coverFileName.value = fileData.fileName;
-            coverFileSize.value = fileData.fileSize;
-            console.log('Cover file loaded from DB');
-          }
-        }
-      }
-      
-      isStateLoaded.value = true;
-    }
-  } catch (error) {
-    console.error('Error loading state from IndexedDB:', error);
-  }
-};
-
-// Загрузка данных с сервера
-const loadUserData = async () => {
-  try {
-    console.log('Loading user data...');
-    const response = await sendRequest("post", '/ajax_vue/ajax/getDataForm.php', {});
-    console.log('getDataForm response:', response.data);
-    
-    const data = response.data as any;
-    
-    // Сохраняем данные из API
-    if (data.user?.email) {
-      formData.email = data.user.email;
-      console.log('User email loaded:', data.user.email);
-    }
-    
-    if (data.user?.login) {
-      // Загружаем псевдоним, НО только если поле пустое (чтобы не перезаписать то, что пользователь уже ввел)
-      if (!formData.performerName) {
-        formData.performerName = data.user.login;
-        console.log('✅ Performer name loaded from user.login:', data.user.login);
-      }
-    } else {
-      console.log('❌ user.login not found in response');
-    }
-    
-  } catch (error) {
-    console.error('Ошибка загрузки данных пользователя:', error);
-  }
-};
-
-// Вычисляемое свойство для проверки готовности к продолжению
-const isReadyForNextStep = computed(() => {
-  const requiredFields = [
-    formData.performerName?.trim() || '',
-    formData.releaseName?.trim() || '',
-    (formData.platforms?.length || 0) > 0,
-    formData.releaseDate?.trim() || '',
-    formData.hasProfanity?.trim() || '',
-    formData.coverFile !== null,
-    formData.vkLink?.trim() || '',
-    formData.email?.trim() || ''
-  ];
-  
-  if (formData.platforms?.includes('other')) {
-    requiredFields.push((formData.otherPlatform?.trim() || '').length > 0);
-  }
-  
-  if (formData.hasProfanity === 'yes') {
-    requiredFields.push((formData.profanityTracks?.trim() || '').length > 0);
-  }
-  
-  return requiredFields.every(Boolean);
-});
-
-// Валидация URL
-const isValidUrl = (url: string) => {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-// Валидация email
-const isValidEmail = (email: string) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
-
-// Валидация всей формы
-const validateForm = () => {
-  let isValid = true;
-  
-  Object.keys(errors).forEach(key => {
-    errors[key as keyof typeof errors] = '';
-  });
-  
-  if (!formData.performerName?.trim()) {
-    errors.performerName = 'Псевдоним артиста обязателен для заполнения';
-    isValid = false;
-  } else if (formData.performerName.trim().length < 2) {
-    errors.performerName = 'Псевдоним артиста должен содержать минимум 2 символа';
-    isValid = false;
-  }
-  
-  if (!formData.releaseName?.trim()) {
-    errors.releaseName = 'Название релиза обязательно для заполнения';
-    isValid = false;
-  } else if (formData.releaseName.trim().length < 2) {
-    errors.releaseName = 'Название релиза должно содержать минимум 2 символа';
-    isValid = false;
-  }
-  
-  if (!formData.platforms || formData.platforms.length === 0) {
-    errors.platforms = 'Выберите хотя бы одну площадку для загрузки';
-    isValid = false;
-  }
-  
-  if (formData.platforms?.includes('other') && !formData.otherPlatform?.trim()) {
-    errors.otherPlatform = 'Напишите в свободной форме, на какие площадки нужно (или не нужно) загрузить релиз';
-    isValid = false;
-  }
-  
-  if (!formData.releaseDate) {
-    errors.releaseDate = 'Выберите желаемую дату выхода';
-    isValid = false;
-  } else {
-    const selectedDate = dayjs(formData.releaseDate);
-    const today = dayjs().startOf('day');
-    
-    if (selectedDate.isBefore(today)) {
-      errors.releaseDate = 'Дата релиза не может быть в прошлом';
-      isValid = false;
-    }
-  }
-  
-  if (!formData.hasProfanity) {
-    errors.hasProfanity = 'Укажите, есть ли в треках мат';
-    isValid = false;
-  }
-  
-  if (formData.hasProfanity === 'yes' && !formData.profanityTracks?.trim()) {
-    errors.profanityTracks = 'Укажите номера треков с матом';
-    isValid = false;
-  }
-  
-  if (!formData.coverFile) {
-    errors.coverFile = 'Обложка релиза обязательна для загрузки';
-    isValid = false;
-  }
-  
-  if (!formData.vkLink?.trim()) {
-    errors.vkLink = 'Ссылка на страницу обязательна для заполнения';
-    isValid = false;
-  } else if (!isValidUrl(formData.vkLink)) {
-    errors.vkLink = 'Введите корректную ссылку (начинается с https://)';
-    isValid = false;
-  } else if (!formData.vkLink.includes('vk.com/') && !formData.vkLink.includes('instagram.com/')) {
-    errors.vkLink = 'Ссылка должна вести на VK (vk.com) или Instagram (instagram.com)';
-    isValid = false;
-  }
-  
-  if (!formData.email?.trim()) {
-    errors.email = 'Электронная почта обязательна для заполнения';
-    isValid = false;
-  } else if (!isValidEmail(formData.email)) {
-    errors.email = 'Введите корректный адрес электронной почты';
-    isValid = false;
-  }
-  
-  return isValid;
-};
-
-// Общая функция для обработки файла
-const processCoverFile = async (file: File) => {
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-  if (!allowedTypes.includes(file.type)) {
-    errors.coverFile = 'Недопустимый формат файла. Разрешенные форматы: JPG, JPEG, PNG';
-    ElMessage.error('Недопустимый формат изображения');
-    return;
-  }
-  
-  const maxSize = 12 * 1024 * 1024;
-  if (file.size > maxSize) {
-    errors.coverFile = 'Файл слишком большой. Максимальный размер: 12MB';
-    ElMessage.error('Файл превышает максимальный допустимый размер');
-    return;
-  }
-  
-  isUploading.value = true;
-  
-  const img = new Image();
-  img.onload = async () => {
-    if (img.width < 1500 || img.height < 1500) {
-      errors.coverFile = 'Изображение слишком маленькое. Минимальный размер: 1500x1500 пикселей';
-      ElMessage.error('Изображение не соответствует требованиям по размеру');
-      isUploading.value = false;
-      return;
-    }
-    
-    if (img.width > 4000 || img.height > 4000) {
-      errors.coverFile = 'Изображение слишком большое. Максимальный размер: 4000x4000 пикселей';
-      ElMessage.error('Изображение не соответствует требованиям по размеру');
-      isUploading.value = false;
-      return;
-    }
-    
-    if (Math.abs(img.width - img.height) > 1) {
-      errors.coverFile = 'Изображение должно быть квадратным (одинаковая ширина и высота)';
-      ElMessage.error('Изображение должно быть квадратным');
-      isUploading.value = false;
-      return;
-    }
-    
-    try {
-      // Генерируем ID для файла
-      const fileId = generateFileId();
-      
-      // Удаляем старый файл если был
-      if (formData.coverFileId) {
-        await removeFileFromDB(formData.coverFileId);
-      }
-      
-      // Сохраняем в IndexedDB
-      await saveFileToDB(file, fileId);
-      
-      errors.coverFile = '';
-      formData.coverFile = file;
-      formData.coverFileId = fileId;
-      coverFileName.value = file.name;
-      coverFileSize.value = file.size;
-      
-      await saveStateToDB();
-      
-      ElMessage.success('Обложка успешно загружена');
-    } catch (error) {
-      console.error('Error saving cover:', error);
-      ElMessage.error('Ошибка при сохранении обложки');
-    } finally {
-      isUploading.value = false;
-    }
-  };
-  
-  img.onerror = () => {
-    errors.coverFile = 'Не удалось загрузить изображение. Проверьте файл';
-    ElMessage.error('Ошибка загрузки изображения');
-    isUploading.value = false;
-  };
-  
-  img.src = URL.createObjectURL(file);
-};
-
-const handleCoverUpload = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  
-  if (!file) return;
-  processCoverFile(file);
-};
-
-const handleCoverButtonClick = () => {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/jpeg,image/jpg,image/png';
-  input.style.display = 'none';
-  input.onchange = handleCoverUpload;
-  document.body.appendChild(input);
-  input.click();
-  document.body.removeChild(input);
-};
-
-const handleDragOver = (event: DragEvent) => {
-  event.preventDefault();
-  dragOver.value = true;
-};
-
-const handleDragLeave = (event: DragEvent) => {
-  event.preventDefault();
-  dragOver.value = false;
-};
-
-const handleDrop = (event: DragEvent) => {
-  event.preventDefault();
-  dragOver.value = false;
-  
-  const files = event.dataTransfer?.files;
-  if (!files || files.length === 0) return;
-  
-  const file = files[0];
-  processCoverFile(file);
-};
-
-const removeUploadedCover = async () => {
-  if (formData.coverFileId) {
-    await removeFileFromDB(formData.coverFileId);
-  }
-  
-  formData.coverFile = null;
-  formData.coverFileId = null;
-  coverFileName.value = '';
-  coverFileSize.value = 0;
-  errors.coverFile = '';
-  
-  await saveStateToDB();
-  
-  ElMessage.info('Обложка удалена');
-};
-
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-const disabledDate = (time: Date) => {
-  return time.getTime() < Date.now() - 24 * 60 * 60 * 1000;
-};
-
-const goBack = async () => {
-  if (showImportantBlock.value) {
-    showImportantBlock.value = false;
-    await saveStateToDB();
-  } else {
-    emit('go-back');
-  }
-};
-
-const handleContinue = async () => {
-  if (validateForm()) {
-    showImportantBlock.value = true;
-    await saveStateToDB();
-  }
-};
-
-// УБИРАЕМ ОЧИСТКУ ПРИ ПЕРЕХОДЕ НА СЛЕДУЮЩИЙ ШАГ
-const handleAccept = async () => {
-  // НЕ очищаем состояние! Просто переходим дальше
-  // await clearStateFromDB(); // УДАЛЕНО!
-  emit('go-next');
-};
-
-// Debounced save
-const debouncedSave = () => {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout);
-  }
-  saveTimeout = setTimeout(() => {
-    if (dataLoaded.value) {
-      saveStateToDB();
-    }
-  }, 500);
-};
-
-// Watchers с debounce (только если данные уже загружены)
-watch(() => formData.performerName, () => {
-  if (dataLoaded.value) debouncedSave();
-});
-watch(() => formData.releaseName, () => {
-  if (dataLoaded.value) debouncedSave();
-});
-watch(() => formData.otherPlatform, () => {
-  if (dataLoaded.value) debouncedSave();
-});
-watch(() => formData.releaseDate, () => {
-  if (dataLoaded.value) debouncedSave();
-});
-watch(() => formData.hasProfanity, () => {
-  if (dataLoaded.value) debouncedSave();
-});
-watch(() => formData.profanityTracks, () => {
-  if (dataLoaded.value) debouncedSave();
-});
-watch(() => formData.vkLink, () => {
-  if (dataLoaded.value) debouncedSave();
-});
-watch(() => formData.email, () => {
-  if (dataLoaded.value) debouncedSave();
-});
-watch(() => coverFileName.value, () => {
-  if (dataLoaded.value) debouncedSave();
-});
-watch(() => coverFileSize.value, () => {
-  if (dataLoaded.value) debouncedSave();
-});
-watch(showImportantBlock, () => {
-  if (dataLoaded.value) debouncedSave();
-});
-
-// Специальный watch для platforms с debounce
-watch(() => formData.platforms, () => {
-  if (dataLoaded.value) debouncedSave();
-}, { deep: false });
-
-// Логика очистки зависимых полей
-watch(() => formData.hasProfanity, (newValue) => {
-  if (newValue === 'no') {
-    formData.profanityTracks = '';
-  }
-});
-
-watch(() => formData.platforms, (newValue) => {
-  if (!newValue?.includes('other')) {
-    formData.otherPlatform = '';
-  }
-});
-
-onMounted(async () => {
-  console.log('Component mounted, initializing...');
-  
-  try {
-    await initDB();
-    
-    // Сначала загружаем сохраненное состояние из IndexedDB
-    await loadStateFromDB();
-    
-    // Затем загружаем данные с сервера (они перезапишут только пустые поля)
-    await loadUserData();
-    
-    // Помечаем, что данные загружены
-    dataLoaded.value = true;
-    
-    console.log('Initialization complete');
-    console.log('Final form data:', {
-      performerName: formData.performerName,
-      email: formData.email,
-      coverFile: formData.coverFile ? 'File exists' : 'No file',
-      platforms: formData.platforms
-    });
-  } catch (error) {
-    console.error('Error during initialization:', error);
-    ElMessage.error('Ошибка при загрузке данных');
-  } finally {
-    isLoading.value = false;
-  }
-});
-
-const handleBeforeUnload = async () => {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout);
-  }
-  await saveStateToDB();
-};
-
-const handleVisibilityChange = async () => {
-  if (document.visibilityState === 'hidden') {
-    if (saveTimeout) {
-      clearTimeout(saveTimeout);
-    }
-    await saveStateToDB();
-  }
-};
-
-// Добавляем обработчики событий
-onMounted(() => {
-  window.addEventListener('beforeunload', handleBeforeUnload);
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-});
-
-onUnmounted(() => {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout);
-  }
-  window.removeEventListener('beforeunload', handleBeforeUnload);
-  document.removeEventListener('visibilitychange', handleVisibilityChange);
-});
-</script>
-
 <style lang="css" scoped>
+/* Стили остаются без изменений */
 .quiz__form_single {
   padding: 20px 0 0;
 }

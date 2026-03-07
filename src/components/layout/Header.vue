@@ -42,7 +42,7 @@ const baseUrl = window.location.origin;
 
 const fetchUserData = async () => {
   try {
-    const response = await sendRequest('get', '/ajax/getData.php', {});
+    const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
     console.log('Header данные из API:', response.data);
     
     if (response.data) {
@@ -186,9 +186,9 @@ const handleAvatarError = (event: Event) => {
     <div class="container header__container">
       <div class="header__block">
         <div class="header__flex">
-          <RouterLink class="header__logo" :to="Tr.i18nRoute({ name: 'home' })">
+          <a href="/" class="header__logo">
             <LogoSVG />
-          </RouterLink>
+          </a>
           
           <div class="header__info">
             <div 
@@ -210,11 +210,20 @@ const handleAvatarError = (event: Event) => {
           </div>
           
           <div class="header__right">
-            <button class="header__faq">
+            <RouterLink class="header__faq" :to="Tr.i18nRoute({ name: 'faq' })" @click="closeMenu">
               <FaqSVG />
-            </button>
+            </RouterLink>
             <button class="header__personal">
-              <PersonalSVG />
+              <div class="header__personal_logo">
+                <img 
+                  v-if="userData.avatar"
+                  :src="getAvatarUrl(userData.avatar)"
+                  @error="handleAvatarError"
+                  alt="Avatar"
+                  class="header__avatar"
+                >
+                <PersonalSVG v-else />
+              </div>
             </button>
             <button class="header__burger" :class="{ active: menu }" @click="toggleMenu">
               <span></span>
@@ -536,7 +545,20 @@ const handleAvatarError = (event: Event) => {
   color: var(--text);
   background-color: var(--bg-color);
 }
-
+.header__personal_logo {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.header__avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
 .header__personal:hover {
   background-color: var(--border);
 }

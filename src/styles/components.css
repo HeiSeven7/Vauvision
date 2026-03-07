@@ -331,7 +331,7 @@ textarea,
 }
 .el-checkbox__inner:after {
   height: 9px;
-  top: 3px;
+  top: 2px;
   left: 6.5px;
 }
 .el-checkbox.el-checkbox--large {

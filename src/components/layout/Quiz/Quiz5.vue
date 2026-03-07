@@ -44,7 +44,7 @@ interface Errors {
 const STORAGE_KEY = 'quiz5_state';
 const DB_NAME = 'quizDB';
 const FILES_DB_NAME = 'filesDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Увеличиваем версию до 2
 
 // Состояние загрузки данных
 const isLoading = ref(true);
@@ -53,6 +53,8 @@ const dataLoaded = ref(false);
 // Базы данных
 const quizDB = ref<any>(null);
 const filesDB = ref<any>(null);
+const dbInitialized = ref(false);
+const filesDBInitialized = ref(false);
 
 let saveTimeout: NodeJS.Timeout | null = null;
 
@@ -106,184 +108,246 @@ const karaokeFileId = ref<string | null>(null);
 
 // Инициализация IndexedDB
 const initDB = async () => {
-  // База для текстовых данных состояний
-  quizDB.value = await openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('quizState')) {
-        const store = db.createObjectStore('quizState', { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp');
-      }
-    },
-  });
+  try {
+    console.log('Quiz5: Initializing databases...');
+    
+    // База для текстовых данных состояний
+    quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz5: Upgrading DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (!db.objectStoreNames.contains('quizState')) {
+          const store = db.createObjectStore('quizState', { keyPath: 'id' });
+          store.createIndex('timestamp', 'timestamp');
+          console.log('Quiz5: Created quizState store');
+        }
+      },
+    });
+    
+    // База для файлов
+    filesDB.value = await openDB(FILES_DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz5: Upgrading Files DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (!db.objectStoreNames.contains('files')) {
+          const store = db.createObjectStore('files', { keyPath: 'id' });
+          store.createIndex('fileName', 'fileName');
+          store.createIndex('type', 'type');
+          store.createIndex('timestamp', 'timestamp');
+          console.log('Quiz5: Created files store');
+        }
+      },
+    });
+    
+    dbInitialized.value = true;
+    filesDBInitialized.value = true;
+    console.log('Quiz5: Databases initialized successfully');
+    
+  } catch (error) {
+    console.error('Quiz5: Error initializing databases:', error);
+    dbInitialized.value = false;
+    filesDBInitialized.value = false;
+  }
+};
+
+// Безопасное выполнение операций с БД
+const safeDBOperation = async <T>(
+  operation: () => Promise<T>, 
+  fallback: T,
+  dbType: 'quiz' | 'files' = 'quiz'
+): Promise<T> => {
+  const db = dbType === 'quiz' ? quizDB.value : filesDB.value;
+  const initialized = dbType === 'quiz' ? dbInitialized.value : filesDBInitialized.value;
+  const storeName = dbType === 'quiz' ? 'quizState' : 'files';
   
-  // База для файлов
-  filesDB.value = await openDB(FILES_DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('files')) {
-        const store = db.createObjectStore('files', { keyPath: 'id' });
-        store.createIndex('fileName', 'fileName');
-        store.createIndex('type', 'type');
-      }
-    },
-  });
+  if (!initialized || !db) {
+    console.log(`Quiz5: ${dbType} DB not initialized`);
+    return fallback;
+  }
+  
+  try {
+    if (!db.objectStoreNames || !db.objectStoreNames.contains(storeName)) {
+      console.log(`Quiz5: Store ${storeName} not found in ${dbType} DB. Available stores:`, 
+                  db.objectStoreNames ? Array.from(db.objectStoreNames) : []);
+      return fallback;
+    }
+    
+    return await operation();
+  } catch (error) {
+    console.error(`Quiz5: Error in ${dbType} DB operation:`, error);
+    return fallback;
+  }
 };
 
 // Сохранение файла в IndexedDB
 const saveFileToDB = async (file: File, fileId: string): Promise<void> => {
-  try {
-    const blob = new Blob([file], { type: file.type });
-    await filesDB.value.put('files', {
-      id: fileId,
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.type,
-      data: blob,
-      timestamp: Date.now()
-    });
-    console.log(`File saved to DB with ID: ${fileId}`);
-  } catch (error) {
-    console.error('Error saving file to DB:', error);
-    throw error;
-  }
+  await safeDBOperation(
+    async () => {
+      const blob = new Blob([file], { type: file.type });
+      await filesDB.value.put('files', {
+        id: fileId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        data: blob,
+        timestamp: Date.now()
+      });
+      console.log(`Quiz5: File saved to DB with ID: ${fileId}`);
+    },
+    null,
+    'files'
+  );
 };
 
 // Загрузка файла из IndexedDB
-const loadFileFromDB = async (fileId: string): Promise<{ file: File, fileName: string, fileSize: number } | null> => {
-  try {
-    const stored = await filesDB.value.get('files', fileId);
-    if (stored) {
-      const file = new File([stored.data], stored.fileName, { type: stored.fileType });
-      return {
-        file,
-        fileName: stored.fileName,
-        fileSize: stored.fileSize
-      };
-    }
-    return null;
-  } catch (error) {
-    console.error('Error loading file from DB:', error);
-    return null;
-  }
+const loadFileFromDB = async (fileId: string): Promise<{ file: File; fileName: string; fileSize: number } | null> => {
+  return safeDBOperation(
+    async () => {
+      const stored = await filesDB.value.get('files', fileId);
+      if (stored) {
+        const file = new File([stored.data], stored.fileName, { type: stored.fileType });
+        return {
+          file,
+          fileName: stored.fileName,
+          fileSize: stored.fileSize
+        };
+      }
+      return null;
+    },
+    null,
+    'files'
+  );
 };
 
 // Удаление файла из IndexedDB
 const removeFileFromDB = async (fileId: string) => {
-  try {
-    await filesDB.value.delete('files', fileId);
-    console.log(`File removed from DB with ID: ${fileId}`);
-  } catch (error) {
-    console.error('Error removing file from DB:', error);
-  }
+  await safeDBOperation(
+    async () => {
+      await filesDB.value.delete('files', fileId);
+      console.log(`Quiz5: File removed from DB with ID: ${fileId}`);
+    },
+    null,
+    'files'
+  );
 };
 
 // Генерация ID для файла
 const generateFileId = (type: 'apple' | 'karaoke'): string => {
-  return `${type}-${Date.now()}-${Math.random()}`;
+  return `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
 // Сохранение состояния в IndexedDB
 const saveStateToDB = async () => {
-  if (isLoading.value || !dataLoaded.value) {
+  if (isLoading.value || !dataLoaded.value || !dbInitialized.value) {
     return;
   }
   
-  try {
-    const stateToSave = {
-      id: STORAGE_KEY,
-      formData: {
-        genre: formData.value.genre,
-        tiktokStartSeconds: formData.value.tiktokStartSeconds,
-        hasDrugsMention: formData.value.hasDrugsMention,
-        drugsTracks: formData.value.drugsTracks,
-        appleMusicLinks: formData.value.appleMusicLinks,
-        spotifyLinks: formData.value.spotifyLinks,
-        vkLinks: formData.value.vkLinks,
-        yandexMusicLinks: formData.value.yandexMusicLinks,
-        socialLinks: formData.value.socialLinks
-      },
-      appleMusicFileInfo: appleMusicFileId.value ? {
-        name: appleMusicFileName.value,
-        size: appleMusicFileSize.value,
-        fileId: appleMusicFileId.value
-      } : null,
-      karaokeFileInfo: karaokeFileId.value ? {
-        name: karaokeFileName.value,
-        size: karaokeFileSize.value,
-        fileId: karaokeFileId.value
-      } : null,
-      timestamp: Date.now()
-    };
-    
-    await quizDB.value.put('quizState', stateToSave);
-    console.log('Quiz5 state saved to IndexedDB');
-  } catch (error) {
-    console.error('Error saving Quiz5 state to IndexedDB:', error);
-  }
+  await safeDBOperation(
+    async () => {
+      const stateToSave = {
+        id: STORAGE_KEY,
+        formData: {
+          genre: formData.value.genre,
+          tiktokStartSeconds: formData.value.tiktokStartSeconds,
+          hasDrugsMention: formData.value.hasDrugsMention,
+          drugsTracks: formData.value.drugsTracks,
+          appleMusicLinks: formData.value.appleMusicLinks,
+          spotifyLinks: formData.value.spotifyLinks,
+          vkLinks: formData.value.vkLinks,
+          yandexMusicLinks: formData.value.yandexMusicLinks,
+          socialLinks: formData.value.socialLinks
+        },
+        appleMusicFileInfo: appleMusicFileId.value ? {
+          name: appleMusicFileName.value,
+          size: appleMusicFileSize.value,
+          fileId: appleMusicFileId.value
+        } : null,
+        karaokeFileInfo: karaokeFileId.value ? {
+          name: karaokeFileName.value,
+          size: karaokeFileSize.value,
+          fileId: karaokeFileId.value
+        } : null,
+        timestamp: Date.now()
+      };
+      
+      await quizDB.value.put('quizState', stateToSave);
+      console.log('Quiz5: State saved to IndexedDB');
+      
+      // Отправляем событие об обновлении данных для QuizMenu
+      window.dispatchEvent(new CustomEvent('quiz-data-updated'));
+    },
+    null
+  );
 };
 
 // Загрузка состояния из IndexedDB
 const loadStateFromDB = async () => {
-  try {
-    const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
-    
-    if (savedState) {
-      console.log('Loading Quiz5 from IndexedDB:', savedState);
-      
-      // Восстанавливаем основные данные формы
-      if (savedState.formData) {
-        formData.value.genre = savedState.formData.genre || '';
-        formData.value.tiktokStartSeconds = savedState.formData.tiktokStartSeconds || '';
-        formData.value.hasDrugsMention = savedState.formData.hasDrugsMention || '';
-        formData.value.drugsTracks = savedState.formData.drugsTracks || '';
-        formData.value.appleMusicLinks = savedState.formData.appleMusicLinks || '';
-        formData.value.spotifyLinks = savedState.formData.spotifyLinks || '';
-        formData.value.vkLinks = savedState.formData.vkLinks || '';
-        formData.value.yandexMusicLinks = savedState.formData.yandexMusicLinks || '';
-        formData.value.socialLinks = savedState.formData.socialLinks || '';
-      }
-      
-      // Восстанавливаем Apple Music файл
-      if (savedState.appleMusicFileInfo) {
-        const fileInfo = savedState.appleMusicFileInfo;
-        appleMusicFileName.value = fileInfo.name || '';
-        appleMusicFileSize.value = fileInfo.size || 0;
-        appleMusicFileId.value = fileInfo.fileId || null;
-        
-        if (appleMusicFileId.value) {
-          const fileData = await loadFileFromDB(appleMusicFileId.value);
-          if (fileData) {
-            formData.value.appleMusicTextFile = fileData.file;
-            appleMusicFileName.value = fileData.fileName;
-            appleMusicFileSize.value = fileData.fileSize;
-            console.log('Apple Music file loaded');
-          }
-        }
-      }
-      
-      // Восстанавливаем Karaoke файл
-      if (savedState.karaokeFileInfo) {
-        const fileInfo = savedState.karaokeFileInfo;
-        karaokeFileName.value = fileInfo.name || '';
-        karaokeFileSize.value = fileInfo.size || 0;
-        karaokeFileId.value = fileInfo.fileId || null;
-        
-        if (karaokeFileId.value) {
-          const fileData = await loadFileFromDB(karaokeFileId.value);
-          if (fileData) {
-            formData.value.karaokeFile = fileData.file;
-            karaokeFileName.value = fileData.fileName;
-            karaokeFileSize.value = fileData.fileSize;
-            console.log('Karaoke file loaded');
-          }
-        }
-      }
-    }
-    
-    validateFileConsistency();
-    
-  } catch (error) {
-    console.error('Error loading Quiz5 state from IndexedDB:', error);
+  if (!dbInitialized.value) {
+    console.log('Quiz5: DB not initialized, skipping load');
+    return;
   }
+  
+  await safeDBOperation(
+    async () => {
+      const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
+      
+      if (savedState) {
+        console.log('Quiz5: Loading from IndexedDB:', savedState);
+        
+        // Восстанавливаем основные данные формы
+        if (savedState.formData) {
+          formData.value.genre = savedState.formData.genre || '';
+          formData.value.tiktokStartSeconds = savedState.formData.tiktokStartSeconds || '';
+          formData.value.hasDrugsMention = savedState.formData.hasDrugsMention || '';
+          formData.value.drugsTracks = savedState.formData.drugsTracks || '';
+          formData.value.appleMusicLinks = savedState.formData.appleMusicLinks || '';
+          formData.value.spotifyLinks = savedState.formData.spotifyLinks || '';
+          formData.value.vkLinks = savedState.formData.vkLinks || '';
+          formData.value.yandexMusicLinks = savedState.formData.yandexMusicLinks || '';
+          formData.value.socialLinks = savedState.formData.socialLinks || '';
+        }
+        
+        // Восстанавливаем Apple Music файл
+        if (savedState.appleMusicFileInfo) {
+          const fileInfo = savedState.appleMusicFileInfo;
+          appleMusicFileName.value = fileInfo.name || '';
+          appleMusicFileSize.value = fileInfo.size || 0;
+          appleMusicFileId.value = fileInfo.fileId || null;
+          
+          if (appleMusicFileId.value && filesDBInitialized.value) {
+            const fileData = await loadFileFromDB(appleMusicFileId.value);
+            if (fileData) {
+              formData.value.appleMusicTextFile = fileData.file;
+              appleMusicFileName.value = fileData.fileName;
+              appleMusicFileSize.value = fileData.fileSize;
+              console.log('Quiz5: Apple Music file loaded');
+            }
+          }
+        }
+        
+        // Восстанавливаем Karaoke файл
+        if (savedState.karaokeFileInfo) {
+          const fileInfo = savedState.karaokeFileInfo;
+          karaokeFileName.value = fileInfo.name || '';
+          karaokeFileSize.value = fileInfo.size || 0;
+          karaokeFileId.value = fileInfo.fileId || null;
+          
+          if (karaokeFileId.value && filesDBInitialized.value) {
+            const fileData = await loadFileFromDB(karaokeFileId.value);
+            if (fileData) {
+              formData.value.karaokeFile = fileData.file;
+              karaokeFileName.value = fileData.fileName;
+              karaokeFileSize.value = fileData.fileSize;
+              console.log('Quiz5: Karaoke file loaded');
+            }
+          }
+        }
+      }
+    },
+    null
+  );
+  
+  validateFileConsistency();
 };
 
 // Проверка всех обязательных полей
@@ -541,8 +605,7 @@ const goBack = () => {
 
 const goNext = async () => {
   if (validateForm()) {
-    // ⚠️⚠️⚠️ НЕ ОЧИЩАЕМ СОСТОЯНИЕ ПРИ ПЕРЕХОДЕ!
-    // Просто передаем данные дальше, состояние остается в IndexedDB
+    await saveStateToDB();
     emit('go-next', formData.value);
   }
 };
@@ -561,6 +624,10 @@ const handleAppleMusicFileChange = async (event: Event) => {
     const file = input.files[0];
     
     try {
+      if (!filesDBInitialized.value) {
+        throw new Error('Files DB not initialized');
+      }
+      
       const fileId = generateFileId('apple');
       
       if (appleMusicFileId.value) {
@@ -580,7 +647,7 @@ const handleAppleMusicFileChange = async (event: Event) => {
       
       ElMessage.success('Файл успешно загружен');
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error('Quiz5: Error uploading file:', error);
       ElMessage.error('Ошибка при загрузке файла');
     }
   }
@@ -592,6 +659,10 @@ const handleKaraokeFileChange = async (event: Event) => {
     const file = input.files[0];
     
     try {
+      if (!filesDBInitialized.value) {
+        throw new Error('Files DB not initialized');
+      }
+      
       const fileId = generateFileId('karaoke');
       
       if (karaokeFileId.value) {
@@ -611,7 +682,7 @@ const handleKaraokeFileChange = async (event: Event) => {
       
       ElMessage.success('Файл успешно загружен');
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error('Quiz5: Error uploading file:', error);
       ElMessage.error('Ошибка при загрузке файла');
     }
   }
@@ -661,6 +732,10 @@ const handleDrop = async (event: DragEvent) => {
       }
       
       try {
+        if (!filesDBInitialized.value) {
+          throw new Error('Files DB not initialized');
+        }
+        
         const fileId = generateFileId('apple');
         
         if (appleMusicFileId.value) {
@@ -678,7 +753,7 @@ const handleDrop = async (event: DragEvent) => {
         await saveStateToDB();
         ElMessage.success('Файл успешно загружен');
       } catch (error) {
-        console.error('Error uploading file:', error);
+        console.error('Quiz5: Error uploading file:', error);
         ElMessage.error('Ошибка при загрузке файла');
       }
       
@@ -699,6 +774,10 @@ const handleDrop = async (event: DragEvent) => {
       }
       
       try {
+        if (!filesDBInitialized.value) {
+          throw new Error('Files DB not initialized');
+        }
+        
         const fileId = generateFileId('karaoke');
         
         if (karaokeFileId.value) {
@@ -716,7 +795,7 @@ const handleDrop = async (event: DragEvent) => {
         await saveStateToDB();
         ElMessage.success('Файл успешно загружен');
       } catch (error) {
-        console.error('Error uploading file:', error);
+        console.error('Quiz5: Error uploading file:', error);
         ElMessage.error('Ошибка при загрузке файла');
       }
     }
@@ -783,7 +862,7 @@ const debouncedSave = () => {
     clearTimeout(saveTimeout);
   }
   saveTimeout = setTimeout(async () => {
-    if (dataLoaded.value) {
+    if (dataLoaded.value && dbInitialized.value) {
       await saveStateToDB();
     }
   }, 500);
@@ -850,12 +929,16 @@ watch(() => karaokeFileSize.value, () => {
 
 // При монтировании загружаем состояние
 onMounted(async () => {
+  console.log('Quiz5: Component mounted');
+  isLoading.value = true;
+  
   try {
     await initDB();
     await loadStateFromDB();
     dataLoaded.value = true;
   } catch (error) {
-    console.error('Error in onMounted:', error);
+    console.error('Quiz5: Error in onMounted:', error);
+    ElMessage.error('Ошибка при загрузке данных');
   } finally {
     isLoading.value = false;
   }
@@ -889,12 +972,12 @@ onUnmounted(() => {
     clearTimeout(saveTimeout);
   }
   window.removeEventListener('beforeunload', handleBeforeUnload);
-  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  window.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 </script>
 
 <template>
-<!-- Template остается без изменений -->
+<!-- Template остается без изменений - таким же как в вашем файле -->
 <div class="quiz__form quiz__form_five">
   <h4 class="quiz__form_head">жанр и текст</h4>
   

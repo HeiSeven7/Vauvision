@@ -63,9 +63,9 @@ interface UpdateBasketResponse {
   }
 }
 
-// Ключ для IndexedDB
+// Константы для IndexedDB
 const DB_NAME = 'quizDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'quizState';
 const STORAGE_KEY = 'quiz1_state';
 
@@ -73,6 +73,7 @@ const STORAGE_KEY = 'quiz1_state';
 const isLoading = ref(true);
 const isInitialLoad = ref(true);
 const quizDB = ref<any>(null);
+const dbInitialized = ref(false);
 
 // Локальные состояния
 const singleCountLocal = ref(0);
@@ -103,14 +104,51 @@ const isUpdatingFromServer = ref(false);
 
 // Инициализация IndexedDB
 const initDB = async () => {
-  quizDB.value = await openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp');
-      }
-    },
-  });
+  try {
+    console.log('Quiz1: Initializing IndexedDB...');
+    
+    quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz1: Upgrading DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          store.createIndex('timestamp', 'timestamp');
+          console.log('Quiz1: Created quizState store');
+        }
+      },
+    });
+    
+    dbInitialized.value = true;
+    console.log('Quiz1: IndexedDB initialized successfully');
+    
+  } catch (error) {
+    console.error('Quiz1: Error initializing IndexedDB:', error);
+    dbInitialized.value = false;
+  }
+};
+
+// Безопасное выполнение операций с БД
+const safeDBOperation = async <T>(
+  operation: () => Promise<T>, 
+  fallback: T
+): Promise<T> => {
+  if (!dbInitialized.value || !quizDB.value) {
+    console.log('Quiz1: DB not initialized');
+    return fallback;
+  }
+  
+  try {
+    if (!quizDB.value.objectStoreNames || !quizDB.value.objectStoreNames.contains(STORE_NAME)) {
+      console.log(`Quiz1: Store ${STORE_NAME} not found`);
+      return fallback;
+    }
+    
+    return await operation();
+  } catch (error) {
+    console.error('Quiz1: Error in DB operation:', error);
+    return fallback;
+  }
 };
 
 // Сохранение состояния в IndexedDB
@@ -118,74 +156,74 @@ const saveStateToDB = async () => {
   // Не сохраняем, если обновление идет с сервера
   if (isUpdatingFromServer.value) return;
   
-  try {
-    const stateToSave = {
-      id: STORAGE_KEY,
-      singleCount: singleCountLocal.value,
-      albumCount: albumCountLocal.value,
-      clipCount: clipCountLocal.value,
-      cardCount: cardCountLocal.value,
-      timestamp: Date.now()
-    };
-    
-    await quizDB.value.put(STORE_NAME, stateToSave);
-    console.log('Saved to IndexedDB:', stateToSave);
-  } catch (error) {
-    console.error('Error saving state to IndexedDB:', error);
-  }
+  await safeDBOperation(
+    async () => {
+      const stateToSave = {
+        id: STORAGE_KEY,
+        singleCount: singleCountLocal.value,
+        albumCount: albumCountLocal.value,
+        clipCount: clipCountLocal.value,
+        cardCount: cardCountLocal.value,
+        timestamp: Date.now()
+      };
+      
+      await quizDB.value.put(STORE_NAME, stateToSave);
+      console.log('Quiz1: Saved to IndexedDB:', stateToSave);
+      
+      // Отправляем событие об обновлении данных для QuizMenu
+      window.dispatchEvent(new CustomEvent('quiz-data-updated'));
+    },
+    null
+  );
 };
 
 // Загрузка состояния из IndexedDB
 const loadStateFromDB = async () => {
-  try {
-    const savedState = await quizDB.value.get(STORE_NAME, STORAGE_KEY);
-    if (savedState) {
-      console.log('Loading from IndexedDB:', savedState);
-      
-      // Устанавливаем значения из IndexedDB
-      singleCountLocal.value = savedState.singleCount || 0;
-      albumCountLocal.value = savedState.albumCount || 0;
-      clipCountLocal.value = savedState.clipCount || 0;
-      cardCountLocal.value = savedState.cardCount || 0;
-      
-      // Сохраняем в предыдущие значения
-      previousCounts.value = {
-        single: singleCountLocal.value,
-        album: albumCountLocal.value,
-        clip: clipCountLocal.value,
-        card: cardCountLocal.value
-      };
-    }
-  } catch (error) {
-    console.error('Error loading state from IndexedDB:', error);
-  }
+  await safeDBOperation(
+    async () => {
+      const savedState = await quizDB.value.get(STORE_NAME, STORAGE_KEY);
+      if (savedState) {
+        console.log('Quiz1: Loading from IndexedDB:', savedState);
+        
+        singleCountLocal.value = savedState.singleCount || 0;
+        albumCountLocal.value = savedState.albumCount || 0;
+        clipCountLocal.value = savedState.clipCount || 0;
+        cardCountLocal.value = savedState.cardCount || 0;
+        
+        previousCounts.value = {
+          single: singleCountLocal.value,
+          album: albumCountLocal.value,
+          clip: clipCountLocal.value,
+          card: cardCountLocal.value
+        };
+      }
+    },
+    null
+  );
 };
 
 // Загрузка данных с сервера
 const loadData = async () => {
   try {
     const response = await sendRequest("post", '/ajax_vue/ajax/getDataForm.php', {});
-    console.log('getDataForm:', response.data);
+    console.log('Quiz1: getDataForm:', response.data);
     
     const data = response.data as any;
     
-    // Сохраняем продукты
     if (data.products) {
       products.value = data.products;
     }
     
-    // Определяем регион пользователя
     if (data.user?.uf_region) {
       userRegion.value = data.user.uf_region;
     } else if (data.region) {
       userRegion.value = data.region;
     }
     
-    // Обновляем корзину после получения данных
     await fetchBasket();
     
   } catch (error) {
-    console.error('Ошибка загрузки данных:', error);
+    console.error('Quiz1: Ошибка загрузки данных:', error);
     isLoading.value = false;
     isInitialLoad.value = false;
   }
@@ -195,18 +233,15 @@ const loadData = async () => {
 const fetchBasket = async () => {
   try {
     const response = await sendRequest("post", '/ajax_vue/ajax/basket/updateBasket.php', {});
-    console.log('updateBasket:', response.data);
+    console.log('Quiz1: updateBasket:', response.data);
     
     const data = response.data as UpdateBasketResponse;
     
     if (data.data) {
-      // Устанавливаем флаг, что обновление идет с сервера
       isUpdatingFromServer.value = true;
       
-      // Сохраняем элементы корзины
       basketItems.value = data.data.items || [];
       
-      // Получаем новые значения из корзины
       const singleItem = data.data.items.find(item => item.type === 'single');
       const albumItem = data.data.items.find(item => item.type === 'album');
       const clipItem = data.data.items.find(item => item.type === 'clip');
@@ -217,8 +252,6 @@ const fetchBasket = async () => {
       const newClip = clipItem?.quantity || 0;
       const newCard = cardItem?.quantity || 0;
       
-      // Обновляем локальные счетчики из данных корзины ТОЛЬКО если они отличаются
-      // и если это не начальная загрузка из IndexedDB
       if (!isInitialLoad.value || 
           singleCountLocal.value !== newSingle ||
           albumCountLocal.value !== newAlbum ||
@@ -231,7 +264,6 @@ const fetchBasket = async () => {
         cardCountLocal.value = newCard;
       }
       
-      // Обновляем предыдущие значения
       previousCounts.value = {
         single: singleCountLocal.value,
         album: albumCountLocal.value,
@@ -239,21 +271,18 @@ const fetchBasket = async () => {
         card: cardCountLocal.value
       };
       
-      // Обновляем общую сумму и символ валюты
       totalSum.value = data.data.total || 0;
       currencySymbol.value = data.data.currency_symbol || '₽';
       
-      console.log('Updated from server:', {
+      console.log('Quiz1: Updated from server:', {
         single: singleCountLocal.value,
         album: albumCountLocal.value,
         clip: clipCountLocal.value,
         card: cardCountLocal.value
       });
       
-      // Сохраняем текущее состояние в IndexedDB
       await saveStateToDB();
       
-      // Сбрасываем флаги
       setTimeout(() => {
         isUpdatingFromServer.value = false;
         isLoading.value = false;
@@ -261,7 +290,7 @@ const fetchBasket = async () => {
       }, 100);
     }
   } catch (error) {
-    console.error('Ошибка получения корзины:', error);
+    console.error('Quiz1: Ошибка получения корзины:', error);
     isUpdatingFromServer.value = false;
     isLoading.value = false;
     isInitialLoad.value = false;
@@ -272,12 +301,10 @@ const fetchBasket = async () => {
 const getProductPrice = (product: Product | undefined): number => {
   if (!product) return 0;
   
-  // Если регион Russia - используем цену в рублях
   if (userRegion.value === 'Russia') {
     return product.prices?.rub ? parseInt(product.prices.rub) : 0;
   }
   
-  // Для других регионов - цена в USD
   return product.prices?.usd ? parseInt(product.prices.usd) : 0;
 };
 
@@ -335,14 +362,12 @@ const addToBasket = async (productId: string) => {
     const response = await sendRequest("post", '/ajax_vue/ajax/basket/addBasket.php', {
       ID: productId
     });
-    console.log('addBasket response:', response.data);
+    console.log('Quiz1: addBasket response:', response.data);
     
-    // После успешного добавления обновляем корзину
     await fetchBasket();
     
   } catch (error) {
-    console.error('Ошибка добавления в корзину:', error);
-    // В случае ошибки возвращаем предыдущее значение
+    console.error('Quiz1: Ошибка добавления в корзину:', error);
     await fetchBasket();
   }
 };
@@ -354,14 +379,12 @@ const editBasket = async (basketItemId: string, count: number) => {
       ID: basketItemId,
       COUNT: count
     });
-    console.log('editBasket response:', response.data);
+    console.log('Quiz1: editBasket response:', response.data);
     
-    // После успешного изменения обновляем корзину
     await fetchBasket();
     
   } catch (error) {
-    console.error('Ошибка изменения корзины:', error);
-    // В случае ошибки возвращаем предыдущее значение
+    console.error('Quiz1: Ошибка изменения корзины:', error);
     await fetchBasket();
   }
 };
@@ -372,9 +395,8 @@ const handleQuantityChange = async (
   newCount: number, 
   oldCount: number
 ) => {
-  // Если обновление идет с сервера или начальная загрузка - ничего не делаем
   if (isUpdatingFromServer.value || isInitialLoad.value) {
-    console.log('Skipping API call due to flags:', {
+    console.log('Quiz1: Skipping API call due to flags:', {
       isUpdatingFromServer: isUpdatingFromServer.value,
       isInitialLoad: isInitialLoad.value
     });
@@ -384,32 +406,27 @@ const handleQuantityChange = async (
   const basketItemId = getBasketItemId(productId);
   
   if (newCount > oldCount) {
-    // Увеличиваем количество - добавляем новый товар
-    console.log(`Adding product ${productId} to basket`);
+    console.log(`Quiz1: Adding product ${productId} to basket`);
     await addToBasket(productId);
   } else if (newCount < oldCount && basketItemId) {
-    // Уменьшаем количество - редактируем существующий
-    console.log(`Editing basket item ${basketItemId} to count ${newCount}`);
+    console.log(`Quiz1: Editing basket item ${basketItemId} to count ${newCount}`);
     await editBasket(basketItemId, newCount);
   }
 };
 
 // Метод для сброса состояния (вызывается при возврате)
 const resetState = () => {
-  console.log('🔄 Сброс состояния Quiz1');
+  console.log('Quiz1: Сброс состояния');
   
-  // Сбрасываем флаги загрузки
   isLoading.value = false;
   isInitialLoad.value = false;
   isUpdatingFromServer.value = false;
   
-  // Сбрасываем счетчики в 0
   singleCountLocal.value = 0;
   albumCountLocal.value = 0;
   clipCountLocal.value = 0;
   cardCountLocal.value = 0;
   
-  // Сбрасываем предыдущие значения
   previousCounts.value = {
     single: 0,
     album: 0,
@@ -417,54 +434,28 @@ const resetState = () => {
     card: 0
   };
   
-  // Очищаем данные
   products.value = [];
   basketItems.value = [];
   totalSum.value = 0;
   
-  console.log('✅ Состояние Quiz1 сброшено');
+  console.log('Quiz1: Состояние сброшено');
 };
 
 // Метод для полной очистки (вызывается при рестарте)
 const fullReset = async () => {
-  console.log('🔄 Полная очистка Quiz1');
+  console.log('Quiz1: Полная очистка');
   
-  // Сбрасываем флаги
-  isLoading.value = false;
-  isInitialLoad.value = false;
-  isUpdatingFromServer.value = false;
+  resetState();
   
-  // Сбрасываем счетчики
-  singleCountLocal.value = 0;
-  albumCountLocal.value = 0;
-  clipCountLocal.value = 0;
-  cardCountLocal.value = 0;
-  
-  // Сбрасываем предыдущие значения
-  previousCounts.value = {
-    single: 0,
-    album: 0,
-    clip: 0,
-    card: 0
-  };
-  
-  // Очищаем данные
-  products.value = [];
-  basketItems.value = [];
-  totalSum.value = 0;
-  
-  // Очищаем IndexedDB
-  try {
-    if (quizDB.value) {
-      // Удаляем сохраненное состояние
+  await safeDBOperation(
+    async () => {
       await quizDB.value.delete(STORE_NAME, STORAGE_KEY);
-      console.log('✅ Состояние удалено из IndexedDB');
-    }
-  } catch (error) {
-    console.error('Ошибка при очистке IndexedDB:', error);
-  }
+      console.log('Quiz1: Состояние удалено из IndexedDB');
+    },
+    null
+  );
   
-  console.log('✅ Полная очистка Quiz1 завершена');
+  console.log('Quiz1: Полная очистка завершена');
 };
 
 // Экспортируем методы для родителя
@@ -475,16 +466,15 @@ defineExpose({
 
 // При монтировании
 onMounted(async () => {
-  console.log('📦 Quiz1 монтируется...');
+  console.log('Quiz1: Монтируется...');
   
-  // Инициализируем IndexedDB
+  isLoading.value = true;
+  
   await initDB();
-  
-  // Сначала загружаем из IndexedDB
   await loadStateFromDB();
-  
-  // Затем загружаем данные с сервера
   await loadData();
+  
+  isLoading.value = false;
 });
 
 const goBack = () => {
@@ -497,28 +487,23 @@ const handleContinue = async () => {
     return;
   }
   
-  // Сохраняем текущее состояние в IndexedDB
   await saveStateToDB();
-  
   emit('go-next');
 };
 
 // Обработчики попапа
 const openPopup = () => {
   isPopupVisible.value = true;
-  // Блокируем скролл body
   document.body.style.overflow = 'hidden';
 };
 
 const closePopup = () => {
   isPopupVisible.value = false;
-  // Возвращаем скролл body
   document.body.style.overflow = '';
 };
 
 const handleInstructionClick = () => {
-  console.log('Переход к инструкции');
-  // Здесь можно добавить логику для открытия инструкции
+  console.log('Quiz1: Переход к инструкции');
   closePopup();
 };
 
@@ -527,12 +512,10 @@ watch([singleCountLocal, albumCountLocal, clipCountLocal, cardCountLocal],
   async ([newSingle, newAlbum, newClip, newCard], 
          [oldSingle, oldAlbum, oldClip, oldCard]) => {
     
-    // Сохраняем в IndexedDB (только если не обновление с сервера)
     if (!isUpdatingFromServer.value) {
       await saveStateToDB();
     }
     
-    // Обновляем предыдущие значения для следующего сравнения
     previousCounts.value = {
       single: newSingle,
       album: newAlbum,
@@ -540,7 +523,6 @@ watch([singleCountLocal, albumCountLocal, clipCountLocal, cardCountLocal],
       card: newCard
     };
     
-    // Обрабатываем изменения для каждого продукта
     if (newSingle !== oldSingle) {
       await handleQuantityChange('28', newSingle, oldSingle);
     }
@@ -566,7 +548,6 @@ if (typeof window !== 'undefined') {
     await saveStateToDB();
   });
 
-  // Сохраняем состояние при изменении видимости вкладки
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'hidden') {
       await saveStateToDB();
@@ -576,6 +557,7 @@ if (typeof window !== 'undefined') {
 </script>
 
 <template>
+<!-- Template остается без изменений - такой же как в вашем оригинальном коде -->
 <div class="quiz__form quiz__form_one">
   <div class="quiz__form_top">
     <h4 class="quiz__form_head">Что вы хотите загрузить?</h4>
@@ -716,7 +698,6 @@ if (typeof window !== 'undefined') {
     </li>
   </ul>
   
-  <!-- Индикатор загрузки -->
   <div v-if="isLoading" class="quiz__form_loading">
     <span>Загрузка актуальных данных...</span>
   </div>
@@ -750,6 +731,7 @@ if (typeof window !== 'undefined') {
 </template>
 
 <style lang="css" scoped>
+/* Стили остаются без изменений - такие же как в вашем оригинальном коде */
 .quiz__form_top {
   display: flex;
   width: 100%;
@@ -1002,7 +984,6 @@ if (typeof window !== 'undefined') {
   text-align: center;
 }
 
-/* Анимации попапа */
 .popup-fade-enter-active,
 .popup-fade-leave-active {
   transition: opacity 0.3s ease;
@@ -1013,7 +994,6 @@ if (typeof window !== 'undefined') {
   opacity: 0;
 }
 
-/* Стили для скролла попапа */
 .quiz-popup__content::-webkit-scrollbar {
   width: 8px;
 }
@@ -1032,7 +1012,6 @@ if (typeof window !== 'undefined') {
   background: #555;
 }
 
-/* Адаптивность */
 @media (max-width: 767px) {
   .quiz-popup__close {
     top: -60px;

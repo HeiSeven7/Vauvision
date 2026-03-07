@@ -14,7 +14,9 @@ const emit = defineEmits<{
 const STORAGE_KEY = 'quiz2_state';
 const DB_NAME = 'quizDB';
 const AUDIO_DB_NAME = 'audioDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+const STORE_NAME = 'quizState';
+const AUDIO_STORE_NAME = 'audio';
 
 // Локальные состояния
 const isLoadingTwo = ref(false);
@@ -22,6 +24,8 @@ const showImportantBlock = ref(false);
 const quizDB = ref<any>(null);
 const audioDB = ref<any>(null);
 const dataLoaded = ref(false);
+const dbInitialized = ref(false);
+const audioDBInitialized = ref(false);
 
 // Состояние попапа
 const isPopupVisible = ref(false);
@@ -92,89 +96,142 @@ const albums = ref<Array<{
 
 // Инициализация IndexedDB
 const initDB = async () => {
-  // База для текстовых данных состояний
-  quizDB.value = await openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('quizState')) {
-        const store = db.createObjectStore('quizState', { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp');
-      }
-    },
-  });
+  try {
+    console.log('Quiz2: Initializing IndexedDB...');
+    
+    // База для текстовых данных состояний
+    quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz2: Upgrading DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          store.createIndex('timestamp', 'timestamp');
+          console.log('Quiz2: Created quizState store');
+        }
+      },
+    });
+    
+    // База для аудиофайлов
+    audioDB.value = await openDB(AUDIO_DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz2: Upgrading Audio DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (!db.objectStoreNames.contains(AUDIO_STORE_NAME)) {
+          const store = db.createObjectStore(AUDIO_STORE_NAME, { keyPath: 'id' });
+          store.createIndex('fileName', 'fileName');
+          console.log('Quiz2: Created audio store');
+        }
+      },
+    });
+    
+    dbInitialized.value = true;
+    audioDBInitialized.value = true;
+    console.log('Quiz2: IndexedDB initialized successfully');
+    
+  } catch (error) {
+    console.error('Quiz2: Error initializing IndexedDB:', error);
+    dbInitialized.value = false;
+    audioDBInitialized.value = false;
+  }
+};
+
+// Безопасное выполнение операций с БД
+const safeDBOperation = async <T>(
+  operation: () => Promise<T>, 
+  fallback: T,
+  dbType: 'quiz' | 'audio' = 'quiz'
+): Promise<T> => {
+  const db = dbType === 'quiz' ? quizDB.value : audioDB.value;
+  const initialized = dbType === 'quiz' ? dbInitialized.value : audioDBInitialized.value;
+  const storeName = dbType === 'quiz' ? STORE_NAME : AUDIO_STORE_NAME;
   
-  // База для аудиофайлов
-  audioDB.value = await openDB(AUDIO_DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('audio')) {
-        const store = db.createObjectStore('audio', { keyPath: 'id' });
-        store.createIndex('fileName', 'fileName');
-      }
-    },
-  });
+  if (!initialized || !db) {
+    console.log(`Quiz2: ${dbType} DB not initialized`);
+    return fallback;
+  }
+  
+  try {
+    if (!db.objectStoreNames || !db.objectStoreNames.contains(storeName)) {
+      console.log(`Quiz2: Store ${storeName} not found in ${dbType} DB. Available stores:`, 
+                  db.objectStoreNames ? Array.from(db.objectStoreNames) : []);
+      return fallback;
+    }
+    
+    return await operation();
+  } catch (error) {
+    console.error(`Quiz2: Error in ${dbType} DB operation:`, error);
+    return fallback;
+  }
 };
 
 // Сохранение файла в IndexedDB
 const saveAudioToDB = async (file: File, fileId: string): Promise<void> => {
-  try {
-    const blob = new Blob([file], { type: file.type });
-    await audioDB.value.put('audio', {
-      id: fileId,
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.type,
-      data: blob,
-      timestamp: Date.now()
-    });
-    console.log(`Audio saved to DB with ID: ${fileId}`);
-  } catch (error) {
-    console.error('Error saving audio to DB:', error);
-    throw error;
-  }
+  await safeDBOperation(
+    async () => {
+      const blob = new Blob([file], { type: file.type });
+      await audioDB.value.put(AUDIO_STORE_NAME, {
+        id: fileId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        data: blob,
+        timestamp: Date.now()
+      });
+      console.log(`Quiz2: Audio saved to DB with ID: ${fileId}`);
+    },
+    null,
+    'audio'
+  );
 };
 
 // Загрузка файла из IndexedDB
-const loadAudioFromDB = async (fileId: string): Promise<{ file: File, fileName: string, fileSize: number } | null> => {
-  try {
-    const stored = await audioDB.value.get('audio', fileId);
-    if (stored) {
-      const file = new File([stored.data], stored.fileName, { type: stored.fileType });
-      return {
-        file,
-        fileName: stored.fileName,
-        fileSize: stored.fileSize
-      };
-    }
-    return null;
-  } catch (error) {
-    console.error('Error loading audio from DB:', error);
-    return null;
-  }
+const loadAudioFromDB = async (fileId: string): Promise<{ file: File; fileName: string; fileSize: number } | null> => {
+  return safeDBOperation(
+    async () => {
+      const stored = await audioDB.value.get(AUDIO_STORE_NAME, fileId);
+      if (stored) {
+        const file = new File([stored.data], stored.fileName, { type: stored.fileType });
+        return {
+          file,
+          fileName: stored.fileName,
+          fileSize: stored.fileSize
+        };
+      }
+      return null;
+    },
+    null,
+    'audio'
+  );
 };
 
 // Удаление файла из IndexedDB
 const removeAudioFromDB = async (fileId: string) => {
-  try {
-    await audioDB.value.delete('audio', fileId);
-    console.log(`Audio removed from DB with ID: ${fileId}`);
-  } catch (error) {
-    console.error('Error removing audio from DB:', error);
-  }
+  await safeDBOperation(
+    async () => {
+      await audioDB.value.delete(AUDIO_STORE_NAME, fileId);
+      console.log(`Quiz2: Audio removed from DB with ID: ${fileId}`);
+    },
+    null,
+    'audio'
+  );
 };
 
-// Получение количества синглов и альбомов из Quiz1 (теперь из IndexedDB)
+// Получение количества синглов и альбомов из Quiz1
 const getCountsFromQuiz1 = async () => {
-  try {
-    const quiz1State = await quizDB.value.get('quizState', 'quiz1_state');
-    if (quiz1State) {
-      return {
-        singleCount: quiz1State.singleCount || 0,
-        albumCount: quiz1State.albumCount || 0
-      };
-    }
-  } catch (error) {
-    console.error('Error reading quiz1 state from IndexedDB:', error);
-  }
-  return { singleCount: 0, albumCount: 0 };
+  return safeDBOperation(
+    async () => {
+      const quiz1State = await quizDB.value.get(STORE_NAME, 'quiz1_state');
+      if (quiz1State) {
+        return {
+          singleCount: quiz1State.singleCount || 0,
+          albumCount: quiz1State.albumCount || 0
+        };
+      }
+      return { singleCount: 0, albumCount: 0 };
+    },
+    { singleCount: 0, albumCount: 0 }
+  );
 };
 
 // Создание пустых синглов
@@ -214,60 +271,63 @@ const createEmptyAlbums = (count: number) => {
 
 // Сохранение состояния в IndexedDB
 const saveStateToDB = async () => {
-  try {
-    const stateToSave = {
-      id: STORAGE_KEY,
-      singleTracks: singleTracks.value.map(track => ({
-        id: track.id,
-        performerName: track.performerName,
-        musicAuthor: track.musicAuthor,
-        textAuthor: track.textAuthor,
-        trackName: track.trackName,
-        audioFileName: track.audioFileName || '',
-        audioFileSize: track.audioFileSize || 0,
-        uploaded: track.uploaded || false,
-        hasAudioUploaded: track.hasAudioUploaded || false,
-        audioFileId: track.audioFileId || null
-      })),
-      albums: albums.value.map(album => ({
-        id: album.id,
-        albumName: album.albumName,
-        performerName: album.performerName,
-        musicAuthor: album.musicAuthor,
-        textAuthor: album.textAuthor,
-        tracks: album.tracks.map(track => ({
+  await safeDBOperation(
+    async () => {
+      const stateToSave = {
+        id: STORAGE_KEY,
+        singleTracks: singleTracks.value.map(track => ({
           id: track.id,
-          trackNumber: track.trackNumber,
-          trackName: track.trackName,
           performerName: track.performerName,
           musicAuthor: track.musicAuthor,
           textAuthor: track.textAuthor,
+          trackName: track.trackName,
           audioFileName: track.audioFileName || '',
           audioFileSize: track.audioFileSize || 0,
           uploaded: track.uploaded || false,
+          hasAudioUploaded: track.hasAudioUploaded || false,
           audioFileId: track.audioFileId || null
-        }))
-      })),
-      timestamp: Date.now()
-    };
-    
-    await quizDB.value.put('quizState', stateToSave);
-    console.log('State saved to IndexedDB');
-  } catch (error) {
-    console.error('Error saving state to IndexedDB:', error);
-  }
+        })),
+        albums: albums.value.map(album => ({
+          id: album.id,
+          albumName: album.albumName,
+          performerName: album.performerName,
+          musicAuthor: album.musicAuthor,
+          textAuthor: album.textAuthor,
+          tracks: album.tracks.map(track => ({
+            id: track.id,
+            trackNumber: track.trackNumber,
+            trackName: track.trackName,
+            performerName: track.performerName,
+            musicAuthor: track.musicAuthor,
+            textAuthor: track.textAuthor,
+            audioFileName: track.audioFileName || '',
+            audioFileSize: track.audioFileSize || 0,
+            uploaded: track.uploaded || false,
+            audioFileId: track.audioFileId || null
+          }))
+        })),
+        timestamp: Date.now()
+      };
+      
+      await quizDB.value.put(STORE_NAME, stateToSave);
+      console.log('Quiz2: State saved to IndexedDB');
+      
+      // Отправляем событие об обновлении данных для QuizMenu
+      window.dispatchEvent(new CustomEvent('quiz-data-updated'));
+    },
+    null
+  );
 };
 
 // Загрузка синглов из сохраненного состояния
 const loadSinglesFromStorage = async (savedState: any, requiredCount: number) => {
   if (savedState && savedState.singleTracks && savedState.singleTracks.length === requiredCount) {
-    console.log('Loading saved singles:', savedState.singleTracks.length);
+    console.log('Quiz2: Loading saved singles:', savedState.singleTracks.length);
     
     singleTracks.value = await Promise.all(
       savedState.singleTracks.map(async (track: any, index: number) => {
         let audioFile = null;
         
-        // Загружаем аудио из IndexedDB если есть
         if (track.audioFileId) {
           const audioData = await loadAudioFromDB(track.audioFileId);
           if (audioData) {
@@ -291,7 +351,7 @@ const loadSinglesFromStorage = async (savedState: any, requiredCount: number) =>
       })
     );
   } else {
-    console.log(`Creating ${requiredCount} new empty singles`);
+    console.log(`Quiz2: Creating ${requiredCount} new empty singles`);
     createEmptySingles(requiredCount);
   }
   
@@ -307,7 +367,7 @@ const loadSinglesFromStorage = async (savedState: any, requiredCount: number) =>
 // Загрузка альбомов из сохраненного состояния
 const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => {
   if (savedState && savedState.albums && savedState.albums.length === requiredCount) {
-    console.log('Loading saved albums:', savedState.albums.length);
+    console.log('Quiz2: Loading saved albums:', savedState.albums.length);
     
     albums.value = await Promise.all(
       savedState.albums.map(async (album: any, albumIndex: number) => {
@@ -325,7 +385,6 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
             album.tracks.map(async (track: any, trackIndex: number) => {
               let audioFile = null;
               
-              // Загружаем аудио из IndexedDB если есть
               if (track.audioFileId) {
                 const audioData = await loadAudioFromDB(track.audioFileId);
                 if (audioData) {
@@ -354,7 +413,7 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
       })
     );
   } else {
-    console.log(`Creating ${requiredCount} new empty albums`);
+    console.log(`Quiz2: Creating ${requiredCount} new empty albums`);
     createEmptyAlbums(requiredCount);
   }
   
@@ -372,43 +431,48 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
 
 // Загрузка состояния из IndexedDB
 const loadStateFromDB = async () => {
-  try {
-    await initDB();
-    
-    const savedState = await quizDB.value.get('quizState', STORAGE_KEY);
-    const counts = await getCountsFromQuiz1();
-    
-    console.log('Loading state. Quiz1 counts:', counts);
-    
-    if (counts.singleCount > 0) {
-      await loadSinglesFromStorage(savedState, counts.singleCount);
-    } else {
-      singleTracks.value = [];
-      singleErrors.value = [];
-    }
-    
-    if (counts.albumCount > 0) {
-      await loadAlbumsFromStorage(savedState, counts.albumCount);
-    } else {
-      albums.value = [];
-      albumErrors.value = [];
-    }
-    
-    console.log('Final data loaded:', {
-      singles: singleTracks.value.length,
-      albums: albums.value.length
-    });
-    
-  } catch (error) {
-    console.error('Error loading state from storage:', error);
+  if (!dbInitialized.value) {
+    console.log('Quiz2: DB not initialized, skipping load');
+    return;
   }
+  
+  await safeDBOperation(
+    async () => {
+      console.log('Quiz2: Loading state from IndexedDB...');
+      const savedState = await quizDB.value.get(STORE_NAME, STORAGE_KEY);
+      const counts = await getCountsFromQuiz1();
+      
+      console.log('Quiz2: Quiz1 counts:', counts);
+      console.log('Quiz2: Saved state:', savedState);
+      
+      if (counts.singleCount > 0) {
+        await loadSinglesFromStorage(savedState, counts.singleCount);
+      } else {
+        singleTracks.value = [];
+        singleErrors.value = [];
+      }
+      
+      if (counts.albumCount > 0) {
+        await loadAlbumsFromStorage(savedState, counts.albumCount);
+      } else {
+        albums.value = [];
+        albumErrors.value = [];
+      }
+      
+      console.log('Quiz2: Final data loaded:', {
+        singles: singleTracks.value.length,
+        albums: albums.value.length
+      });
+    },
+    null
+  );
 };
 
 // Проверка готовности к продолжению
 const isReadyForNextStep = computed(() => {
   // Проверяем все синглы
   const allSinglesComplete = singleTracks.value.every((track, index) => 
-    track.trackName.trim().length >= 1 && // минимум 1 символ
+    track.trackName.trim().length >= 1 &&
     track.audioFile !== null &&
     track.uploaded &&
     track.performerName.trim().split(/\s+/).length >= 3 &&
@@ -421,10 +485,10 @@ const isReadyForNextStep = computed(() => {
 
   // Проверяем все альбомы
   const allAlbumsComplete = albums.value.every((album, albumIndex) =>
-    album.albumName.trim().length >= 1 && // минимум 1 символ
+    album.albumName.trim().length >= 1 &&
     album.tracks.length > 0 &&
     album.tracks.every((track, trackIndex) =>
-      track.trackName.trim().length >= 1 && // минимум 1 символ
+      track.trackName.trim().length >= 1 &&
       track.audioFile !== null &&
       track.uploaded &&
       track.performerName.trim().split(/\s+/).length >= 3 &&
@@ -436,7 +500,6 @@ const isReadyForNextStep = computed(() => {
     )
   );
 
-  // Получаем counts синхронно из текущих данных
   const counts = {
     singleCount: singleTracks.value.length,
     albumCount: albums.value.length
@@ -654,7 +717,7 @@ const validateAlbumTrackForm = async (albumIndex: number, trackIndex: number) =>
 
 // Генерация ID для аудио файла
 const generateAudioId = (type: 'single' | 'album', ...indices: number[]): string => {
-  return `${type}-${indices.join('-')}-${Date.now()}`;
+  return `${type}-${indices.join('-')}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
 // Обработка загрузки аудио файла для сингла
@@ -681,15 +744,12 @@ const handleSingleAudioUpload = async (trackIndex: number, event: Event) => {
   try {
     isLoadingTwo.value = true;
     
-    // Генерируем ID для файла
     const fileId = generateAudioId('single', trackIndex);
     
-    // Удаляем старый файл если был
     if (singleTracks.value[trackIndex].audioFileId) {
       await removeAudioFromDB(singleTracks.value[trackIndex].audioFileId);
     }
     
-    // Сохраняем в IndexedDB
     await saveAudioToDB(file, fileId);
     
     singleTracks.value[trackIndex].audioFile = file;
@@ -707,7 +767,7 @@ const handleSingleAudioUpload = async (trackIndex: number, event: Event) => {
     
     ElMessage.success('Аудио файл успешно загружен');
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error('Quiz2: Error uploading file:', error);
     ElMessage.error('Ошибка при загрузке файла');
   } finally {
     isLoadingTwo.value = false;
@@ -746,18 +806,14 @@ const handleAlbumTrackUpload = async (albumIndex: number, trackIndex: number, ev
       const album = albums.value[albumIndex];
       if (trackIndex >= 0 && trackIndex < album.tracks.length) {
         
-        // Генерируем ID для файла
         const fileId = generateAudioId('album', albumIndex, trackIndex);
         
-        // Удаляем старый файл если был
         if (album.tracks[trackIndex].audioFileId) {
           await removeAudioFromDB(album.tracks[trackIndex].audioFileId);
         }
         
-        // Сохраняем в IndexedDB
         await saveAudioToDB(file, fileId);
         
-        // Обновляем трек
         const updatedTrack = {
           ...album.tracks[trackIndex],
           audioFile: file,
@@ -773,7 +829,7 @@ const handleAlbumTrackUpload = async (albumIndex: number, trackIndex: number, ev
           albumErrors.value[albumIndex].tracks[trackIndex].audioFile = '';
         }
         
-        console.log(`Audio uploaded for album ${albumIndex + 1}, track ${trackIndex + 1}:`, file.name);
+        console.log(`Quiz2: Audio uploaded for album ${albumIndex + 1}, track ${trackIndex + 1}:`, file.name);
         
         await saveStateToDB();
         
@@ -783,7 +839,7 @@ const handleAlbumTrackUpload = async (albumIndex: number, trackIndex: number, ev
       }
     }
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error('Quiz2: Error uploading file:', error);
     ElMessage.error('Ошибка при загрузке файла');
   } finally {
     isLoadingTwo.value = false;
@@ -863,7 +919,6 @@ const removeAlbumTrack = async (albumIndex: number, trackIndex: number) => {
     const album = albums.value[albumIndex];
     if (trackIndex >= 0 && trackIndex < album.tracks.length) {
       
-      // Удаляем аудио из IndexedDB если есть
       if (album.tracks[trackIndex].audioFileId) {
         await removeAudioFromDB(album.tracks[trackIndex].audioFileId);
       }
@@ -889,7 +944,6 @@ const removeAlbumTrack = async (albumIndex: number, trackIndex: number) => {
 
 // Удаление загруженного аудио для сингла
 const removeSingleUploadedAudio = async (trackIndex: number) => {
-  // Удаляем из IndexedDB
   if (singleTracks.value[trackIndex].audioFileId) {
     await removeAudioFromDB(singleTracks.value[trackIndex].audioFileId);
   }
@@ -914,7 +968,6 @@ const removeAlbumTrackAudio = async (albumIndex: number, trackIndex: number) => 
     const album = albums.value[albumIndex];
     if (trackIndex >= 0 && trackIndex < album.tracks.length) {
       
-      // Удаляем из IndexedDB
       if (album.tracks[trackIndex].audioFileId) {
         await removeAudioFromDB(album.tracks[trackIndex].audioFileId);
       }
@@ -1017,14 +1070,12 @@ const goBack = async () => {
 const handleContinue = async () => {
   let allValid = true;
   
-  // Проверяем синглы
   for (let i = 0; i < singleTracks.value.length; i++) {
     if (!await validateSingleForm(i)) {
       allValid = false;
     }
   }
   
-  // Проверяем альбомы
   for (let albumIndex = 0; albumIndex < albums.value.length; albumIndex++) {
     if (!validateAlbumName(albumIndex)) {
       allValid = false;
@@ -1053,11 +1104,16 @@ const handleAccept = async () => {
 // При монтировании загружаем состояние
 onMounted(async () => {
   try {
+    console.log('Quiz2: Mounting...');
     isLoadingTwo.value = true;
+    
+    await initDB();
     await loadStateFromDB();
+    
     dataLoaded.value = true;
   } catch (error) {
-    console.error('Error in onMounted:', error);
+    console.error('Quiz2: Error in onMounted:', error);
+    ElMessage.error('Ошибка при загрузке данных');
   } finally {
     isLoadingTwo.value = false;
   }
@@ -1065,22 +1121,25 @@ onMounted(async () => {
 
 // Следим за изменениями и сохраняем
 watch([singleTracks, albums], async () => {
-  if (dataLoaded.value && !isLoadingTwo.value) {
+  if (dataLoaded.value && !isLoadingTwo.value && dbInitialized.value) {
     await saveStateToDB();
   }
 }, { deep: true });
 
 // Сохраняем состояние при покидании страницы
-window.addEventListener('beforeunload', async () => {
-  await saveStateToDB();
-});
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', async () => {
+    if (dbInitialized.value) {
+      await saveStateToDB();
+    }
+  });
 
-// Сохраняем состояние при изменении видимости вкладки
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'hidden') {
-    await saveStateToDB();
-  }
-});
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'hidden' && dbInitialized.value) {
+      await saveStateToDB();
+    }
+  });
+}
 </script>
 
 <template>
