@@ -970,8 +970,8 @@ section {
 }
 .personal__block {
   display: flex;
-  width: calc(100% - 280px);
-  padding: 60px 0 80px 120px;
+  width: calc(100% - 320px);
+  padding: 60px 0 80px 60px;
   margin: 0 0 0 auto;
   flex-direction: column;
   gap: 20px;

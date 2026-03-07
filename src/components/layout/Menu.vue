@@ -150,120 +150,126 @@ onMounted(() => {
 <template>
 <div class="menu__back"></div>
 <div class="menu__block">
-  <!-- Блок информации о пользователе - КАК В BURGER -->
-  <div class="menu__personal">
-    <div class="menu__personal_logo">
-      <img 
-        v-if="userData.avatar"
-        :src="getAvatarUrl(userData.avatar)"
-        @error="handleAvatarError"
-        alt="Avatar"
-        class="menu__avatar"
+  <div class="menu__scroll">
+    <div class="menu__personal">
+      <div class="menu__personal_logo">
+        <img 
+          v-if="userData.avatar"
+          :src="getAvatarUrl(userData.avatar)"
+          @error="handleAvatarError"
+          alt="Avatar"
+          class="menu__avatar"
+        >
+        <PersonalSVG v-else />
+      </div>
+      <div class="menu__personal_info">
+        <h6 class="menu__personal_name">{{ userData.name || 'Пользователь' }}</h6>
+        <p class="menu__personal_mail">{{ userData.email || 'email@example.com' }}</p>
+      </div>
+    </div>
+
+    <!-- Кнопка Баланс - ИСПРАВЛЕНО КАК В HEADER -->
+    <div class="menu__balance">
+      <div 
+        class="menu__balance_button" 
+        :title="'Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится'"
       >
-      <PersonalSVG v-else />
+        <PaySVG />
+        <span>Баланс: {{ formattedBalance(userData.balance) }} руб.</span>
+      </div>
     </div>
-    <div class="menu__personal_info">
-      <h6 class="menu__personal_name">{{ userData.name || 'Пользователь' }}</h6>
-      <p class="menu__personal_mail">{{ userData.email || 'email@example.com' }}</p>
-    </div>
-  </div>
 
-  <!-- Кнопка Баланс - ИСПРАВЛЕНО КАК В HEADER -->
-  <div class="menu__balance">
-    <div 
-      class="menu__balance_button" 
-      :title="'Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится'"
-    >
-      <PaySVG />
-      <span>Баланс: {{ formattedBalance(userData.balance) }} руб.</span>
-    </div>
-  </div>
-
-  <!-- Кнопка Реферальная ссылка - ИСПРАВЛЕНО КАК В HEADER -->
-  <div v-if="referralLink" class="menu__referral">
-    <button 
-      class="menu__referral_button"
-      @click="copyReferralLink"
-      :disabled="isCopying"
-    >
-      <LinkSVG />
-      <span>{{ copySuccess ? 'Скопировано!' : 'Скопировать реферальную ссылку' }}</span>
-    </button>
-  </div>
-
-  <!-- Основная навигация -->
-  <ul class="menu__list">
-    <li class="menu__item">
-      <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'personal' })">
-        <span><HomeSVG /></span>
-        <span>Главная</span>
-      </RouterLink>
-    </li>
-    <li class="menu__item">
-      <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'release' })">
-        <span><UploadSVG /></span>
-        <span>Выложить релиз</span>
-      </RouterLink>
-    </li>
-    <li class="menu__item">
-      <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'setting' })">
-        <span><SettingSVG /></span>
-        <span>Настройки</span>
-      </RouterLink>
-    </li>
-    <li class="menu__item">
-      <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'partner' })">
-        <span><PartnerSVG /></span>
-        <span>Стать партнером</span>
-      </RouterLink>
-    </li>
-    <li class="menu__item">
-      <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'faq' })">
-        <span><FaqSVG /></span>
-        <span>FAQ</span>
-      </RouterLink>
-    </li>
-    <li class="menu__item">
-      <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'articles' })">
-        <span><ArticlesSVG /></span>
-        <span>Статьи</span>
-      </RouterLink>
-    </li>
-    <li class="menu__item">
-      <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'faq' })">
-        <span><FaqSVG /></span>
-        <span>Связь с поддержкой</span>
-      </RouterLink>
-    </li>
-    <li class="menu__item">
-      <a href="#" class="menu__link" @click.prevent="goToOldVersion">
-        <span><FaqSVG /></span>
-        <span>Старая версия</span>
-      </a>
-    </li>
-    
-    <!-- Кнопка Выйти из аккаунта - ИСПРАВЛЕНО КАК В HEADER -->
-    <li class="menu__item menu__logout">
-      <button class="menu__link" @click="handleLogout">
-        <span><LogoutSVG /></span>
-        <span>Выйти из аккаунта</span>
+    <!-- Кнопка Реферальная ссылка - ИСПРАВЛЕНО КАК В HEADER -->
+    <div v-if="referralLink" class="menu__referral">
+      <button 
+        class="menu__referral_button"
+        @click="copyReferralLink"
+        :disabled="isCopying"
+      >
+        <LinkSVG />
+        <span>{{ copySuccess ? 'Скопировано!' : 'Скопировать реферальную ссылку' }}</span>
       </button>
-    </li>
+    </div>
 
-    <!-- Политика конфиденциальности -->
-    <li class="menu__item menu__privacy">
-      <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'home' })">
-        <span><FaqSVG /></span>
-        <span>Политика конфиденциальности</span>
-      </RouterLink>
-    </li>
-  </ul>
+    <!-- Основная навигация -->
+    <ul class="menu__list">
+      <li class="menu__item">
+        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'personal' })">
+          <span><HomeSVG /></span>
+          <span>Главная</span>
+        </RouterLink>
+      </li>
+      <li class="menu__item">
+        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'release' })">
+          <span><UploadSVG /></span>
+          <span>Выложить релиз</span>
+        </RouterLink>
+      </li>
+      <li class="menu__item">
+        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'setting' })">
+          <span><SettingSVG /></span>
+          <span>Настройки</span>
+        </RouterLink>
+      </li>
+      <li class="menu__item">
+        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'partner' })">
+          <span><PartnerSVG /></span>
+          <span>Стать партнером</span>
+        </RouterLink>
+      </li>
+      <li class="menu__item">
+        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'faq' })">
+          <span><FaqSVG /></span>
+          <span>FAQ</span>
+        </RouterLink>
+      </li>
+      <li class="menu__item">
+        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'articles' })">
+          <span><ArticlesSVG /></span>
+          <span>Статьи</span>
+        </RouterLink>
+      </li>
+      <li class="menu__item">
+        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'support' })">
+          <span><FaqSVG /></span>
+          <span>Связь с поддержкой</span>
+        </RouterLink>
+      </li>
+      <li class="menu__item">
+        <a href="#" class="menu__link" @click.prevent="goToOldVersion">
+          <span><FaqSVG /></span>
+          <span>Старая версия</span>
+        </a>
+      </li>
+      
+      <!-- Кнопка Выйти из аккаунта - ИСПРАВЛЕНО КАК В HEADER -->
+      <li class="menu__item menu__logout">
+        <button class="menu__link" @click="handleLogout">
+          <span><LogoutSVG /></span>
+          <span>Выйти из аккаунта</span>
+        </button>
+      </li>
+
+      <!-- Политика конфиденциальности -->
+      <li class="menu__item menu__privacy">
+        <a 
+          :href="`${baseUrl}/upload/policy.pdf`" 
+          class="menu__link"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Политика конфиденциальности
+        </a>
+      </li>
+    </ul>
+  </div>
 </div>
 </template>
 
 <style scoped>
 .menu__block {
-  width: 279px;
+  display: flex;
+  width: 319px;
   height: 100vh;
   max-height: calc(100vh - 80px);
   padding: 60px 0 20px;
@@ -274,17 +280,32 @@ onMounted(() => {
   border-right: 1px solid var(--border);
   background-color: var(--bg);
   transform: translateX(-50%);
+}
+.menu__block::after {
+  content: "";
+  height: 100vh;
+  width: calc(100vw + 320px);
+  position: absolute;
+  left: -100vw;
+  top: 0;
+  z-index: 1;
+  background-color: var(--bg);
+}
+.menu__scroll {
+  display: flex;
+  height: 100vh;
+  max-height: calc(100vh - 160px);
+  flex-direction: column;
+  position: relative;
+  z-index: 2;
   overflow-y: auto;
   overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
 }
-
-.menu__block::-webkit-scrollbar {
+.menu__scroll::-webkit-scrollbar {
   display: none;
   width: 0px;
 }
-.menu__block::-webkit-scrollbar-thumb {
+.menu__scroll::-webkit-scrollbar-thumb {
   display: none;
   width: 0px;
 }

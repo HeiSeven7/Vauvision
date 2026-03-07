@@ -190,7 +190,7 @@ const handleAvatarError = (event: Event) => {
             <LogoSVG />
           </a>
           
-          <div class="header__info">
+          <!-- <div class="header__info">
             <div 
               class="header__balance header__button" 
               :title="'Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится'"
@@ -207,13 +207,13 @@ const handleAvatarError = (event: Event) => {
               <LinkSVG />
               <span>{{ copySuccess ? 'Скопировано!' : 'Пригласи партнера по ссылке' }}</span>
             </button>
-          </div>
+          </div> -->
           
           <div class="header__right">
             <RouterLink class="header__faq" :to="Tr.i18nRoute({ name: 'faq' })" @click="closeMenu">
               <FaqSVG />
             </RouterLink>
-            <button class="header__personal">
+            <!-- <button class="header__personal">
               <div class="header__personal_logo">
                 <img 
                   v-if="userData.avatar"
@@ -224,7 +224,7 @@ const handleAvatarError = (event: Event) => {
                 >
                 <PersonalSVG v-else />
               </div>
-            </button>
+            </button> -->
             <button class="header__burger" :class="{ active: menu }" @click="toggleMenu">
               <span></span>
             </button>
@@ -338,7 +338,7 @@ const handleAvatarError = (event: Event) => {
               </li>
               <li class="burger__nav_item">
                 <RouterLink 
-                  :to="Tr.i18nRoute({ name: 'faq' })" 
+                  :to="Tr.i18nRoute({ name: 'support' })" 
                   class="burger__nav_link"
                   @click="closeMenu"
                 >
@@ -390,13 +390,15 @@ const handleAvatarError = (event: Event) => {
           
           <!-- Политика конфиденциальности -->
           <div class="burger__privacy">
-            <RouterLink 
-              :to="Tr.i18nRoute({ name: 'home' })" 
+            <a 
+              :href="`${baseUrl}/upload/policy.pdf`" 
               class="burger__privacy_link"
+              target="_blank"
+              rel="noopener noreferrer"
               @click="closeMenu"
             >
               Политика конфиденциальности
-            </RouterLink>
+            </a>
           </div>
         </div>
       </div>
@@ -449,7 +451,7 @@ const handleAvatarError = (event: Event) => {
 
 .header__logo {
   display: flex;
-  width: 279px;
+  width: 319px;
   height: 100%;
   align-items: center;
   border-right: 1px solid var(--border);
