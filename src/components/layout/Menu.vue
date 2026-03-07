@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
+import { sendRequest } from '@/utils/api';
 import HomeSVG from "@/uikit/menu/HomeSVG.vue";
 import UploadSVG from "@/uikit/menu/UploadSVG.vue";
 import SettingSVG from "@/uikit/menu/SettingSVG.vue";
@@ -12,7 +13,6 @@ import PaySVG from "@/uikit/icon/PaySVG.vue";
 import LinkSVG from "@/uikit/icon/LinkSVG.vue";
 import PersonalSVG from "@/uikit/icon/PersonalSVG.vue";
 import Tr from "@/i18n/translation";
-import { sendRequest } from '@/utils/api';
 
 // Состояние загрузки
 const isLoading = ref(true);

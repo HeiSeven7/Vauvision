@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
+import { sendRequest } from '@/utils/api';
 import LogoSVG from "@/uikit/Logo.vue";
 import PaySVG from "@/uikit/icon/PaySVG.vue";
 import LinkSVG from "@/uikit/icon/LinkSVG.vue";
@@ -13,7 +14,6 @@ import FaqSVG from "@/uikit/menu/FaqSVG.vue";
 import LogoutSVG from "@/uikit/menu/LogoutSVG.vue";
 import ArticlesSVG from "@/uikit/menu/ArticlesSVG.vue";
 import Tr from "@/i18n/translation";
-import { sendRequest } from '@/utils/api';
 
 const isMenuPopup = ref<boolean>(false);
 const isOverlay = ref<boolean>(false);

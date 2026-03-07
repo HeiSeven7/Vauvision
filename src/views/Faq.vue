@@ -4,6 +4,7 @@ import { sendRequest } from '@/utils/api';
 import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
 import ArrowSVG from "@/uikit/icon/ArrowSVG.vue";
+import Tr from "@/i18n/translation";
 
 const loading = ref<boolean>(false);
 const loadingSvg = `
@@ -153,7 +154,10 @@ onMounted(() => {
           <h3 class="faq__head">ответы на ваши вопросы</h3>
           <p class="faq__desc">
             Не нашли ответ на вопрос? 
-            <a href="#" class="faq__support-link">Написать в поддержку</a>
+            <RouterLink class="faq__support-link" :to="Tr.i18nRoute({ name: 'support' })">
+              <span><FaqSVG /></span>
+              <span>Написать в поддержку</span>
+            </RouterLink>
           </p>
         </div>
         

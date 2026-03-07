@@ -2117,10 +2117,6 @@ onMounted(() => {
   flex: 3;
   min-width: 300px;
 }
-.personal__reports_date {
-  flex: 1;
-  min-width: 120px;
-}
 .personal__reports_actions {
   flex: 2;
   min-width: 200px;
@@ -2713,11 +2709,6 @@ onMounted(() => {
   .personal__release_image {
     width: 150px;
     bottom: -100px;
-  }
-  .personal__reports_date {
-    width: 80px;
-    min-width: 80px;
-    flex: none;
   }
 }
 
