@@ -719,8 +719,8 @@ const prepareOrderData = (): FormData => {
     console.log('--- ШАГ 3: Информация о релизе ---');
     
     const releaseName = cleanField(f.releaseName || 'Релиз');
-    console.log('name-relize:', releaseName);
-    formData.append('name-relize', releaseName);
+    console.log('name_relize:', releaseName);
+    formData.append('name_relize', releaseName);
     
     const alias = cleanField(f.performerName || '');
     console.log('alias:', alias);
@@ -766,8 +766,8 @@ const prepareOrderData = (): FormData => {
     // Альбомные переменные
     const albumReleaseName = cleanField(quiz2Data.value?.albums?.[0]?.albumName || f.releaseName || 'Альбом');
     console.log('--- АЛЬБОМНЫЕ ПЕРЕМЕННЫЕ ---');
-    console.log('name-relize-album:', albumReleaseName);
-    formData.append('name-relize-album', albumReleaseName);
+    console.log('name_relize_album:', albumReleaseName);
+    formData.append('name_relize_album', albumReleaseName);
     
     console.log('alias-album:', alias);
     formData.append('alias-album', alias);
@@ -806,10 +806,10 @@ const prepareOrderData = (): FormData => {
     formData.append('email-clear-album', f.email || '');
   } else {
     console.log('⚠️ НЕТ ДАННЫХ ИЗ QUIZ3! Добавляю значения по умолчанию');
-    formData.append('name-relize', 'Релиз');
-    formData.append('name-relize-album', 'Альбом');
-    console.log('name-relize (default):', 'Релиз');
-    console.log('name-relize-album (default):', 'Альбом');
+    formData.append('name_relize', 'Релиз');
+    formData.append('name_relize_album', 'Альбом');
+    console.log('name_relize (default):', 'Релиз');
+    console.log('name_relize_album (default):', 'Альбом');
   }
 
   // --- 5. ШАГ 4: Данные пользователя ---
@@ -923,8 +923,8 @@ const prepareOrderData = (): FormData => {
   // ФИНАЛЬНАЯ ПРОВЕРКА
   console.log('========== ФИНАЛЬНАЯ ПРОВЕРКА ==========');
   console.log('Проверяем критически важные поля:');
-  console.log('name-relize:', formData.get('name-relize'));
-  console.log('name-relize-album:', formData.get('name-relize-album'));
+  console.log('name_relize:', formData.get('name_relize'));
+  console.log('name_relize_album:', formData.get('name_relize_album'));
   console.log('trackID[]:', formData.getAll('trackID[]'));
   console.log('albumID[]:', formData.getAll('albumID[]'));
   console.log('quiz_policy_one:', formData.get('quiz_policy_one'));
