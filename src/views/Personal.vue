@@ -125,6 +125,10 @@ const payoutAmount = ref<number | null>(null);
 const isRequestingAct = ref(false);
 const actError = ref('');
 
+// Состояние для отправки на API после подписи
+const isSubmittingVyplata = ref(false);
+const vyplataError = ref('');
+
 // Список кварталов из API
 const availableQuarters = ref<Quarter[]>([]);
 
@@ -620,6 +624,7 @@ const closeAllPopups = () => {
   actData.value = null;
   actError.value = '';
   payoutAmount.value = null;
+  vyplataError.value = '';
   document.documentElement.classList.remove('noscroll');
 };
 
@@ -869,11 +874,58 @@ const goToSignature = () => {
   showSignaturePopup.value = true;
 };
 
+// Функция для отправки на API выплаты после подписи
+const submitToVyplataApi = async () => {
+  if (!actData.value || !payoutAmount.value) return;
+  
+  isSubmittingVyplata.value = true;
+  vyplataError.value = '';
+  
+  try {
+    const valuta = profileData.value.region === 'Russia' ? 'RUB' : 'USD';
+    
+    // Отправляем данные на API выплаты
+    const response = await sendRequest('post', '/ajax_vue/ajax/profile/vyplata.php', {
+      summ: payoutAmount.value,
+      valuta: valuta,
+      summLables: payoutAmount.value,
+      element_id: actData.value.element_id
+    });
+    
+    console.log('Ответ от API выплаты:', response.data);
+    
+    if (response.data && response.data.error === 0) {
+      alert('Выплата успешно обработана');
+      closeAllPopups();
+      await fetchData(); // Обновляем данные
+    } else {
+      vyplataError.value = response.data?.message || 'Ошибка при обработке выплаты';
+      alert(vyplataError.value);
+    }
+  } catch (error: unknown) {
+    console.error('Ошибка при отправке на API выплаты:', error);
+    
+    let errorMessage = 'Не удалось обработать выплату';
+    if (error && typeof error === 'object') {
+      const err = error as { response?: { data?: { message?: string } } };
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+    }
+    
+    vyplataError.value = errorMessage;
+    alert(vyplataError.value);
+  } finally {
+    isSubmittingVyplata.value = false;
+  }
+};
+
 // Функция для отправки подписи
 const submitSignature = async (signatureDataUrl: string) => {
   if (!actData.value) return;
 
   try {
+    // 1. Преобразуем dataURL в Blob и затем в File
     const response = await fetch(signatureDataUrl);
     const blob = await response.blob();
     
@@ -881,24 +933,50 @@ const submitSignature = async (signatureDataUrl: string) => {
     const fileName = `${actData.value.element_id}.png`;
     const signatureFile = new File([blob], fileName, { type: 'image/png' });
 
+    // 2. Создаем FormData и добавляем все необходимые поля
     const formData = new FormData();
     formData.append('name', actData.value.element_id);
-    formData.append('url', signatureDataUrl);
-    formData.append('signature', signatureFile);
+    formData.append('signature', signatureFile); 
 
-    const submitResponse = await sendRequest('post', '/ajax_vue/ajax/newAkt_vyp.php', formData);
+    // 3. Отправляем FormData с помощью нативного fetch
+    const submitResponse = await fetch('/ajax_vue/ajax/newAkt_vyp.php', {
+      method: 'POST',
+      body: formData,
+    });
 
-    console.log('Ответ при отправке подписи:', submitResponse.data);
+    // 4. Проверяем статус ответа
+    if (!submitResponse.ok) {
+        const errorText = await submitResponse.text();
+        console.error('Ошибка HTTP:', submitResponse.status, errorText);
+        throw new Error(`HTTP error! status: ${submitResponse.status}`);
+    }
 
-    // Если запрос выполнился (статус 200) - считаем успешным
-    // Не проверяем содержимое ответа, просто закрываем попап
-    alert('Выплата успешно запрошена');
-    closeAllPopups();
-    await fetchData(); // Обновляем данные
+    // 5. Парсим ответ
+    const result = await submitResponse.json();
+    console.log('Ответ при отправке подписи:', result);
+
+    // 6. Проверяем, нет ли ошибки в ответе
+    if (result && result.error) {
+      throw new Error(result.message || 'Ошибка при отправке подписи');
+    }
+
+    // 7. После успешной отправки подписи отправляем на API выплаты
+    await submitToVyplataApi();
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Ошибка при отправке подписи:', error);
-    alert('Не удалось отправить подпись');
+    
+    let errorMessage = 'Неизвестная ошибка';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object' && 'message' in error) {
+      errorMessage = String((error as { message: unknown }).message);
+    }
+    
+    alert(`Не удалось отправить подпись: ${errorMessage}`);
   }
 };
 
@@ -992,9 +1070,19 @@ const submitBonusPayout = async () => {
     
     payoutError.value = errorMessage;
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Ошибка при запросе выплаты бонусов:', error);
-    payoutError.value = 'Не удалось отправить запрос. Проверьте соединение и попробуйте позже.';
+    
+    let errorMessage = 'Не удалось отправить запрос. Проверьте соединение и попробуйте позже.';
+    
+    if (error && typeof error === 'object') {
+      const err = error as { response?: { data?: { message?: string } } };
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+    }
+    
+    payoutError.value = errorMessage;
   } finally {
     isSubmittingBonusPayout.value = false;
     loading.value = false;
@@ -1578,7 +1666,6 @@ onMounted(() => {
               :src="getFullUrl(image)" 
               :alt="`Изображение ${index + 1}`"
               class="popup__image"
-              @click="openImageInNewTab(getFullUrl(image))"
             >
           </div>
         </div>
@@ -2514,6 +2601,7 @@ onMounted(() => {
 }
 
 .popup__image-item {
+  width: 100%;
   position: relative;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -2524,8 +2612,8 @@ onMounted(() => {
 
 .popup__image {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  object-fit: contain;
 }
 
 @media (max-width: 1919px) {
@@ -2722,14 +2810,3 @@ onMounted(() => {
   }
 }
 </style>
-
-<script lang="ts">
-// Добавляем метод для открытия изображения в новой вкладке
-export default {
-  methods: {
-    openImageInNewTab(url: string) {
-      window.open(url, '_blank');
-    }
-  }
-}
-</script>

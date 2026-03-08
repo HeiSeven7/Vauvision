@@ -240,6 +240,7 @@
         <div class="quiz__form_contract_links">
           <p><strong>PDF:</strong> <a :href="contractData.doc_pdf" target="_blank">{{ contractData.doc_pdf }}</a></p>
           <p><strong>DOCX:</strong> <a :href="contractData.doc_docx" target="_blank">{{ contractData.doc_docx }}</a></p>
+          <p><strong>Страниц:</strong> {{ contractData.images?.length || 0 }}</p>
         </div>
       </div>
       
@@ -272,7 +273,7 @@
 <script lang="ts" setup>
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
 import { ElSelect, ElOption, ElInput, ElCheckbox, ElInputNumber, ElMessage, ElButton } from 'element-plus';
-import { sendRequest } from '@/utils/api';
+import { sendRequest, FileRequest } from '@/utils/api';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import { openDB } from 'idb';
 
@@ -300,13 +301,16 @@ interface UploadedFileInfo {
 const STORAGE_KEY = 'quiz6_state';
 const DB_NAME = 'quizDB';
 const AUDIO_DB_NAME = 'audioDB';
-const DB_VERSION = 2; // Увеличиваем версию до 2
+const FILES_DB_NAME = 'filesDB';
+const DB_VERSION = 2; // Увеличено до 2 для обновления структуры
 
 const quizDB = ref<any>(null);
 const audioDB = ref<any>(null);
+const filesDB = ref<any>(null);
 const dataLoaded = ref(false);
 const dbInitialized = ref(false);
 const audioDBInitialized = ref(false);
+const filesDBInitialized = ref(false);
 
 // Состояние загрузки
 const isLoading = ref(true);
@@ -326,7 +330,7 @@ const contractData = ref<ContractData | null>(null);
 
 // Таймер для debounce
 let promoDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-let saveTimeout: NodeJS.Timeout | null = null;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Данные формы
 const formData = reactive({
@@ -382,39 +386,70 @@ const initDB = async () => {
   try {
     console.log('Quiz6: Initializing databases...');
     
+    // Основная БД с версией 2
     quizDB.value = await openDB(DB_NAME, DB_VERSION, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`Quiz6: Upgrading DB from version ${oldVersion} to ${newVersion}`);
         
-        if (!db.objectStoreNames.contains('quizState')) {
+        // При обновлении с версии 1 до 2
+        if (oldVersion < 2) {
+          // Если старое хранилище существует, удаляем его
+          if (db.objectStoreNames.contains('quizState')) {
+            db.deleteObjectStore('quizState');
+          }
+          // Создаем новое хранилище
           const store = db.createObjectStore('quizState', { keyPath: 'id' });
           store.createIndex('timestamp', 'timestamp');
-          console.log('Quiz6: Created quizState store');
+          console.log('Quiz6: Created new quizState store');
         }
       },
     });
     
+    // Аудио БД с версией 2
     audioDB.value = await openDB(AUDIO_DB_NAME, DB_VERSION, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`Quiz6: Upgrading Audio DB from version ${oldVersion} to ${newVersion}`);
         
-        if (!db.objectStoreNames.contains('audio')) {
+        if (oldVersion < 2) {
+          if (db.objectStoreNames.contains('audio')) {
+            db.deleteObjectStore('audio');
+          }
           const store = db.createObjectStore('audio', { keyPath: 'id' });
           store.createIndex('fileName', 'fileName');
           store.createIndex('timestamp', 'timestamp');
-          console.log('Quiz6: Created audio store');
+          console.log('Quiz6: Created new audio store');
+        }
+      },
+    });
+    
+    // Файловая БД с версией 2
+    filesDB.value = await openDB(FILES_DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz6: Upgrading Files DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (oldVersion < 2) {
+          if (db.objectStoreNames.contains('files')) {
+            db.deleteObjectStore('files');
+          }
+          const store = db.createObjectStore('files', { keyPath: 'id' });
+          store.createIndex('fileName', 'fileName');
+          store.createIndex('type', 'type');
+          store.createIndex('timestamp', 'timestamp');
+          console.log('Quiz6: Created new files store');
         }
       },
     });
     
     dbInitialized.value = true;
     audioDBInitialized.value = true;
+    filesDBInitialized.value = true;
     console.log('Quiz6: Databases initialized successfully');
     
   } catch (error) {
     console.error('Quiz6: Error initializing databases:', error);
     dbInitialized.value = false;
     audioDBInitialized.value = false;
+    filesDBInitialized.value = false;
   }
 };
 
@@ -422,11 +457,21 @@ const initDB = async () => {
 const safeDBOperation = async <T>(
   operation: () => Promise<T>, 
   fallback: T,
-  dbType: 'quiz' | 'audio' = 'quiz'
+  dbType: 'quiz' | 'audio' | 'files' = 'quiz'
 ): Promise<T> => {
-  const db = dbType === 'quiz' ? quizDB.value : audioDB.value;
-  const initialized = dbType === 'quiz' ? dbInitialized.value : audioDBInitialized.value;
-  const storeName = dbType === 'quiz' ? 'quizState' : 'audio';
+  let db;
+  let initialized;
+  
+  if (dbType === 'quiz') {
+    db = quizDB.value;
+    initialized = dbInitialized.value;
+  } else if (dbType === 'audio') {
+    db = audioDB.value;
+    initialized = audioDBInitialized.value;
+  } else {
+    db = filesDB.value;
+    initialized = filesDBInitialized.value;
+  }
   
   if (!initialized || !db) {
     console.log(`Quiz6: ${dbType} DB not initialized`);
@@ -434,12 +479,6 @@ const safeDBOperation = async <T>(
   }
   
   try {
-    if (!db.objectStoreNames || !db.objectStoreNames.contains(storeName)) {
-      console.log(`Quiz6: Store ${storeName} not found in ${dbType} DB. Available stores:`, 
-                  db.objectStoreNames ? Array.from(db.objectStoreNames) : []);
-      return fallback;
-    }
-    
     return await operation();
   } catch (error) {
     console.error(`Quiz6: Error in ${dbType} DB operation:`, error);
@@ -447,26 +486,39 @@ const safeDBOperation = async <T>(
   }
 };
 
-// Функция для создания безопасной копии состояния
+// Функция для создания безопасной копии состояния (без циклических ссылок)
 const createSafeStateCopy = () => {
+  // Создаем простой объект без сложных структур
+  const safeFormData = {
+    platforms: Array.isArray(formData.platforms) ? [...formData.platforms] : [],
+    otherPlatform: String(formData.otherPlatform || ''),
+    rightsInfo: String(formData.rightsInfo || ''),
+    rightsContractLink: String(formData.rightsContractLink || ''),
+    additionalComments: String(formData.additionalComments || ''),
+    promoPlan: String(formData.promoPlan || ''),
+    bandlinkUrl: String(formData.bandlinkUrl || ''),
+    promoCode: String(formData.promoCode || ''),
+    usePartnerBonuses: Boolean(formData.usePartnerBonuses),
+    usedBonuses: Number(formData.usedBonuses || 0),
+    confirmNoRightsViolation: Boolean(formData.confirmNoRightsViolation)
+  };
+  
+  // Безопасная копия contractData
+  let safeContractData = null;
+  if (contractData.value) {
+    safeContractData = {
+      doc_pdf: String(contractData.value.doc_pdf || ''),
+      doc_docx: String(contractData.value.doc_docx || ''),
+      images: Array.isArray(contractData.value.images) ? [...contractData.value.images] : []
+    };
+  }
+  
   return {
     id: STORAGE_KEY,
-    formData: {
-      platforms: [...formData.platforms],
-      otherPlatform: formData.otherPlatform,
-      rightsInfo: formData.rightsInfo,
-      rightsContractLink: formData.rightsContractLink,
-      additionalComments: formData.additionalComments,
-      promoPlan: formData.promoPlan,
-      bandlinkUrl: formData.bandlinkUrl,
-      promoCode: formData.promoCode,
-      usePartnerBonuses: formData.usePartnerBonuses,
-      usedBonuses: formData.usedBonuses,
-      confirmNoRightsViolation: formData.confirmNoRightsViolation
-    },
-    promoApplied: promoApplied.value,
-    promoDiscount: promoDiscount.value,
-    contractData: contractData.value,
+    formData: safeFormData,
+    promoApplied: Boolean(promoApplied.value),
+    promoDiscount: Number(promoDiscount.value || 0),
+    contractData: safeContractData,
     timestamp: Date.now()
   };
 };
@@ -481,7 +533,6 @@ const saveStateToDB = async () => {
       await quizDB.value.put('quizState', stateToSave);
       console.log('Quiz6: State saved to IndexedDB');
       
-      // Отправляем событие об обновлении данных для QuizMenu
       window.dispatchEvent(new CustomEvent('quiz-data-updated'));
     },
     null
@@ -501,7 +552,6 @@ const loadStateFromDB = async () => {
       if (savedState) {
         console.log('Quiz6: Loading from IndexedDB:', savedState);
         
-        // Восстанавливаем данные формы
         if (savedState.formData) {
           formData.platforms = savedState.formData.platforms || [];
           formData.otherPlatform = savedState.formData.otherPlatform || '';
@@ -516,11 +566,9 @@ const loadStateFromDB = async () => {
           formData.confirmNoRightsViolation = savedState.formData.confirmNoRightsViolation || false;
         }
         
-        // Восстанавливаем состояние промокода
         promoApplied.value = savedState.promoApplied || false;
         promoDiscount.value = savedState.promoDiscount || 0;
         
-        // Восстанавливаем данные договора
         if (savedState.contractData) {
           contractData.value = savedState.contractData;
         }
@@ -540,15 +588,12 @@ const maxBonuses = computed(() => {
 const finalAmount = computed(() => {
   let total = originalTotalAmount.value;
   
-  // Применяем скидку по промокоду
   if (promoDiscount.value > 0) {
     total = Math.floor(total * (100 - promoDiscount.value) / 100);
   }
   
-  // Применяем бонусы
   const used = formData.usedBonuses || 0;
   
-  // Не даем уйти ниже минимума
   return Math.max(MINIMUM_AMOUNT, total - used);
 });
 
@@ -562,7 +607,6 @@ const loadBasketData = async () => {
   try {
     console.log('Quiz6: Loading basket data...');
     
-    // Загружаем данные корзины для получения итоговой суммы
     const response = await sendRequest("post", '/ajax_vue/ajax/basket/updateBasket.php', {});
     
     const data = response.data as any;
@@ -573,7 +617,6 @@ const loadBasketData = async () => {
       console.log('Quiz6: Original total amount:', originalTotalAmount.value);
     }
     
-    // Загружаем данные пользователя для получения бонусов
     const userResponse = await sendRequest("post", '/ajax_vue/ajax/getDataForm.php', {});
     
     const userData = userResponse.data as any;
@@ -593,16 +636,10 @@ const loadInitialData = async () => {
   isLoading.value = true;
   
   try {
-    // Сначала инициализируем БД
     await initDB();
-    
-    // Загружаем данные из API
     await loadBasketData();
-    
-    // Затем загружаем сохраненное состояние из IndexedDB (после загрузки API)
     await loadStateFromDB();
     
-    // Проверяем, что использованные бонусы не превышают максимум
     if (formData.usedBonuses > maxBonuses.value) {
       formData.usedBonuses = maxBonuses.value;
     }
@@ -918,6 +955,45 @@ const isReadyForNextStep = computed(() => {
          bandlinkUrlValid;
 });
 
+// Получение обложки из IndexedDB
+const getCoverFile = async (): Promise<{ file: File; type: 'single' | 'album' } | null> => {
+  if (!filesDBInitialized.value) {
+    console.log('Quiz6: Files DB not initialized');
+    return null;
+  }
+  
+  return safeDBOperation(
+    async () => {
+      const quiz3State = await quizDB.value.get('quizState', 'quiz3_state');
+      
+      if (!quiz3State || !quiz3State.coverFileInfo || !quiz3State.coverFileInfo.fileId) {
+        console.log('Quiz6: No cover file found in Quiz3 state');
+        return null;
+      }
+      
+      console.log('Quiz6: Found cover file info:', quiz3State.coverFileInfo);
+      
+      const stored = await filesDB.value.get('files', quiz3State.coverFileInfo.fileId);
+      
+      if (stored) {
+        console.log('Quiz6: Cover file loaded from DB:', stored.fileName);
+        const file = new File([stored.data], stored.fileName, { type: stored.fileType });
+        
+        const quiz1State = await quizDB.value.get('quizState', 'quiz1_state');
+        const albumCount = quiz1State?.albumCount || 0;
+        
+        const type = albumCount > 0 ? 'album' : 'single';
+        
+        return { file, type };
+      }
+      
+      return null;
+    },
+    null,
+    'files'
+  );
+};
+
 // Получение всех аудиофайлов из IndexedDB
 const getAllAudioFiles = async (): Promise<Array<{ file: File; type: 'single' | 'album'; trackIndex?: number; albumIndex?: number }>> => {
   const files: Array<{ file: File; type: 'single' | 'album'; trackIndex?: number; albumIndex?: number }> = [];
@@ -929,7 +1005,6 @@ const getAllAudioFiles = async (): Promise<Array<{ file: File; type: 'single' | 
   
   await safeDBOperation(
     async () => {
-      // Получаем состояние Quiz2
       const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
       
       if (!quiz2State) {
@@ -939,7 +1014,6 @@ const getAllAudioFiles = async (): Promise<Array<{ file: File; type: 'single' | 
       
       console.log('Quiz6: Quiz2 state:', quiz2State);
       
-      // Собираем синглы
       if (quiz2State.singleTracks && Array.isArray(quiz2State.singleTracks)) {
         for (let i = 0; i < quiz2State.singleTracks.length; i++) {
           const track = quiz2State.singleTracks[i];
@@ -949,7 +1023,6 @@ const getAllAudioFiles = async (): Promise<Array<{ file: File; type: 'single' | 
             if (audioData) {
               console.log(`Quiz6: Loaded single file ${i}: ${audioData.fileName}`);
               
-              // Создаем File из Blob
               const blob = audioData.data;
               const file = new File([blob], audioData.fileName, { 
                 type: audioData.fileType || 'audio/mpeg' 
@@ -961,7 +1034,6 @@ const getAllAudioFiles = async (): Promise<Array<{ file: File; type: 'single' | 
         }
       }
       
-      // Собираем альбомы
       if (quiz2State.albums && Array.isArray(quiz2State.albums)) {
         for (let a = 0; a < quiz2State.albums.length; a++) {
           const album = quiz2State.albums[a];
@@ -992,7 +1064,7 @@ const getAllAudioFiles = async (): Promise<Array<{ file: File; type: 'single' | 
     'audio'
   );
   
-  console.log(`Quiz6: Total files loaded: ${files.length}`);
+  console.log(`Quiz6: Total audio files loaded: ${files.length}`);
   return files;
 };
 
@@ -1002,7 +1074,6 @@ const clearOldNumbers = async (): Promise<void> => {
     async () => {
       console.log('Quiz6: Clearing old product numbers...');
       
-      // Получаем состояние Quiz2
       const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
       
       if (!quiz2State) {
@@ -1010,7 +1081,6 @@ const clearOldNumbers = async (): Promise<void> => {
         return;
       }
       
-      // Очищаем номера у синглов
       if (quiz2State.singleTracks && Array.isArray(quiz2State.singleTracks)) {
         quiz2State.singleTracks.forEach((track: any) => {
           if (track.product_id) {
@@ -1020,7 +1090,6 @@ const clearOldNumbers = async (): Promise<void> => {
         });
       }
       
-      // Очищаем номера у альбомов
       if (quiz2State.albums && Array.isArray(quiz2State.albums)) {
         quiz2State.albums.forEach((album: any) => {
           if (album.tracks && Array.isArray(album.tracks)) {
@@ -1034,7 +1103,6 @@ const clearOldNumbers = async (): Promise<void> => {
         });
       }
       
-      // Сохраняем очищенное состояние
       await quizDB.value.put('quizState', quiz2State);
       console.log('Quiz6: Old product numbers cleared');
     },
@@ -1048,7 +1116,6 @@ const saveProductNumbers = async (uploadedFiles: UploadedFileInfo[]): Promise<vo
     async () => {
       console.log('Quiz6: Saving product numbers:', uploadedFiles);
       
-      // Получаем состояние Quiz2
       const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
       
       if (!quiz2State) {
@@ -1058,14 +1125,12 @@ const saveProductNumbers = async (uploadedFiles: UploadedFileInfo[]): Promise<vo
       
       let updated = false;
       
-      // Для каждого загруженного файла
       uploadedFiles.forEach((file: UploadedFileInfo) => {
         const fileName = file.file_name;
         const productId = file.product_id;
         
         console.log(`Quiz6: Saving product_id ${productId} for file: ${fileName}`);
         
-        // Сначала ищем в синглах
         if (quiz2State.singleTracks && Array.isArray(quiz2State.singleTracks)) {
           const singleTrack = quiz2State.singleTracks.find((track: any) => 
             track.audioFileName === fileName
@@ -1079,7 +1144,6 @@ const saveProductNumbers = async (uploadedFiles: UploadedFileInfo[]): Promise<vo
           }
         }
         
-        // Если не нашли в синглах, ищем в альбомах
         if (quiz2State.albums && Array.isArray(quiz2State.albums)) {
           quiz2State.albums.forEach((album: any) => {
             if (album.tracks && Array.isArray(album.tracks)) {
@@ -1098,7 +1162,6 @@ const saveProductNumbers = async (uploadedFiles: UploadedFileInfo[]): Promise<vo
       });
       
       if (updated) {
-        // Сохраняем обновленное состояние
         await quizDB.value.put('quizState', quiz2State);
         console.log('Quiz6: Product numbers saved successfully');
       } else {
@@ -1109,15 +1172,12 @@ const saveProductNumbers = async (uploadedFiles: UploadedFileInfo[]): Promise<vo
   );
 };
 
-// Отправка одного файла на сервер
-const uploadFile = async (file: File, type: 'single' | 'album', trackIndex?: number, albumIndex?: number): Promise<any> => {
-  // Создаем FormData и добавляем файл
+// Отправка одного аудио файла на сервер через FileRequest
+const uploadAudioFile = async (file: File, type: 'single' | 'album', trackIndex?: number, albumIndex?: number): Promise<any> => {
   const formData = new FormData();
   
-  // Добавляем файл как есть - он будет отправлен как multipart/form-data
   formData.append('file', file);
   
-  // Добавляем метаданные в зависимости от типа
   if (type === 'single') {
     formData.append('type', 'single');
     formData.append('track_number', String(trackIndex !== undefined ? trackIndex + 1 : 1));
@@ -1127,100 +1187,256 @@ const uploadFile = async (file: File, type: 'single' | 'album', trackIndex?: num
     formData.append('track_number', String(trackIndex !== undefined ? trackIndex + 1 : 1));
   }
   
-  // Определяем URL в зависимости от типа
   const url = type === 'single' 
     ? '/ajax_vue/ajax/quiz/loadSingle.php'
     : '/ajax_vue/ajax/quiz/loadAlbum.php';
   
   try {
-    console.log(`Quiz6: Uploading ${type} file:`, file.name, 'size:', file.size, 'type:', file.type);
+    console.log(`Quiz6: Uploading ${type} file via FileRequest:`, file.name);
     
-    const response = await fetch(url, {
-      method: 'POST',
-      body: formData,
-    });
+    const response = await FileRequest('post', url, formData);
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Quiz6: Server response:', errorText);
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-    }
+    console.log(`Quiz6: ${type} file response:`, response.data);
     
-    const data = await response.json();
-    
-    console.log(`Quiz6: ${type} file response:`, data);
-    
-    return data;
+    return response.data;
   } catch (error) {
     console.error(`Quiz6: Error uploading ${type} file:`, error);
     throw error;
   }
 };
 
-// Отправка всех файлов на сервер
-const uploadAllFiles = async (): Promise<UploadedFileInfo[]> => {
-  const files = await getAllAudioFiles();
+// Функция для очистки полей от запрещенных символов
+const cleanField = (value: string): string => {
+  if (!value) return '';
+  return value.replace(/[\/\\&@+=<>\[\]{}|~?*]/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
+// Отправка обложки и всех данных в newDock.php
+const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'album'): Promise<ContractData> => {
+  console.log('========== НАЧАЛО ОТПРАВКИ В newDock.php ==========');
   
-  if (files.length === 0) {
-    console.log('Quiz6: No files to upload');
-    return [];
+  // Создаем FormData для отправки
+  const formDataToSend = new FormData();
+  
+  // 1. Получаем все данные из всех шагов
+  console.log('Загружаем данные из IndexedDB...');
+  const quiz1State = await quizDB.value.get('quizState', 'quiz1_state');
+  const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
+  const quiz3State = await quizDB.value.get('quizState', 'quiz3_state');
+  const quiz4State = await quizDB.value.get('quizState', 'quiz4_state');
+  const quiz5State = await quizDB.value.get('quizState', 'quiz5_state');
+  
+  console.log('✅ Quiz1 state загружен:', !!quiz1State);
+  console.log('✅ Quiz2 state загружен:', !!quiz2State);
+  console.log('✅ Quiz3 state загружен:', !!quiz3State);
+  console.log('✅ Quiz4 state загружен:', !!quiz4State);
+  console.log('✅ Quiz5 state загружен:', !!quiz5State);
+  
+  // 2. Данные из Quiz1
+  if (quiz1State) {
+    console.log('📝 Добавляем данные Quiz1:');
+    formDataToSend.append('check-single', quiz1State.singleCount > 0 ? 'on' : 'off');
+    formDataToSend.append('check-album', quiz1State.albumCount > 0 ? 'on' : 'off');
+    formDataToSend.append('check-klip', quiz1State.clipCount > 0 ? 'on' : 'off');
+    formDataToSend.append('check-karta', quiz1State.cardCount > 0 ? 'on' : 'off');
+    formDataToSend.append('countSingle', String(quiz1State.singleCount || 0));
+    formDataToSend.append('countAlbum', String(quiz1State.albumCount || 0));
   }
   
-  totalFilesCount.value = files.length;
-  uploadedCount.value = 0;
-  uploadingFiles.value = true;
-  uploadProgress.value = 0;
-  
-  console.log(`Quiz6: Starting upload of ${files.length} files...`);
-  
-  // Сначала очищаем старые номера
-  await clearOldNumbers();
-  
-  const uploadedFilesData: UploadedFileInfo[] = [];
-  
-  try {
-    for (let i = 0; i < files.length; i++) {
-      const { file, type, trackIndex, albumIndex } = files[i];
-      
-      const response = await uploadFile(file, type, trackIndex, albumIndex);
-      
-      // Проверяем структуру ответа
-      if (response && response.error === 0) {
-        console.log(`Quiz6: File ${i + 1}/${files.length} uploaded successfully`);
-        
-        // В ответе может быть data.uploaded (массив) или сразу uploaded
-        const uploaded = response.data?.uploaded || response.uploaded;
-        
-        if (uploaded && Array.isArray(uploaded)) {
-          console.log(`Quiz6: Received ${uploaded.length} file entries in response`);
-          uploadedFilesData.push(...uploaded);
-        } else {
-          console.log('Quiz6: No uploaded array in response:', response);
-        }
-      } else {
-        console.log(`Quiz6: File ${i + 1}/${files.length} upload returned error:`, response);
+  // 3. Данные из Quiz2 - синглы
+  if (quiz2State?.singleTracks && quiz2State.singleTracks.length > 0) {
+    console.log(`📝 Добавляем данные Quiz2 - синглы (${quiz2State.singleTracks.length} шт):`);
+    quiz2State.singleTracks.forEach((track: any, index: number) => {
+      if (track.product_id) {
+        formDataToSend.append('trackID[]', track.product_id);
+        formDataToSend.append(`path-file[${track.product_id}]`, track.audioFileName || '');
+        formDataToSend.append(`name-file[${track.product_id}]`, track.audioFileName || '');
+        formDataToSend.append(`artist[${track.product_id}]`, cleanField(track.performerName || ''));
+        formDataToSend.append(`autor-music[${track.product_id}]`, cleanField(track.musicAuthor || ''));
+        formDataToSend.append(`autor-words[${track.product_id}]`, cleanField(track.textAuthor || ''));
+        formDataToSend.append(`autor-files[${track.product_id}]`, cleanField(track.performerName || ''));
+        console.log(`  - Трек ${index + 1}: ID=${track.product_id}, Name=${track.audioFileName}`);
       }
-      
-      uploadedCount.value = i + 1;
-      uploadProgress.value = Math.round(((i + 1) / files.length) * 100);
-    }
+    });
+  }
+  
+  // 4. Данные из Quiz2 - альбомы
+  if (quiz2State?.albums && quiz2State.albums.length > 0) {
+    console.log(`📝 Добавляем данные Quiz2 - альбомы (${quiz2State.albums.length} шт):`);
+    quiz2State.albums.forEach((album: any, albumIndex: number) => {
+      if (album.tracks && album.tracks.length > 0) {
+        console.log(`  Альбом ${albumIndex + 1}: ${album.tracks.length} треков`);
+        album.tracks.forEach((track: any, trackIndex: number) => {
+          if (track.product_id) {
+            formDataToSend.append('albumID[]', track.product_id);
+            formDataToSend.append(`path-file-album[${track.product_id}]`, track.audioFileName || '');
+            formDataToSend.append(`name-file-album[${track.product_id}]`, track.audioFileName || '');
+            formDataToSend.append(`artist-album[${track.product_id}]`, cleanField(track.performerName || ''));
+            formDataToSend.append(`autor-music-album[${track.product_id}]`, cleanField(track.musicAuthor || ''));
+            formDataToSend.append(`autor-words-album[${track.product_id}]`, cleanField(track.textAuthor || ''));
+            formDataToSend.append(`autor-files-album[${track.product_id}]`, cleanField(track.performerName || ''));
+            console.log(`    Трек ${trackIndex + 1}: ID=${track.product_id}, Name=${track.audioFileName}`);
+          }
+        });
+      }
+    });
+  }
+  
+  // 5. Данные из Quiz3
+  if (quiz3State?.formData) {
+    const f = quiz3State.formData;
+    console.log('📝 Добавляем данные Quiz3:');
+    console.log('  - alias (псевдоним):', f.performerName);
+    console.log('  - name-relize (название):', f.releaseName);
     
-    // Сохраняем все полученные product_id
-    if (uploadedFilesData.length > 0) {
-      console.log('Quiz6: Saving product numbers:', uploadedFilesData);
-      await saveProductNumbers(uploadedFilesData);
+    formDataToSend.append('alias', cleanField(f.performerName || ''));
+    formDataToSend.append('name-relize', cleanField(f.releaseName || ''));
+    formDataToSend.append('kuda_reliz1', '1');
+    formDataToSend.append('kuda-reliz', '1');
+    formDataToSend.append('others-kuda', f.otherPlatform || '');
+    formDataToSend.append('calendar-reliz', f.releaseDate || '');
+    formDataToSend.append('mat1', f.hasProfanity === 'yes' ? '12' : '13');
+    formDataToSend.append('mat', f.hasProfanity === 'yes' ? '12' : '13');
+    formDataToSend.append('others-mat', f.profanityTracks || '');
+    formDataToSend.append('mat1ai', '13');
+    formDataToSend.append('matai', '13');
+    formDataToSend.append('others-matai', '');
+    formDataToSend.append('all-obl', '1');
+    formDataToSend.append('vk', f.vkLink || '');
+    formDataToSend.append('email-clear', f.email || '');
+    
+    formDataToSend.append('alias-album', cleanField(f.performerName || ''));
+    formDataToSend.append('name-relize-album', '');
+    formDataToSend.append('kuda-reliz-album1', '');
+    formDataToSend.append('kuda-reliz-album', '1');
+    formDataToSend.append('others-kuda-album', '');
+    formDataToSend.append('calendar-reliz-album', '');
+    formDataToSend.append('mat-album1', '13');
+    formDataToSend.append('mat-album', '13');
+    formDataToSend.append('others-mat-album', '');
+    formDataToSend.append('mat-album1ai', '13');
+    formDataToSend.append('mat-albumai', '13');
+    formDataToSend.append('others-matai-album', '');
+    formDataToSend.append('vk-album', f.vkLink || '');
+    formDataToSend.append('email-clear-album', f.email || '');
+  }
+  
+  // 6. Данные из Quiz4
+  if (quiz4State?.formData) {
+    const u = quiz4State.formData;
+    console.log('📝 Добавляем данные Quiz4:');
+    
+    formDataToSend.append('citysenship1', '');
+    formDataToSend.append('citysenship', u.userType === 'individual' ? 'Физическое лицо' : 'Индивидуальный предприниматель');
+    formDataToSend.append('select__fizurlico', '');
+    formDataToSend.append('others', '');
+    formDataToSend.append('yur_arg_org', cleanField(u.legalAddress || ''));
+    formDataToSend.append('inn', u.inn || '');
+    formDataToSend.append('ogrn', u.ogrn || '');
+    formDataToSend.append('rasy', u.accountNumber || '');
+    formDataToSend.append('bank', cleanField(u.bankName || ''));
+    formDataToSend.append('inn_bank', u.bankInn || '');
+    formDataToSend.append('bik', u.bankBik || '');
+    formDataToSend.append('kor_s', u.correspondentAccount || '');
+    formDataToSend.append('yur_adr_bank', cleanField(u.bankLegalAddress || ''));
+    
+    formDataToSend.append('citysenship1', '');
+    formDataToSend.append('citysenship', formatCitizenship(u.citizenship, u.otherCitizenship));
+    formDataToSend.append('others', '');
+    formDataToSend.append('FAM', cleanField(u.lastName || ''));
+    formDataToSend.append('IMYA', cleanField(u.firstName || ''));
+    formDataToSend.append('OTCH', cleanField(u.middleName || ''));
+    formDataToSend.append('passport', u.passportNumber || '');
+    formDataToSend.append('who-doing', cleanField(u.passportIssuedBy || ''));
+    formDataToSend.append('kemvidan', '');
+    formDataToSend.append('when-doing', formatDateForAPI(u.passportIssueDate) || '');
+    formDataToSend.append('adress', cleanField(u.registrationAddress || ''));
+  }
+  
+  // 7. Данные из Quiz5
+  if (quiz5State?.formData) {
+    const g = quiz5State.formData;
+    console.log('📝 Добавляем данные Quiz5:');
+    
+    formDataToSend.append('genre', cleanField(g.genre || ''));
+    formDataToSend.append('time-play', g.tiktokStartSeconds || '');
+    formDataToSend.append('nark', g.hasDrugsMention === 'yes' ? '12' : '13');
+    formDataToSend.append('narc', g.hasDrugsMention === 'yes' ? '12' : '13');
+    formDataToSend.append('others-narc', g.drugsTracks || '');
+    formDataToSend.append('apple', g.appleMusicLinks || '');
+    formDataToSend.append('spotify', g.spotifyLinks || '');
+    formDataToSend.append('link-vk', g.vkLinks || '');
+    formDataToSend.append('link-yandex', g.yandexMusicLinks || '');
+    formDataToSend.append('socialartist', g.socialLinks || '');
+  }
+  
+  // 8. Данные из текущей формы (Quiz6)
+  console.log('📝 Добавляем данные Quiz6:');
+  formDataToSend.append('otkuda-uznali1', formData.platforms[0] || '');
+  formDataToSend.append('otkuda-uznali', formData.platforms[0] || '');
+  formDataToSend.append('others-otkuda', formData.otherPlatform || '');
+  formDataToSend.append('instrumentals', formData.rightsInfo || '');
+  formDataToSend.append('comments', formData.additionalComments || '');
+  formDataToSend.append('plan', formData.promoPlan || '');
+  formDataToSend.append('link-bandlink', formData.bandlinkUrl || '');
+  formDataToSend.append('promocode', formData.promoCode || '');
+  formDataToSend.append('promosum', '');
+  formDataToSend.append('sumOrder', String(finalAmount.value || 0));
+  formDataToSend.append('policy', formData.confirmNoRightsViolation ? 'on' : 'off');
+  
+  // 9. Добавляем обложку
+  if (type === 'album') {
+    formDataToSend.append('file-obl-album', file);
+    console.log('🖼️ Добавлена обложка как file-obl-album:', file.name);
+  } else {
+    const singleCount = quiz1State?.singleCount || 0;
+    for (let i = 1; i <= singleCount; i++) {
+      formDataToSend.append(`file-obl${i}`, file);
+    }
+    console.log(`🖼️ Добавлена обложка как file-obl1 - file-obl${singleCount}:`, file.name);
+  }
+  
+  // 10. Логируем ВСЕ что есть в FormData
+  console.log('📦 ПОЛНОЕ СОДЕРЖИМОЕ FormData:');
+  let fieldCount = 0;
+  for (const pair of (formDataToSend as any).entries()) {
+    fieldCount++;
+    if (pair[1] instanceof File) {
+      console.log(`  [${fieldCount}] ${pair[0]}: [ФАЙЛ] ${pair[1].name} (${pair[1].size} bytes)`);
     } else {
-      console.log('Quiz6: No product numbers to save');
+      console.log(`  [${fieldCount}] ${pair[0]}: ${pair[1]}`);
     }
+  }
+  console.log(`📊 Всего полей в FormData: ${fieldCount}`);
+  console.log('=================================================');
+  
+  // 11. Отправляем запрос
+  try {
+    console.log('🚀 Отправляем запрос в newDock.php...');
+    const response = await FileRequest('post', '/ajax_vue/ajax/newDock.php', formDataToSend);
+    console.log('✅ Ответ сервера:', response.data);
     
-    console.log('Quiz6: All files uploaded successfully');
-    return uploadedFilesData;
+    if (response.data && response.data.error === 0 && response.data.data) {
+      const data = response.data.data;
+      
+      if (data.doc_pdf && data.doc_docx && Array.isArray(data.images)) {
+        const contract = {
+          doc_pdf: data.doc_pdf,
+          doc_docx: data.doc_docx,
+          images: data.images
+        };
+        
+        contractData.value = contract;
+        return contract;
+      } else {
+        throw new Error('Неполные данные в ответе сервера');
+      }
+    } else {
+      throw new Error(response.data?.message || 'Ошибка генерации договора');
+    }
   } catch (error) {
-    console.error('Quiz6: Error during file upload:', error);
-    ElMessage.error('Ошибка при отправке файлов на сервер');
+    console.error('❌ Ошибка в uploadCoverAndGenerateContract:', error);
     throw error;
-  } finally {
-    uploadingFiles.value = false;
   }
 };
 
@@ -1246,231 +1462,64 @@ const formatCitizenship = (citizenship?: string, other?: string): string => {
   return citizenship;
 };
 
-// Получение всех данных из всех шагов для отправки на генерацию договора
-const getAllFormDataForContract = async (): Promise<any> => {
-  if (!dbInitialized.value) {
-    console.log('Quiz6: DB not initialized');
-    throw new Error('База данных не инициализирована');
+// Отправка всех аудиофайлов на сервер
+const uploadAllAudioFiles = async (): Promise<UploadedFileInfo[]> => {
+  const audioFiles = await getAllAudioFiles();
+  
+  if (audioFiles.length === 0) {
+    console.log('Quiz6: No audio files to upload');
+    return [];
   }
   
-  return safeDBOperation(
-    async () => {
-      console.log('Quiz6: Loading all quiz states for contract generation');
+  totalFilesCount.value = audioFiles.length;
+  uploadedCount.value = 0;
+  uploadingFiles.value = true;
+  uploadProgress.value = 0;
+  
+  console.log(`Quiz6: Starting upload of ${audioFiles.length} audio files`);
+  
+  await clearOldNumbers();
+  
+  const uploadedFilesData: UploadedFileInfo[] = [];
+  
+  try {
+    for (let i = 0; i < audioFiles.length; i++) {
+      const { file, type, trackIndex, albumIndex } = audioFiles[i];
       
-      // Загружаем данные всех шагов
-      const quiz1State = await quizDB.value.get('quizState', 'quiz1_state');
-      const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
-      const quiz3State = await quizDB.value.get('quizState', 'quiz3_state');
-      const quiz4State = await quizDB.value.get('quizState', 'quiz4_state');
-      const quiz5State = await quizDB.value.get('quizState', 'quiz5_state');
+      const response = await uploadAudioFile(file, type, trackIndex, albumIndex);
       
-      // Собираем все данные в одну структуру для отправки
-      const allData: any = {};
-      
-      // Шаг 1 - количества и чекбоксы
-      if (quiz1State) {
-        allData['check-single'] = quiz1State.singleCount > 0 ? 'on' : 'off';
-        allData['check-album'] = quiz1State.albumCount > 0 ? 'on' : 'off';
-        allData['check-klip'] = quiz1State.clipCount > 0 ? 'on' : 'off';
-        allData['check-karta'] = quiz1State.cardCount > 0 ? 'on' : 'off';
-        allData.countSingle = String(quiz1State.singleCount || 0);
-        allData.countAlbum = String(quiz1State.albumCount || 0);
-      }
-      
-      // Шаг 2 - Синглы
-      if (quiz2State?.singleTracks) {
-        quiz2State.singleTracks.forEach((track: any) => {
-          if (track.product_id) {
-            // Добавляем trackID
-            if (!allData['trackID[]']) allData['trackID[]'] = [];
-            allData['trackID[]'].push(track.product_id);
-            
-            // Добавляем путь к файлу
-            allData[`path-file[${track.product_id}]`] = track.audioFileName || '';
-            
-            // Добавляем название файла
-            allData[`name-file[${track.product_id}]`] = track.audioFileName || '';
-            
-            // Добавляем артиста
-            allData[`artist[${track.product_id}]`] = track.performerName || '';
-            
-            // Добавляем автора музыки
-            allData[`autor-music[${track.product_id}]`] = track.musicAuthor || '';
-            
-            // Добавляем автора слов
-            allData[`autor-words[${track.product_id}]`] = track.textAuthor || '';
-            
-            // Добавляем автора файла
-            allData[`autor-files[${track.product_id}]`] = track.performerName || '';
-          }
-        });
-      }
-      
-      // Шаг 2 - Альбомы
-      if (quiz2State?.albums) {
-        quiz2State.albums.forEach((album: any) => {
-          if (album.tracks) {
-            album.tracks.forEach((track: any) => {
-              if (track.product_id) {
-                // Добавляем albumID
-                if (!allData['albumID[]']) allData['albumID[]'] = [];
-                allData['albumID[]'].push(track.product_id);
-                
-                // Добавляем путь к файлу альбома
-                allData[`path-file-album[${track.product_id}]`] = track.audioFileName || '';
-                
-                // Добавляем название файла альбома
-                allData[`name-file-album[${track.product_id}]`] = track.audioFileName || '';
-                
-                // Добавляем артиста альбома
-                allData[`artist-album[${track.product_id}]`] = track.performerName || '';
-                
-                // Добавляем автора музыки альбома
-                allData[`autor-music-album[${track.product_id}]`] = track.musicAuthor || '';
-                
-                // Добавляем автора слов альбома
-                allData[`autor-words-album[${track.product_id}]`] = track.textAuthor || '';
-                
-                // Добавляем автора файла альбома
-                allData[`autor-files-album[${track.product_id}]`] = track.performerName || '';
-              }
-            });
-          }
-        });
-      }
-      
-      // Шаг 3 - Информация о релизе
-      if (quiz3State?.formData) {
-        const f = quiz3State.formData;
-        allData.alias = f.performerName || '';
-        allData['name-relize'] = f.releaseName || '';
-        allData.kuda_reliz1 = '1';
-        allData['kuda-reliz'] = '1';
-        allData['others-kuda'] = f.otherPlatform || '';
-        allData['calendar-reliz'] = f.releaseDate || '';
-        allData.mat1 = f.hasProfanity === 'yes' ? '12' : '13';
-        allData.mat = f.hasProfanity === 'yes' ? '12' : '13';
-        allData['others-mat'] = f.profanityTracks || '';
-        allData.mat1ai = '13';
-        allData.matai = '13';
-        allData['others-matai'] = '';
-        allData['all-obl'] = '1';
-        allData.vk = f.vkLink || '';
-        allData['email-clear'] = f.email || '';
+      if (response && response.error === 0) {
+        console.log(`Quiz6: Audio file ${i + 1}/${audioFiles.length} uploaded successfully`);
         
-        // Альбомные версии
-        allData['alias-album'] = f.performerName || '';
-        allData['name-relize-album'] = '';
-        allData['kuda-reliz-album1'] = '';
-        allData['kuda-reliz-album'] = '1';
-        allData['others-kuda-album'] = '';
-        allData['calendar-reliz-album'] = '';
-        allData['mat-album1'] = '13';
-        allData['mat-album'] = '13';
-        allData['others-mat-album'] = '';
-        allData['mat-album1ai'] = '13';
-        allData['mat-albumai'] = '13';
-        allData['others-matai-album'] = '';
-        allData['vk-album'] = f.vkLink || '';
-        allData['email-clear-album'] = f.email || '';
-      }
-      
-      // Шаг 4 - Данные пользователя
-      if (quiz4State?.formData) {
-        const u = quiz4State.formData;
-        allData.citysenship1 = '';
-        allData.citysenship = u.userType === 'individual' ? 'Физическое лицо' : 'Индивидуальный предприниматель';
-        allData.select__fizurlico = '';
-        allData.others = '';
-        allData.yur_arg_org = u.legalAddress || '';
-        allData.inn = u.inn || '';
-        allData.ogrn = u.ogrn || '';
-        allData.rasy = u.accountNumber || '';
-        allData.bank = u.bankName || '';
-        allData.inn_bank = u.bankInn || '';
-        allData.bik = u.bankBik || '';
-        allData.kor_s = u.correspondentAccount || '';
-        allData.yur_adr_bank = u.bankLegalAddress || '';
+        const uploaded = response.data?.uploaded || response.uploaded;
         
-        // Паспортные данные
-        allData.citysenship1 = '';
-        allData.citysenship = formatCitizenship(u.citizenship, u.otherCitizenship);
-        allData.others = '';
-        allData.FAM = u.lastName || '';
-        allData.IMYA = u.firstName || '';
-        allData.OTCH = u.middleName || '';
-        allData.passport = u.passportNumber || '';
-        allData['who-doing'] = u.passportIssuedBy || '';
-        allData.kemvidan = '';
-        allData['when-doing'] = formatDateForAPI(u.passportIssueDate) || '';
-        allData.adress = u.registrationAddress || '';
+        if (uploaded && Array.isArray(uploaded)) {
+          console.log(`Quiz6: Received ${uploaded.length} file entries in response`);
+          uploadedFilesData.push(...uploaded);
+        }
+      } else {
+        console.log(`Quiz6: Audio file ${i + 1}/${audioFiles.length} upload returned error:`, response);
       }
       
-      // Шаг 5 - Жанр и текст
-      if (quiz5State?.formData) {
-        const g = quiz5State.formData;
-        allData.genre = g.genre || '';
-        allData['time-play'] = g.tiktokStartSeconds || '';
-        allData.nark = g.hasDrugsMention === 'yes' ? '12' : '13';
-        allData.narc = g.hasDrugsMention === 'yes' ? '12' : '13';
-        allData['others-narc'] = g.drugsTracks || '';
-        // file-apple и file-karaoke-apple1 - бинарные файлы (будут добавлены позже)
-        allData.apple = g.appleMusicLinks || '';
-        allData.spotify = g.spotifyLinks || '';
-        allData['link-vk'] = g.vkLinks || '';
-        allData['link-yandex'] = g.yandexMusicLinks || '';
-        allData.socialartist = g.socialLinks || '';
-      }
-      
-      // Шаг 6 (текущий)
-      allData['otkuda-uznali1'] = formData.platforms[0] || '';
-      allData['otkuda-uznali'] = formData.platforms[0] || '';
-      allData['others-otkuda'] = formData.otherPlatform || '';
-      allData.instrumentals = formData.rightsInfo || '';
-      allData.comments = formData.additionalComments || '';
-      allData.plan = formData.promoPlan || '';
-      allData['link-bandlink'] = formData.bandlinkUrl || '';
-      allData.promocode = formData.promoCode || '';
-      allData.promosum = '';
-      allData.sumOrder = String(finalAmount.value || 0);
-      allData.policy = formData.confirmNoRightsViolation ? 'on' : 'off';
-      
-      console.log('Quiz6: Collected all form data:', allData);
-      
-      return allData;
-    },
-    null
-  );
-};
-
-// Отправка запроса на генерацию договора
-const generateContract = async (): Promise<ContractData> => {
-  // Получаем все данные из всех шагов для отправки
-  const allFormData = await getAllFormDataForContract();
-  
-  console.log('Quiz6: Sending ALL form data to generate contract:', allFormData);
-  
-  // Отправляем ВСЕ данные формы
-  const response = await sendRequest("post", '/ajax_vue/ajax/newDock.php', allFormData);
-  
-  console.log('Quiz6: Contract generation response:', response.data);
-  
-  // Проверяем структуру ответа
-  if (response.data && response.data.error === 0 && response.data.data) {
-    const data = response.data.data;
-    
-    // Проверяем, что пришли все необходимые данные
-    if (data.doc_pdf && data.doc_docx && Array.isArray(data.images)) {
-      return {
-        doc_pdf: data.doc_pdf,
-        doc_docx: data.doc_docx,
-        images: data.images
-      };
-    } else {
-      throw new Error('Неполные данные в ответе сервера');
+      uploadedCount.value = i + 1;
+      uploadProgress.value = Math.round(((i + 1) / audioFiles.length) * 100);
     }
-  } else {
-    throw new Error(response.data?.message || 'Ошибка генерации договора');
+    
+    if (uploadedFilesData.length > 0) {
+      console.log('Quiz6: Saving product numbers:', uploadedFilesData);
+      await saveProductNumbers(uploadedFilesData);
+    } else {
+      console.log('Quiz6: No product numbers to save');
+    }
+    
+    console.log('Quiz6: All audio files uploaded successfully');
+    return uploadedFilesData;
+  } catch (error) {
+    console.error('Quiz6: Error during file upload:', error);
+    ElMessage.error('Ошибка при отправке файлов на сервер');
+    throw error;
+  } finally {
+    uploadingFiles.value = false;
   }
 };
 
@@ -1492,33 +1541,39 @@ const handleContinue = async () => {
   }
   
   try {
-    // Если договор уже сгенерирован, переходим к следующему шагу
     if (contractData.value) {
       console.log('Quiz6: Contract already generated, proceeding to next step');
       emit('go-next', contractData.value);
       return;
     }
     
-    // Шаг 1: Отправляем файлы на сервер (получаем product_id)
-    ElMessage.info('Начинаем отправку файлов на сервер...');
-    const uploadedFiles = await uploadAllFiles();
+    // Шаг 1: Отправляем аудиофайлы
+    ElMessage.info('Начинаем отправку аудиофайлов на сервер...');
+    const uploadedFiles = await uploadAllAudioFiles();
     
     if (uploadedFiles.length === 0) {
-      ElMessage.error('Не удалось загрузить файлы на сервер');
+      ElMessage.error('Не удалось загрузить аудиофайлы на сервер');
       return;
     }
     
-    // Шаг 2: Генерируем договор, отправляя ВСЕ данные формы
-    ElMessage.info('Генерируем договор...');
+    // Шаг 2: Получаем обложку
+    const coverFile = await getCoverFile();
+    
+    if (!coverFile) {
+      ElMessage.error('Обложка не найдена');
+      return;
+    }
+    
+    // Шаг 3: Отправляем обложку и ВСЕ данные договора
+    ElMessage.info('Генерируем договор с обложкой...');
     isGeneratingContract.value = true;
     
-    const contract = await generateContract();
+    const contract = await uploadCoverAndGenerateContract(coverFile.file, coverFile.type);
     
-    // Шаг 3: Сохраняем результат
-    contractData.value = contract;
     await saveStateToDB();
     
     ElMessage.success('Договор успешно сгенерирован!');
+    emit('go-next', contract);
     
   } catch (error: any) {
     console.error('Quiz6: Error in handleContinue:', error);
@@ -1553,7 +1608,6 @@ watch(() => formData.usePartnerBonuses, () => { if (dataLoaded.value) debouncedS
 watch(() => formData.usedBonuses, () => { if (dataLoaded.value) debouncedSave(); });
 watch(() => formData.confirmNoRightsViolation, () => { if (dataLoaded.value) debouncedSave(); });
 
-// Следим за изменением platforms чтобы очистить otherPlatform если нужно
 watch(() => formData.platforms, async (newPlatforms) => {
   if (!newPlatforms.includes('other')) {
     formData.otherPlatform = '';
@@ -1562,7 +1616,6 @@ watch(() => formData.platforms, async (newPlatforms) => {
   if (dataLoaded.value) debouncedSave();
 }, { deep: true });
 
-// Следим за изменением бонусов
 watch(() => formData.usedBonuses, (newValue, oldValue) => {
   if (dataLoaded.value && newValue !== oldValue) {
     if (newValue > maxBonuses.value) {
@@ -1574,12 +1627,10 @@ watch(() => formData.usedBonuses, (newValue, oldValue) => {
   }
 });
 
-// При монтировании компонента
 onMounted(async () => {
   await loadInitialData();
 });
 
-// Сохраняем состояние при покидании страницы
 const handleBeforeUnload = async () => {
   if (saveTimeout) {
     clearTimeout(saveTimeout);
@@ -1609,7 +1660,7 @@ onUnmounted(() => {
     clearTimeout(promoDebounceTimer);
   }
   window.removeEventListener('beforeunload', handleBeforeUnload);
-  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  window.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 </script>
 
@@ -1746,7 +1797,6 @@ onUnmounted(() => {
   font-size: 14px;
 }
 
-/* Стили для индикатора генерации договора */
 .quiz__form_contract_loading {
   position: relative;
   margin: 20px 0 30px;
@@ -1772,14 +1822,12 @@ onUnmounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* Затемнение контента при генерации */
 .blur-content {
   opacity: 0.5;
   pointer-events: none;
   transition: opacity 0.3s ease;
 }
 
-/* Стили для результата договора */
 .quiz__form_contract_result {
   margin: 30px 0;
   padding: 25px;

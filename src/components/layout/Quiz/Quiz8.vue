@@ -2,15 +2,32 @@
 <div class="quiz__form quiz__form_eight">
   <h4 class="quiz__form_head">Отправка данных</h4>
   
-  <div v-if="!dataLoaded" class="quiz__form_loading">
+  <div v-if="isLoading" class="quiz__form_loading">
+    <div class="loading-spinner"></div>
     <span>Загрузка данных...</span>
+  </div>
+  
+  <div v-else-if="!dataLoaded" class="quiz__form_error">
+    <p class="error">Не удалось загрузить данные. Пожалуйста, вернитесь на предыдущие шаги.</p>
   </div>
   
   <div v-else class="quiz__summary">
     <h5 class="quiz__summary_title">Сводка данных</h5>
     
+    <!-- Статус проверки -->
+    <div class="quiz__summary_status">
+      <div class="status_item" :class="{ 'status_success': hasContract, 'status_error': !hasContract }">
+        <span class="status_icon">{{ hasContract ? '✅' : '❌' }}</span>
+        <span class="status_text">Договор: {{ hasContract ? 'загружен' : 'не найден' }}</span>
+      </div>
+      <div class="status_item" :class="{ 'status_success': hasSignature, 'status_error': !hasSignature }">
+        <span class="status_icon">{{ hasSignature ? '✅' : '❌' }}</span>
+        <span class="status_text">Подпись: {{ hasSignature ? 'получена' : 'не найдена' }}</span>
+      </div>
+    </div>
+    
     <!-- Шаг 1: Количество треков -->
-    <div class="quiz__summary_section">
+    <div class="quiz__summary_section" v-if="summaryData.singleCount || summaryData.albumCount">
       <h6>Шаг 1: Количество треков</h6>
       <div class="quiz__summary_content">
         <p v-if="summaryData.singleCount">Синглов: <strong>{{ summaryData.singleCount }}</strong></p>
@@ -167,7 +184,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { sendRequest } from '@/utils/api';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
@@ -371,9 +388,9 @@ const STORAGE_KEYS = {
 };
 
 const DB_NAME = 'quizDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
-const isLoading = ref(false);
+const isLoading = ref(true);
 const isSubmitting = ref(false);
 const dataLoaded = ref(false);
 const quizDB = ref<any>(null);
@@ -386,15 +403,34 @@ const quiz5Data = ref<Quiz5Data | null>(null);
 const quiz6Data = ref<Quiz6Data | null>(null);
 const quiz7Data = ref<Quiz7Data | null>(null);
 
+// Вычисляемые свойства для проверки наличия данных
+const hasContract = computed(() => {
+  return !!(quiz6Data.value?.contractData || quiz7Data.value?.contractData);
+});
+
+const hasSignature = computed(() => {
+  return !!quiz7Data.value?.signature;
+});
+
 const initDB = async () => {
-  quizDB.value = await openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('quizState')) {
-        const store = db.createObjectStore('quizState', { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp');
-      }
-    },
-  });
+  try {
+    quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz8: Upgrading DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (oldVersion < 2) {
+          if (db.objectStoreNames.contains('quizState')) {
+            db.deleteObjectStore('quizState');
+          }
+          const store = db.createObjectStore('quizState', { keyPath: 'id' });
+          store.createIndex('timestamp', 'timestamp');
+          console.log('Quiz8: Created new quizState store');
+        }
+      },
+    });
+  } catch (error) {
+    console.error('Quiz8: Error initializing DB:', error);
+  }
 };
 
 const loadFromDB = async (key: string): Promise<any> => {
@@ -417,6 +453,13 @@ const loadAllData = async () => {
     quiz5Data.value = await loadFromDB(STORAGE_KEYS.QUIZ5);
     quiz6Data.value = await loadFromDB(STORAGE_KEYS.QUIZ6);
     quiz7Data.value = await loadFromDB(STORAGE_KEYS.QUIZ7);
+    
+    console.log('Quiz8: Loaded data:', {
+      quiz6: quiz6Data.value ? '✅' : '❌',
+      quiz7: quiz7Data.value ? '✅' : '❌',
+      contract: quiz6Data.value?.contractData ? '✅' : '❌',
+      signature: quiz7Data.value?.signature ? '✅' : '❌'
+    });
     
     dataLoaded.value = true;
     
@@ -482,6 +525,9 @@ const summaryData = computed((): AllData => {
     if (quiz7Data.value.signature) {
       data.signature = quiz7Data.value.signature;
     }
+    if (quiz7Data.value.contractData) {
+      data.contractData = quiz7Data.value.contractData;
+    }
   }
   
   const singleTracksCount = data.singleTracks?.length || 0;
@@ -499,7 +545,16 @@ const summaryData = computed((): AllData => {
 });
 
 const canSubmit = computed(() => {
-  return !!summaryData.value.contractData && !!summaryData.value.signature;
+  const contractExists = !!(quiz6Data.value?.contractData || quiz7Data.value?.contractData);
+  const signatureExists = !!quiz7Data.value?.signature;
+  
+  console.log('Quiz8: canSubmit check:', {
+    contractExists,
+    signatureExists,
+    result: contractExists && signatureExists
+  });
+  
+  return contractExists && signatureExists;
 });
 
 const formatDate = (dateString?: string): string => {
@@ -548,17 +603,35 @@ const formatCitizenship = (citizenship?: string, other?: string): string => {
   return citizenship;
 };
 
+// Функция для очистки полей от запрещенных символов
+const cleanField = (value: string): string => {
+  if (!value) return '';
+  return value.replace(/[\/\\&@+=<>\[\]{}|~?*]/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
 const prepareOrderData = (): FormData => {
   const formData = new FormData();
   
-  // Шаг 1
+  // Шаг 1 - Количество
   if (quiz1Data.value) {
-    formData.append('check-single', quiz1Data.value.singleCount > 0 ? 'on' : 'off');
-    formData.append('check-album', quiz1Data.value.albumCount > 0 ? 'on' : 'off');
-    formData.append('check-klip', quiz1Data.value.clipCount > 0 ? 'on' : 'off');
-    formData.append('check-karta', quiz1Data.value.cardCount > 0 ? 'on' : 'off');
-    formData.append('countSingle', String(quiz1Data.value.singleCount || 0));
-    formData.append('countAlbum', String(quiz1Data.value.albumCount || 0));
+    const singleCount = quiz1Data.value.singleCount || 0;
+    const albumCount = quiz1Data.value.albumCount || 0;
+    const clipCount = quiz1Data.value.clipCount || 0;
+    const cardCount = quiz1Data.value.cardCount || 0;
+    
+    formData.append('check-single', singleCount > 0 ? 'on' : 'off');
+    formData.append('check-album', albumCount > 0 ? 'on' : 'off');
+    formData.append('check-klip', clipCount > 0 ? 'on' : 'off');
+    formData.append('check-karta', cardCount > 0 ? 'on' : 'off');
+    
+    // Добавляем COUNT поля как в примере
+    formData.append('COUNT', String(singleCount || 0));
+    formData.append('COUNT', String(albumCount || 0));
+    formData.append('COUNT', String(clipCount || 0));
+    formData.append('COUNT', String(cardCount || 0));
+    
+    formData.append('countSingle', String(singleCount));
+    formData.append('countAlbum', String(albumCount));
   }
   
   // Шаг 2 - Синглы
@@ -568,10 +641,10 @@ const prepareOrderData = (): FormData => {
         formData.append('trackID[]', track.product_id);
         formData.append(`path-file[${track.product_id}]`, track.audioFileName || '');
         formData.append(`name-file[${track.product_id}]`, track.audioFileName || '');
-        formData.append(`artist[${track.product_id}]`, track.performerName || '');
-        formData.append(`autor-music[${track.product_id}]`, track.musicAuthor || '');
-        formData.append(`autor-words[${track.product_id}]`, track.textAuthor || '');
-        formData.append(`autor-files[${track.product_id}]`, track.performerName || '');
+        formData.append(`artist[${track.product_id}]`, cleanField(track.performerName || ''));
+        formData.append(`autor-music[${track.product_id}]`, cleanField(track.musicAuthor || ''));
+        formData.append(`autor-words[${track.product_id}]`, cleanField(track.textAuthor || ''));
+        formData.append(`autor-files[${track.product_id}]`, cleanField(track.performerName || ''));
       }
     });
   }
@@ -585,21 +658,23 @@ const prepareOrderData = (): FormData => {
             formData.append('albumID[]', track.product_id);
             formData.append(`path-file-album[${track.product_id}]`, track.audioFileName || '');
             formData.append(`name-file-album[${track.product_id}]`, track.audioFileName || '');
-            formData.append(`artist-album[${track.product_id}]`, '');
+            formData.append(`artist-album[${track.product_id}]`, cleanField(album.albumName || ''));
             formData.append(`autor-music-album[${track.product_id}]`, '');
             formData.append(`autor-words-album[${track.product_id}]`, '');
-            formData.append(`autor-files-album[${track.product_id}]`, '');
+            formData.append(`autor-files-album[${track.product_id}]`, cleanField(album.albumName || ''));
           }
         });
       }
     });
   }
   
-  // Шаг 3
+  // Шаг 3 - Информация о релизе
   if (quiz3Data.value?.formData) {
     const f = quiz3Data.value.formData;
-    formData.append('alias', f.performerName || '');
-    formData.append('name-relize', f.releaseName || '');
+    
+    // Данные для синглов
+    formData.append('alias', cleanField(f.performerName || ''));
+    formData.append('name-relize', cleanField(f.releaseName || ''));
     formData.append('kuda-reliz1', '1');
     formData.append('kuda-reliz', '1');
     formData.append('others-kuda', f.otherPlatform || '');
@@ -614,15 +689,16 @@ const prepareOrderData = (): FormData => {
     formData.append('vk', f.vkLink || '');
     formData.append('email-clear', f.email || '');
     
-    formData.append('alias-album', f.performerName || '');
+    // Данные для альбомов
+    formData.append('alias-album', cleanField(f.performerName || ''));
     formData.append('name-relize-album', '');
-    formData.append('kuda-reliz-album1', '');
-    formData.append('kuda-reliz-album', '1');
+    formData.append('kuda-reliz-album1', '4');
+    formData.append('kuda-reliz-album', '4');
     formData.append('others-kuda-album', '');
-    formData.append('calendar-reliz-album', '');
-    formData.append('mat-album1', '13');
-    formData.append('mat-album', '13');
-    formData.append('others-mat-album', '');
+    formData.append('calendar-reliz-album', f.releaseDate || '');
+    formData.append('mat-album1', f.hasProfanity === 'yes' ? '12' : '13');
+    formData.append('mat-album', f.hasProfanity === 'yes' ? '12' : '13');
+    formData.append('others-mat-album', f.profanityTracks || '');
     formData.append('mat-album1ai', '13');
     formData.append('mat-albumai', '13');
     formData.append('others-matai-album', '');
@@ -630,9 +706,10 @@ const prepareOrderData = (): FormData => {
     formData.append('email-clear-album', f.email || '');
   }
   
-  // Шаг 4
+  // Шаг 4 - Данные пользователя
   if (quiz4Data.value?.formData) {
     const u = quiz4Data.value.formData;
+    
     formData.append('citysenship1', '');
     formData.append('citysenship', u.userType === 'individual' ? 'Физическое лицо' : 'Индивидуальный предприниматель');
     formData.append('select__fizurlico', '');
@@ -660,9 +737,10 @@ const prepareOrderData = (): FormData => {
     formData.append('adress', u.registrationAddress || '');
   }
   
-  // Шаг 5
+  // Шаг 5 - Жанр и текст
   if (quiz5Data.value?.formData) {
     const g = quiz5Data.value.formData;
+    
     formData.append('genre', g.genre || '');
     formData.append('time-play', g.tiktokStartSeconds || '');
     formData.append('nark', g.hasDrugsMention === 'yes' ? '12' : '13');
@@ -675,11 +753,15 @@ const prepareOrderData = (): FormData => {
     formData.append('socialartist', g.socialLinks || '');
   }
   
-  // Шаг 6
+  // Шаг 6 - Дополнительная информация
   if (quiz6Data.value?.formData) {
     const a = quiz6Data.value.formData;
-    formData.append('otkuda-uznali1', a.platforms?.[0] || '');
-    formData.append('otkuda-uznali', a.platforms?.[0] || '');
+    
+    // Преобразуем массив platforms в число (первый элемент или 0)
+    const platformValue = a.platforms && a.platforms.length > 0 ? a.platforms[0] : '0';
+    
+    formData.append('otkuda-uznali1', platformValue);
+    formData.append('otkuda-uznali', platformValue);
     formData.append('others-otkuda', a.otherPlatform || '');
     formData.append('instrumentals', a.rightsInfo || '');
     formData.append('comments', a.additionalComments || '');
@@ -687,31 +769,42 @@ const prepareOrderData = (): FormData => {
     formData.append('link-bandlink', a.bandlinkUrl || '');
     formData.append('promocode', a.promoCode || '');
     formData.append('promosum', '');
-    formData.append('sumOrder', '2590');
+    
+    // Сумма заказа (убираем пробелы)
+    const sumOrder = quiz6Data.value?.promoDiscount 
+      ? String(Math.floor(2590 * (100 - quiz6Data.value.promoDiscount) / 100))
+      : '2590';
+    formData.append('sumOrder', sumOrder);
+    
     formData.append('policy', a.confirmNoRightsViolation ? 'on' : 'off');
   }
   
-  // Шаг 7 - чекбоксы
+  // Шаг 7 - Чекбоксы
   if (quiz7Data.value?.formData) {
     formData.append('quiz-policy_one', quiz7Data.value.formData.acceptTerms ? 'on' : 'off');
     formData.append('quiz-policy_two', quiz7Data.value.formData.acceptPrivacy ? 'on' : 'off');
   }
   
-  // Данные договора из Quiz6 - добавляем ВСЕ что получили от /ajax/newDock.php
-  if (quiz6Data.value?.contractData) {
-    const contract = quiz6Data.value.contractData;
-    formData.append('docName', contract.doc_pdf || '');
-    formData.append('docNameDocx', contract.doc_docx || '');
+  // Данные договора
+  const contractData = quiz7Data.value?.contractData || quiz6Data.value?.contractData;
+  
+  if (contractData) {
+    // Добавляем пути к PDF и DOCX
+    formData.append('docName', contractData.doc_pdf || '');
+    formData.append('docNameDocx', contractData.doc_docx || '');
     
-    // Добавляем ВСЕ картинки из массива images как imgDoc0, imgDoc1, ... imgDocN
-    if (contract.images && Array.isArray(contract.images)) {
-      contract.images.forEach((img: string, index: number) => {
+    // Добавляем изображения с правильным экранированием
+    if (contractData.images && Array.isArray(contractData.images)) {
+      contractData.images.forEach((img: string, index: number) => {
+        // Пути уже правильные из ответа сервера, просто добавляем как есть
+        // Но для безопасности можно закодировать
         formData.append(`imgDoc${index}`, img);
+        console.log(`imgDoc${index}:`, img);
       });
     }
   }
   
-  // Подпись из Quiz7
+  // Подпись
   if (quiz7Data.value?.signature) {
     formData.append('podp_url', quiz7Data.value.signature);
   }
@@ -727,7 +820,9 @@ const handleFinish = async () => {
   try {
     isSubmitting.value = true;
     
-    if (!quiz6Data.value?.contractData) {
+    const contractData = quiz7Data.value?.contractData || quiz6Data.value?.contractData;
+    
+    if (!contractData) {
       ElMessage.error('Данные договора не найдены');
       isSubmitting.value = false;
       return;
@@ -743,10 +838,17 @@ const handleFinish = async () => {
     
     const formData = prepareOrderData();
     
+    // Логируем все поля для отладки
     console.log('Sending data to /ajax_vue/ajax/order.php');
     const entries: any = {};
     for (const pair of (formData as any).entries()) {
-      console.log(pair[0] + ': ' + pair[1]);
+      if (pair[0].startsWith('imgDoc')) {
+        console.log(pair[0] + ': ' + pair[1]);
+      } else if (pair[0].includes('file')) {
+        console.log(pair[0] + ': [FILE]');
+      } else {
+        console.log(pair[0] + ': ' + pair[1]);
+      }
       entries[pair[0]] = pair[1];
     }
     
@@ -771,6 +873,11 @@ const handleFinish = async () => {
   }
 };
 
+// Следим за изменениями данных
+watch([quiz6Data, quiz7Data], () => {
+  console.log('Quiz8: Data changed, canSubmit:', canSubmit.value);
+}, { deep: true });
+
 onMounted(async () => {
   try {
     await initDB();
@@ -793,6 +900,18 @@ onMounted(async () => {
   text-align: center;
   padding: 40px;
   color: #999;
+  font-size: 16px;
+}
+.quiz__form_error {
+  text-align: center;
+  padding: 40px;
+  background-color: #fef0f0;
+  border: 1px solid #fde2e2;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+.quiz__form_error .error {
+  color: #f56c6c;
   font-size: 16px;
 }
 .quiz__form_bottom {
@@ -824,6 +943,42 @@ onMounted(async () => {
   text-transform: uppercase;
   font-size: 18px;
   font-weight: 600;
+}
+
+.quiz__summary_status {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: var(--bg-light);
+  border-radius: 4px;
+}
+
+.status_item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.status_success {
+  background-color: rgba(103, 194, 58, 0.1);
+  color: #67c23a;
+}
+
+.status_error {
+  background-color: rgba(245, 108, 108, 0.1);
+  color: #f56c6c;
+}
+
+.status_icon {
+  font-size: 18px;
+}
+
+.status_text {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .quiz__summary_section {
@@ -935,6 +1090,10 @@ onMounted(async () => {
   .quiz__summary {
     padding: 15px;
     max-height: 400px;
+  }
+  .quiz__summary_status {
+    flex-direction: column;
+    gap: 10px;
   }
 }
 </style>

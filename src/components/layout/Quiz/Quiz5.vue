@@ -56,7 +56,7 @@ const filesDB = ref<any>(null);
 const dbInitialized = ref(false);
 const filesDBInitialized = ref(false);
 
-let saveTimeout: NodeJS.Timeout | null = null;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const formData = ref<FormData>({
   genre: '',

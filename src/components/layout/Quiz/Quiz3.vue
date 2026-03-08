@@ -70,7 +70,7 @@ const isUploading = ref(false);
 const dragOver = ref(false);
 
 // Таймер для debounce сохранения
-let saveTimeout: NodeJS.Timeout | null = null;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Флаг для отслеживания, было ли уже загружено состояние из IndexedDB
 const isStateLoaded = ref(false);

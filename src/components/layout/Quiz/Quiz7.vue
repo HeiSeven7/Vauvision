@@ -4,6 +4,7 @@
     <p class="quiz__form_description">Пожалуйста, проверьте договор. Если всё верно, то переходите к следующему шагу и оплате. Если нужно что-то исправить, то вернитесь назад. Для перехода на следующий шаг пролистайте вниз страницы.</p>
     
     <div v-if="isLoading" class="quiz__form_loading">
+      <div class="loading-spinner"></div>
       <span>Загрузка договора...</span>
     </div>
     
@@ -14,7 +15,7 @@
     <div v-else class="quiz__form_agreement">
       <!-- Отображаем ВСЕ картинки из полученного массива images -->
       <div v-for="(img, index) in contractData.images" :key="index" class="quiz__form_agreement_page">
-        <img :src="img" :alt="`Страница ${index + 1} договора`" loading="lazy" />
+        <img :src="getFullImageUrl(img)" :alt="`Страница ${index + 1} договора`" loading="lazy" @error="handleImageError" />
         <p class="quiz__form_agreement_page_number">Страница {{ index + 1 }} из {{ contractData.images.length }}</p>
       </div>
     </div>
@@ -118,7 +119,7 @@ interface ContractData {
 // Ключи для хранения
 const STORAGE_KEY = 'quiz7_state';
 const DB_NAME = 'quizDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Увеличено до 2
 
 const quizDB = ref<any>(null);
 const dataLoaded = ref(false);
@@ -131,13 +132,14 @@ const showSignaturePopup = ref(false);
 const contractData = ref<ContractData | null>(null);
 
 // Таймер для debounce сохранения
-let saveTimeout: NodeJS.Timeout | null = null;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Данные формы
 const formData = reactive({
   acceptTerms: false,
   acceptPrivacy: false,
-  acceptMarketing: false
+  acceptMarketing: false,
+  signature: '' // Добавляем поле для подписи
 });
 
 // Ошибки валидации
@@ -149,14 +151,24 @@ const errors = reactive({
 
 // Инициализация IndexedDB
 const initDB = async () => {
-  quizDB.value = await openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('quizState')) {
-        const store = db.createObjectStore('quizState', { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp');
-      }
-    },
-  });
+  try {
+    quizDB.value = await openDB(DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion, newVersion) {
+        console.log(`Quiz7: Upgrading DB from version ${oldVersion} to ${newVersion}`);
+        
+        if (oldVersion < 2) {
+          if (db.objectStoreNames.contains('quizState')) {
+            db.deleteObjectStore('quizState');
+          }
+          const store = db.createObjectStore('quizState', { keyPath: 'id' });
+          store.createIndex('timestamp', 'timestamp');
+          console.log('Quiz7: Created new quizState store');
+        }
+      },
+    });
+  } catch (error) {
+    console.error('Quiz7: Error initializing DB:', error);
+  }
 };
 
 // Загрузка данных договора из Quiz6
@@ -184,13 +196,26 @@ const saveStateToDB = async () => {
   try {
     const stateToSave = {
       id: STORAGE_KEY,
-      formData: { ...formData },
-      contractData: contractData.value,
+      formData: { 
+        acceptTerms: Boolean(formData.acceptTerms),
+        acceptPrivacy: Boolean(formData.acceptPrivacy),
+        acceptMarketing: Boolean(formData.acceptMarketing)
+      },
+      contractData: contractData.value ? {
+        doc_pdf: String(contractData.value.doc_pdf),
+        doc_docx: String(contractData.value.doc_docx),
+        images: Array.isArray(contractData.value.images) ? [...contractData.value.images] : []
+      } : null,
+      signature: formData.signature || null,
       timestamp: Date.now()
     };
     
     await quizDB.value.put('quizState', stateToSave);
-    console.log('Quiz7 state saved to IndexedDB');
+    console.log('Quiz7 state saved to IndexedDB', {
+      hasContract: !!stateToSave.contractData,
+      imagesCount: stateToSave.contractData?.images?.length || 0,
+      hasSignature: !!stateToSave.signature
+    });
   } catch (error) {
     console.error('Error saving Quiz7 state to IndexedDB:', error);
   }
@@ -214,10 +239,35 @@ const loadStateFromDB = async () => {
       if (savedState.contractData) {
         contractData.value = savedState.contractData;
       }
+      
+      // Восстанавливаем подпись
+      if (savedState.signature) {
+        formData.signature = savedState.signature;
+        console.log('Restored signature from DB, length:', savedState.signature.length);
+      }
     }
   } catch (error) {
     console.error('Error loading Quiz7 state from IndexedDB:', error);
   }
+};
+
+// Получение полного URL изображения
+const getFullImageUrl = (url: string): string => {
+  if (!url) return '';
+  // Если URL уже абсолютный (начинается с http), возвращаем как есть
+  if (url.startsWith('http')) return url;
+  // Если URL начинается с /, добавляем базовый URL
+  if (url.startsWith('/')) return url;
+  // Если относительный путь, добавляем слеш в начале
+  return '/' + url;
+};
+
+// Обработчик ошибки загрузки изображения
+const handleImageError = (e: Event) => {
+  const img = e.target as HTMLImageElement;
+  console.error('Failed to load image:', img.src);
+  img.style.border = '2px solid red';
+  img.alt = 'Ошибка загрузки изображения';
 };
 
 // Правила валидации
@@ -319,12 +369,21 @@ const closeSignaturePopup = () => {
 };
 
 const handleSignatureSubmit = async (signatureData: string) => {
-  console.log('Подпись получена');
-  closeSignaturePopup();
+  console.log('Подпись получена в Quiz7, длина:', signatureData.length);
+  
+  // Сохраняем подпись в состоянии
+  formData.signature = signatureData;
+  
+  // Сохраняем в БД перед переходом
+  await saveStateToDB();
   
   // Собираем данные для отправки в Quiz8
   const dataToSend = {
-    contract: contractData.value,
+    contract: contractData.value ? {
+      doc_pdf: contractData.value.doc_pdf,
+      doc_docx: contractData.value.doc_docx,
+      images: [...contractData.value.images]
+    } : null,
     formData: {
       acceptTerms: formData.acceptTerms,
       acceptPrivacy: formData.acceptPrivacy,
@@ -334,10 +393,15 @@ const handleSignatureSubmit = async (signatureData: string) => {
     timestamp: new Date().toISOString()
   };
   
-  console.log('Данные договора с подписью:', dataToSend);
+  console.log('Данные договора с подписью:', {
+    hasContract: !!dataToSend.contract,
+    imagesCount: dataToSend.contract?.images?.length || 0,
+    hasSignature: !!dataToSend.signature
+  });
   
-  await saveStateToDB();
+  closeSignaturePopup();
   
+  // Передаем данные в родительский компонент
   emit('go-next', dataToSend);
 };
 
@@ -383,6 +447,8 @@ onMounted(async () => {
     
     dataLoaded.value = true;
     
+    console.log('Quiz7 mounted, signature present:', !!formData.signature);
+    
   } catch (error) {
     console.error('Error in onMounted:', error);
     ElMessage.error('Ошибка при загрузке данных договора');
@@ -418,7 +484,7 @@ onUnmounted(() => {
     clearTimeout(saveTimeout);
   }
   window.removeEventListener('beforeunload', handleBeforeUnload);
-  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  window.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 </script>
 
@@ -477,6 +543,8 @@ onUnmounted(() => {
   border-radius: 4px;
   overflow: hidden;
   position: relative;
+  background-color: #f5f5f5;
+  min-height: 200px;
 }
 .quiz__form_agreement_page img {
   width: 100%;
@@ -517,6 +585,19 @@ onUnmounted(() => {
   color: #f56c6c;
   font-size: 12px;
   margin-top: 5px;
+}
+.loading-spinner {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(64, 158, 255, 0.2);
+  border-radius: 50%;
+  border-top-color: #409eff;
+  animation: spin 1s ease-in-out infinite;
+  margin-bottom: 15px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 @media (max-width: 1439px) {

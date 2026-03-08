@@ -82,7 +82,7 @@ const citizenshipOptions = [
 const showOtherCitizenshipInput = ref(false);
 
 // Таймер для debounce сохранения
-let saveTimeout: NodeJS.Timeout | null = null;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Инициализация IndexedDB
 const initDB = async () => {
