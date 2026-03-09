@@ -234,16 +234,6 @@
         <p class="upload_progress_count">Отправлено {{ uploadedCount }} из {{ totalFilesCount }}</p>
       </div>
       
-      <!-- Результат генерации договора -->
-      <div v-if="contractData" class="quiz__form_contract_result">
-        <h5 class="quiz__form_contract_title">Договор сгенерирован!</h5>
-        <div class="quiz__form_contract_links">
-          <p><strong>PDF:</strong> <a :href="contractData.doc_pdf" target="_blank">{{ contractData.doc_pdf }}</a></p>
-          <p><strong>DOCX:</strong> <a :href="contractData.doc_docx" target="_blank">{{ contractData.doc_docx }}</a></p>
-          <p><strong>Страниц:</strong> {{ contractData.images?.length || 0 }}</p>
-        </div>
-      </div>
-      
       <div class="quiz__form_bottom">
         <div class="quiz__form_buttons">
           <button 
@@ -261,7 +251,6 @@
           >
             <span v-if="uploadingFiles">Отправка файлов...</span>
             <span v-else-if="isGeneratingContract">Генерация договора...</span>
-            <span v-else-if="contractData">Далее: Просмотр договора</span>
             <span v-else>{{ isLoading ? 'Загрузка...' : 'Сгенерировать договор' }}</span>
           </button>
         </div>
@@ -302,7 +291,7 @@ const STORAGE_KEY = 'quiz6_state';
 const DB_NAME = 'quizDB';
 const AUDIO_DB_NAME = 'audioDB';
 const FILES_DB_NAME = 'filesDB';
-const DB_VERSION = 2; // Увеличено до 2 для обновления структуры
+const DB_VERSION = 2;
 
 const quizDB = ref<any>(null);
 const audioDB = ref<any>(null);
@@ -311,6 +300,9 @@ const dataLoaded = ref(false);
 const dbInitialized = ref(false);
 const audioDBInitialized = ref(false);
 const filesDBInitialized = ref(false);
+
+// Флаг для отслеживания, что мы загрузили данные с бека
+const contractLoadedFromBackend = ref(false);
 
 // Состояние загрузки
 const isLoading = ref(true);
@@ -519,6 +511,7 @@ const createSafeStateCopy = () => {
     promoApplied: Boolean(promoApplied.value),
     promoDiscount: Number(promoDiscount.value || 0),
     contractData: safeContractData,
+    contractLoadedFromBackend: contractLoadedFromBackend.value,
     timestamp: Date.now()
   };
 };
@@ -569,8 +562,12 @@ const loadStateFromDB = async () => {
         promoApplied.value = savedState.promoApplied || false;
         promoDiscount.value = savedState.promoDiscount || 0;
         
-        if (savedState.contractData) {
+        // Восстанавливаем contractData ТОЛЬКО если он был загружен с бека
+        // и не был сгенерирован вручную
+        if (savedState.contractData && savedState.contractLoadedFromBackend) {
           contractData.value = savedState.contractData;
+          contractLoadedFromBackend.value = true;
+          console.log('Quiz6: Contract restored from backend data');
         }
       }
     },
@@ -1427,6 +1424,7 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
         };
         
         contractData.value = contract;
+        contractLoadedFromBackend.value = false; // Это ручная генерация, не с бека
         return contract;
       } else {
         throw new Error('Неполные данные в ответе сервера');
@@ -1541,12 +1539,6 @@ const handleContinue = async () => {
   }
   
   try {
-    if (contractData.value) {
-      console.log('Quiz6: Contract already generated, proceeding to next step');
-      emit('go-next', contractData.value);
-      return;
-    }
-    
     // Шаг 1: Отправляем аудиофайлы
     ElMessage.info('Начинаем отправку аудиофайлов на сервер...');
     const uploadedFiles = await uploadAllAudioFiles();
@@ -1565,7 +1557,7 @@ const handleContinue = async () => {
     }
     
     // Шаг 3: Отправляем обложку и ВСЕ данные договора
-    ElMessage.info('Генерируем договор с обложкой...');
+    ElMessage.info('Генерируем договор...');
     isGeneratingContract.value = true;
     
     const contract = await uploadCoverAndGenerateContract(coverFile.file, coverFile.type);
@@ -1826,32 +1818,6 @@ onUnmounted(() => {
   opacity: 0.5;
   pointer-events: none;
   transition: opacity 0.3s ease;
-}
-
-.quiz__form_contract_result {
-  margin: 30px 0;
-  padding: 25px;
-  background-color: #f0f9eb;
-  border: 1px solid #67c23a;
-  border-radius: 8px;
-}
-
-.quiz__form_contract_title {
-  color: #67c23a;
-  margin-bottom: 15px;
-  font-size: 18px;
-}
-
-.quiz__form_contract_links {
-  margin-bottom: 20px;
-  padding: 15px;
-  background-color: white;
-  border-radius: 4px;
-}
-
-.quiz__form_contract_links a {
-  color: #409eff;
-  word-break: break-all;
 }
 
 @media (max-width: 1439px) {
