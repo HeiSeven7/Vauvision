@@ -1519,7 +1519,7 @@ const handleFinish = async () => {
         // Небольшая задержка, чтобы пользователь увидел сообщение об успехе
         setTimeout(() => {
           // Перенаправляем в этой же вкладке (как будто нажали на кнопку)
-          window.location.href = fullPaymentUrl;
+          // window.location.href = fullPaymentUrl;
         }, 1500);
         
         // НЕ вызываем emit('finish') здесь, так как мы перенаправляем пользователя
