@@ -247,6 +247,9 @@ interface SingleTrack {
 interface AlbumTrack {
   trackNumber?: number;
   trackName?: string;
+  performerName?: string;
+  musicAuthor?: string;
+  textAuthor?: string;
   audioFileName?: string;
   audioFileId?: string;
   product_id?: string;
@@ -474,7 +477,6 @@ const initDB = async () => {
   try {
     console.log('Quiz8: Initializing databases...');
     
-    // Основная БД
     quizDB.value = await openDB(DB_NAME, DB_VERSION, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`Quiz8: Upgrading DB from version ${oldVersion} to ${newVersion}`);
@@ -490,7 +492,6 @@ const initDB = async () => {
       },
     });
     
-    // База для файлов (обложки, docx, ttml)
     filesDB.value = await openDB(FILES_DB_NAME, DB_VERSION, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`Quiz8: Upgrading Files DB from version ${oldVersion} to ${newVersion}`);
@@ -504,7 +505,6 @@ const initDB = async () => {
       },
     });
     
-    // База для аудиофайлов
     audioDB.value = await openDB(AUDIO_DB_NAME, DB_VERSION, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`Quiz8: Upgrading Audio DB from version ${oldVersion} to ${newVersion}`);
@@ -607,7 +607,6 @@ const loadAllAudioFiles = async (): Promise<Array<{file: File, fileName: string,
   }
   
   try {
-    // Загружаем синглы (только если есть синглы)
     if (hasSingles.value && quiz2Data.value.singleTracks) {
       for (const track of quiz2Data.value.singleTracks) {
         if (track.audioFileId) {
@@ -625,7 +624,6 @@ const loadAllAudioFiles = async (): Promise<Array<{file: File, fileName: string,
       }
     }
     
-    // Загружаем треки альбомов (только если есть альбомы)
     if (hasAlbums.value && quiz2Data.value.albums) {
       for (const album of quiz2Data.value.albums) {
         if (album.tracks) {
@@ -668,7 +666,6 @@ const loadAllData = async () => {
   try {
     isLoading.value = true;
     
-    // Загружаем данные из всех шагов
     quiz1Data.value = await loadFromDB(STORAGE_KEYS.QUIZ1);
     quiz2Data.value = await loadFromDB(STORAGE_KEYS.QUIZ2);
     quiz3Data.value = await loadFromDB(STORAGE_KEYS.QUIZ3);
@@ -680,7 +677,6 @@ const loadAllData = async () => {
     console.log('Quiz8: Loaded text data');
     console.log('Quiz8: Has singles:', hasSingles.value, 'Has albums:', hasAlbums.value);
     
-    // Загружаем файлы
     coverFile.value = await loadCoverFile();
     audioFilesList.value = await loadAllAudioFiles();
     appleMusicFile.value = await loadAppleMusicFile();
@@ -883,6 +879,33 @@ const cleanField = (value: string): string => {
   return value.replace(/[\/\\&@+=<>\[\]{}|~?*]/g, ' ').replace(/\s+/g, ' ').trim();
 };
 
+// Функция для поиска product_id по имени файла
+const findProductIdByFileName = (fileName: string): string | undefined => {
+  if (!fileName) return undefined;
+  
+  if (hasSingles.value && quiz2Data.value?.singleTracks) {
+    const singleTrack = quiz2Data.value.singleTracks.find(t => t.audioFileName === fileName);
+    if (singleTrack?.product_id) {
+      console.log(`✅ Найден product_id ${singleTrack.product_id} для файла ${fileName} в синглах`);
+      return singleTrack.product_id;
+    }
+  }
+  
+  if (hasAlbums.value && quiz2Data.value?.albums) {
+    for (const album of quiz2Data.value.albums) {
+      if (album.tracks) {
+        const albumTrack = album.tracks.find(t => t.audioFileName === fileName);
+        if (albumTrack?.product_id) {
+          console.log(`✅ Найден product_id ${albumTrack.product_id} для файла ${fileName} в альбомах`);
+          return albumTrack.product_id;
+        }
+      }
+    }
+  }
+  
+  return undefined;
+};
+
 // Функция для создания FormData с ВСЕМИ файлами
 const prepareOrderData = async (): Promise<FormData> => {
   const formData = new FormData();
@@ -959,8 +982,10 @@ const prepareOrderData = async (): Promise<FormData> => {
             formData.append(`path-file-album[${track.product_id}]`, track.audioFileName || '');
             formData.append(`name-file-album[${track.product_id}]`, track.audioFileName || '');
             formData.append(`artist-album[${track.product_id}]`, cleanField(album.albumName || ''));
-            formData.append(`autor-music-album[${track.product_id}]`, '');
-            formData.append(`autor-words-album[${track.product_id}]`, '');
+            
+            formData.append(`autor-music-album[${track.product_id}]`, cleanField(track.musicAuthor || ''));
+            formData.append(`autor-words-album[${track.product_id}]`, cleanField(track.textAuthor || ''));
+            
             formData.append(`autor-files-album[${track.product_id}]`, cleanField(album.albumName || ''));
           } else {
             console.warn(`Альбом ${albumIndex + 1}, трек ${trackIndex + 1} не имеет product_id!`);
@@ -1001,7 +1026,6 @@ const prepareOrderData = async (): Promise<FormData> => {
     formData.append('vk', f.vkLink || '');
     formData.append('email-clear', f.email || '');
 
-    // Альбомные переменные - ТОЛЬКО ЕСЛИ ЕСТЬ АЛЬБОМЫ
     if (hasAlbums.value) {
       console.log('--- Альбомные переменные (отправляем) ---');
       const albumReleaseName = cleanField(quiz2Data.value?.albums?.[0]?.albumName || f.releaseName || 'Альбом');
@@ -1135,7 +1159,6 @@ const prepareOrderData = async (): Promise<FormData> => {
   // --- 10. ПРИКРЕПЛЯЕМ ВСЕ ФАЙЛЫ ---
   console.log('--- ПРИКРЕПЛЯЕМ ФАЙЛЫ ---');
   
-  // Считаем общее количество файлов для прогресса
   let totalFiles = 0;
   if (coverFile.value) totalFiles++;
   totalFiles += audioFilesList.value.length;
@@ -1148,17 +1171,14 @@ const prepareOrderData = async (): Promise<FormData> => {
   // 10.1 Прикрепляем обложку
   if (coverFile.value) {
     if (hasSingles.value && singleCount.value > 1) {
-      // Для нескольких синглов - несколько полей
       for (let i = 1; i <= singleCount.value; i++) {
         formData.append(`file-obl${i}`, coverFile.value);
         console.log(`Прикреплена обложка как file-obl${i}:`, coverFile.value.name);
       }
     } else if (hasAlbums.value) {
-      // Для альбома
       formData.append('file-obl-album', coverFile.value);
       console.log('Прикреплена обложка как file-obl-album:', coverFile.value.name);
     } else {
-      // Для одного сингла
       formData.append('file-obl1', coverFile.value);
       console.log('Прикреплена обложка как file-obl1:', coverFile.value.name);
     }
@@ -1167,15 +1187,23 @@ const prepareOrderData = async (): Promise<FormData> => {
     uploadedCount.value = currentFileIndex;
   }
   
-  // 10.2 Прикрепляем аудиофайлы по их product_id
+  // 10.2 Прикрепляем аудиофайлы по их product_id (с резервным поиском)
   for (let i = 0; i < audioFilesList.value.length; i++) {
     const audio = audioFilesList.value[i];
+    let productId = audio.productId;
     
-    if (audio.productId) {
-      formData.append(`file[${audio.productId}]`, audio.file);
-      console.log(`Прикреплен аудиофайл file[${audio.productId}]:`, audio.fileName);
+    if (!productId) {
+      productId = findProductIdByFileName(audio.fileName);
+      if (productId) {
+        console.log(`✅ Найден product_id ${productId} для файла ${audio.fileName} через поиск`);
+      }
+    }
+    
+    if (productId) {
+      formData.append(`file[${productId}]`, audio.file);
+      console.log(`Прикреплен аудиофайл file[${productId}]:`, audio.fileName);
     } else {
-      console.warn('Аудиофайл без product_id:', audio.fileName);
+      console.warn('⚠️ Аудиофайл без product_id, пропускаем:', audio.fileName);
     }
     
     currentFileIndex++;
@@ -1224,7 +1252,6 @@ const prepareOrderData = async (): Promise<FormData> => {
   console.log('Apple Music файл:', appleMusicFile.value ? '✅' : '❌');
   console.log('Karaoke файл:', karaokeFile.value ? '✅' : '❌');
   
-  // Проверка наличия product_id
   if (hasSingles.value) {
     const singlesWithoutId = quiz2Data.value?.singleTracks?.filter(t => !t.product_id) || [];
     if (singlesWithoutId.length > 0) {
@@ -1262,7 +1289,6 @@ const handleFinish = async () => {
     console.log('========== НАЧАЛО ОТПРАВКИ ЗАКАЗА ==========');
     console.log('Проверка наличия всех необходимых данных:');
     
-    // Проверка наличия всех необходимых данных
     if (!hasContract.value) {
       console.error('❌ Данные договора не найдены');
       ElMessage.error('Данные договора не найдены');
@@ -1306,7 +1332,6 @@ const handleFinish = async () => {
       });
     }
     
-    // Проверка чекбоксов
     if (!quiz7Data.value?.formData?.acceptTerms) {
       console.error('❌ Условия оферты не приняты');
       ElMessage.error('Необходимо принять условия оферты');
@@ -1327,7 +1352,6 @@ const handleFinish = async () => {
     
     console.log('\n--- ДАННЫЕ ИЗ ВСЕХ ШАГОВ ---');
     
-    // Данные из Quiz1
     console.log('Quiz1 (Количество):', {
       singleCount: singleCount.value,
       albumCount: albumCount.value,
@@ -1337,7 +1361,6 @@ const handleFinish = async () => {
       hasAlbums: hasAlbums.value
     });
     
-    // Данные из Quiz2
     console.log('Quiz2 (Синглы и альбомы):');
     if (hasSingles.value && quiz2Data.value?.singleTracks) {
       console.log('  Синглы:');
@@ -1369,11 +1392,9 @@ const handleFinish = async () => {
       });
     }
     
-    // Данные из Quiz3
     console.log('Quiz3 (Информация о релизе):', quiz3Data.value?.formData);
     console.log('Quiz3 (Обложка):', quiz3Data.value?.coverFileInfo);
     
-    // Данные из Quiz4
     console.log('Quiz4 (Данные пользователя):', {
       userType: quiz4Data.value?.formData?.userType,
       lastName: quiz4Data.value?.formData?.lastName,
@@ -1382,30 +1403,25 @@ const handleFinish = async () => {
       passportNumber: quiz4Data.value?.formData?.passportNumber
     });
     
-    // Данные из Quiz5
     console.log('Quiz5 (Жанр и текст):', quiz5Data.value?.formData);
     console.log('Quiz5 (Файлы):', {
       appleMusic: quiz5Data.value?.appleMusicFileInfo,
       karaoke: quiz5Data.value?.karaokeFileInfo
     });
     
-    // Данные из Quiz6
     console.log('Quiz6 (Дополнительная информация):', quiz6Data.value?.formData);
     console.log('Quiz6 (Промо):', {
       promoApplied: quiz6Data.value?.promoApplied,
       promoDiscount: quiz6Data.value?.promoDiscount
     });
     
-    // Данные из Quiz7
     console.log('Quiz7 (Согласия):', quiz7Data.value?.formData);
     console.log('Quiz7 (Подпись):', quiz7Data.value?.signature ? '✅ есть' : '❌ нет');
     
-    // Данные договора
     console.log('Договор (из newdock):', contractData.value);
     
     console.log('\n--- ПРОВЕРКА PRODUCT_ID ---');
     
-    // Проверяем наличие product_id у всех треков
     let missingProductIds = false;
     
     if (hasSingles.value && quiz2Data.value?.singleTracks) {
@@ -1440,11 +1456,9 @@ const handleFinish = async () => {
     
     ElMessage.info('Подготовка данных для отправки...');
     
-    // Подготавливаем FormData со ВСЕМИ файлами
     console.log('\n--- ПОДГОТОВКА FORM DATA ---');
     const formData = await prepareOrderData();
     
-    // Выводим содержимое FormData
     console.log('Содержимое FormData:');
     for (const pair of (formData as any).entries()) {
       if (pair[1] instanceof File) {
@@ -1454,7 +1468,6 @@ const handleFinish = async () => {
       }
     }
     
-    // Считаем количество файлов в FormData
     let fileCount = 0;
     for (const pair of (formData as any).entries()) {
       if (pair[1] instanceof File) fileCount++;
@@ -1463,15 +1476,13 @@ const handleFinish = async () => {
     
     ElMessage.info(`Отправка данных на сервер (${totalFilesCount.value} файлов)...`);
     
-    // Отправляем все данные в order.php
     console.log('\n--- ОТПРАВКА ЗАПРОСА В order.php ---');
     const response = await FileRequest("post", '/ajax_vue/ajax/order.php', formData);
-    
+
     console.log('✅ Ответ сервера (полный):', response);
     console.log('✅ Статус ответа:', response.status);
     console.log('✅ Данные ответа (raw):', response.data);
-    
-    // ИСПРАВЛЕННАЯ ЧАСТЬ: Перенаправление в этой же вкладке
+
     if (response && response.data) {
       
       let responseData = response.data;
@@ -1479,18 +1490,15 @@ const handleFinish = async () => {
       let paymentUrl = null;
       let orderId = null;
       
-      // Если ответ - строка, пытаемся найти JSON
       if (typeof responseData === 'string') {
         console.log('🔍 Анализируем строку ответа...');
         
-        // Ищем JSON в строке
         const jsonMatch = responseData.match(/\{.*\}/s);
         if (jsonMatch) {
           try {
             parsedData = JSON.parse(jsonMatch[0]);
             console.log('✅ Найден JSON в ответе:', parsedData);
             
-            // Извлекаем данные из JSON
             if (parsedData.error === 0) {
               paymentUrl = parsedData.data?.payment_url;
               orderId = parsedData.data?.order_id;
@@ -1504,27 +1512,63 @@ const handleFinish = async () => {
             console.error('❌ Ошибка парсинга JSON:', e);
           }
         }
+      } 
+      else if (typeof responseData === 'object') {
+        console.log('🔍 Ответ уже является объектом:', responseData);
+        
+        if (responseData.error === 0) {
+          paymentUrl = responseData.data?.payment_url;
+          orderId = responseData.data?.order_id;
+          
+          console.log('💰 Извлеченные данные из объекта:', {
+            orderId: orderId,
+            paymentUrl: paymentUrl
+          });
+        }
       }
       
-      // Если нашли payment_url
       if (paymentUrl) {
         ElMessage.success('Заказ успешно оформлен! Сейчас вы будете перенаправлены на страницу оплаты...');
         
-        // Формируем полный URL
         const baseUrl = window.location.origin;
-        const fullPaymentUrl = baseUrl + (paymentUrl.startsWith('/') ? paymentUrl : '/' + paymentUrl);
+        const fullPaymentUrl = paymentUrl.startsWith('http') 
+          ? paymentUrl 
+          : baseUrl + (paymentUrl.startsWith('/') ? paymentUrl : '/' + paymentUrl);
         
         console.log('🔗 Перенаправляем на:', fullPaymentUrl);
         
-        // Небольшая задержка, чтобы пользователь увидел сообщение об успехе
         setTimeout(() => {
-          // Перенаправляем в этой же вкладке (как будто нажали на кнопку)
-          // window.location.href = fullPaymentUrl;
+          window.location.href = fullPaymentUrl;
         }, 1500);
         
-        // НЕ вызываем emit('finish') здесь, так как мы перенаправляем пользователя
         return;
-      } else {
+      } 
+      else if (responseData && typeof responseData === 'object' && responseData.payment_url) {
+        paymentUrl = responseData.payment_url;
+        orderId = responseData.order_id;
+        
+        ElMessage.success('Заказ успешно оформлен! Сейчас вы будете перенаправлены на страницу оплаты...');
+        
+        const baseUrl = window.location.origin;
+        const fullPaymentUrl = paymentUrl.startsWith('http') 
+          ? paymentUrl 
+          : baseUrl + (paymentUrl.startsWith('/') ? paymentUrl : '/' + paymentUrl);
+        
+        console.log('🔗 Перенаправляем на альтернативный URL:', fullPaymentUrl);
+        
+        setTimeout(() => {
+          window.location.href = fullPaymentUrl;
+        }, 1500);
+        
+        return;
+      }
+      else if (orderId) {
+        console.log('✅ Заказ создан, ID:', orderId);
+        ElMessage.success(`Заказ №${orderId} успешно оформлен!`);
+        emit('finish');
+        return;
+      }
+      else {
         console.error('❌ Payment URL не найден в ответе сервера');
         ElMessage.warning('Заказ оформлен, но ссылка на оплату не получена');
         emit('finish');
@@ -1533,6 +1577,7 @@ const handleFinish = async () => {
     } else {
       console.error('❌ Пустой ответ от сервера');
       ElMessage.error('Сервер вернул пустой ответ');
+      emit('finish');
     }
     
   } catch (error: any) {
@@ -1554,7 +1599,6 @@ const handleFinish = async () => {
   }
 };
 
-// Следим за изменениями данных
 watch([quiz6Data, quiz7Data, coverFile, audioFilesList, appleMusicFile, karaokeFile], () => {
   console.log('Quiz8: Data changed, canSubmit:', canSubmit.value);
 }, { deep: true });

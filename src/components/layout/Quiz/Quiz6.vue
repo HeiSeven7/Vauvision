@@ -1,262 +1,262 @@
 <template>
-  <div class="quiz__form quiz__form_six">
-    <h4 class="quiz__form_head">дополнительная информация</h4>
-    
-    <!-- Индикатор загрузки -->
-    <div v-if="isLoading" class="quiz__form_loading">
+<div class="quiz__form quiz__form_six">
+  <h4 class="quiz__form_head">дополнительная информация</h4>
+  
+  <!-- Индикатор загрузки -->
+  <div v-if="isLoading" class="quiz__form_loading">
+    <div class="loading-spinner"></div>
+    <p>Загрузка данных...</p>
+  </div>
+  
+  <div v-else>
+    <!-- Индикатор загрузки файлов и генерации договора -->
+    <div v-if="uploadingFiles || isGeneratingContract" class="quiz__form_contract_loading">
       <div class="loading-spinner"></div>
-      <p>Загрузка данных...</p>
+      <p v-if="uploadingFiles">Отправка файлов на сервер... {{ uploadedCount }}/{{ totalFilesCount }}</p>
+      <p v-else-if="isGeneratingContract">Генерация договора... Это может занять несколько секунд</p>
     </div>
     
-    <div v-else>
-      <!-- Индикатор загрузки файлов и генерации договора -->
-      <div v-if="uploadingFiles || isGeneratingContract" class="quiz__form_contract_loading">
-        <div class="loading-spinner"></div>
-        <p v-if="uploadingFiles">Отправка файлов на сервер... {{ uploadedCount }}/{{ totalFilesCount }}</p>
-        <p v-else-if="isGeneratingContract">Генерация договора... Это может занять несколько секунд</p>
-      </div>
-      
-      <div class="form__flex" :class="{ 'blur-content': uploadingFiles || isGeneratingContract }">
-        <!-- Откуда узнали -->
-        <div class="form__group">
-          <label class="form__label button">откуда вы о нас узнали?<span>*</span></label>
-          <el-select
-            v-model="formData.platforms"
-            multiple
-            placeholder="Выберите площадки"
-            :class="{ 'error': errors.platforms }"
-            size="large"
-            @change="validateForm"
-            :disabled="uploadingFiles || isGeneratingContract"
-          >
-            <el-option
-              v-for="platform in platformOptions"
-              :key="platform.value"
-              :label="platform.label"
-              :value="platform.value"
-            />
-          </el-select>
-          <div v-if="errors.platforms" class="error text_very">
-            {{ errors.platforms }}
-          </div>
-          <div v-if="formData.platforms.includes('other')" class="form__group_inner">
-            <el-input
-              v-model="formData.otherPlatform"
-              type="text"
-              placeholder="Укажите другие площадки"
-              :class="{ 'error': errors.otherPlatform }"
-              @blur="validateForm"
-              @input="errors.otherPlatform = ''"
-              size="large"
-              :disabled="uploadingFiles || isGeneratingContract"
-            />
-            <div v-if="errors.otherPlatform" class="error text_very">
-              {{ errors.otherPlatform }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Права на инструменты -->
-        <div class="form__group">
-          <label for="rightsInfo" class="form__label button">Правила на инструменты</label>
-          <p class="form__hint text_small">В поле ниже, пожалуйста, укажите в столбик «Название трека – тип прав».</p>
-          <el-input
-            v-model="formData.rightsInfo"
-            type="textarea"
-            :rows="6"
-            placeholder="1. Название первого трека - исключительная лицензия
-2. Название второго трека - wav лицензия"
-            @input="errors.rightsInfo = ''"
-            size="large"
-            :disabled="uploadingFiles || isGeneratingContract"
+    <div class="form__flex" :class="{ 'blur-content': uploadingFiles || isGeneratingContract }">
+      <!-- Откуда узнали -->
+      <div class="form__group">
+        <label class="form__label button">откуда вы о нас узнали?<span>*</span></label>
+        <el-select
+          v-model="formData.platforms"
+          multiple
+          placeholder="Выберите площадки"
+          :class="{ 'error': errors.platforms }"
+          size="large"
+          @change="validateForm"
+          :disabled="uploadingFiles || isGeneratingContract"
+        >
+          <el-option
+            v-for="platform in platformOptions"
+            :key="platform.value"
+            :label="platform.label"
+            :value="platform.value"
           />
-          <div class="form__group_inner">
-            <label for="rightsContractLink" class="form__label button text_small">Ссылка на договор в Яндекс Диске (не обязательно)</label>
-            <el-input
-              v-model="formData.rightsContractLink"
-              type="text"
-              placeholder="https://disk.yandex.ru/..."
-              @blur="validateUrlField('rightsContractLink')"
-              @input="errors.rightsContractLink = ''"
-              size="large"
-              :disabled="uploadingFiles || isGeneratingContract"
-            />
-            <div v-if="errors.rightsContractLink" class="error text_very">
-              {{ errors.rightsContractLink }}
-            </div>
-          </div>
+        </el-select>
+        <div v-if="errors.platforms" class="error text_very">
+          {{ errors.platforms }}
         </div>
-
-        <!-- Дополнительные комментарии -->
-        <div class="form__group">
-          <label for="additionalComments" class="form__label button">дополнительные комментарии</label>
+        <div v-if="formData.platforms.includes('other')" class="form__group_inner">
           <el-input
-            v-model="formData.additionalComments"
-            type="textarea"
-            :rows="4"
-            placeholder="Ваши комментарии и пожелания..."
-            @input="errors.additionalComments = ''"
-            size="large"
-            :disabled="uploadingFiles || isGeneratingContract"
-          />
-        </div>
-
-        <!-- Промо-план релиза -->
-        <div class="form__group">
-          <label for="promoPlan" class="form__label button">Промо-план релиза для редакторов площадок</label>
-          <el-input
-            v-model="formData.promoPlan"
-            type="textarea"
-            :rows="4"
-            placeholder="Информация об артисте, релизе, планах по рекламе..."
-            @input="errors.promoPlan = ''"
-            size="large"
-            :disabled="uploadingFiles || isGeneratingContract"
-          />
-        </div>
-
-        <!-- Ссылка на Bandlink -->
-        <div class="form__group">
-          <label for="bandlinkUrl" class="form__label button">ССЫЛКА НА ВАШ ПРЕДСТОЯЩИЙ РЕЛИЗ В BANDLINK</label>
-          <el-input
-            v-model="formData.bandlinkUrl"
+            v-model="formData.otherPlatform"
             type="text"
-            :class="{ 'error': errors.bandlinkUrl }"
-            placeholder="https://band.link/..."
-            @blur="validateUrlField('bandlinkUrl')"
-            @input="errors.bandlinkUrl = ''"
+            placeholder="Укажите другие площадки"
+            :class="{ 'error': errors.otherPlatform }"
+            @blur="validateForm"
+            @input="errors.otherPlatform = ''"
             size="large"
             :disabled="uploadingFiles || isGeneratingContract"
           />
-          <div v-if="errors.bandlinkUrl" class="error text_very">
-            {{ errors.bandlinkUrl }}
+          <div v-if="errors.otherPlatform" class="error text_very">
+            {{ errors.otherPlatform }}
           </div>
         </div>
+      </div>
 
-        <!-- Промокод -->
-        <div class="form__group">
-          <label for="promoCode" class="form__label button">промокод</label>
-          <div class="form__promo_input">
-            <el-input
-              v-model="formData.promoCode"
-              type="text"
-              placeholder="Введите промокод"
-              :disabled="promoApplied || uploadingFiles || isGeneratingContract"
-              @input="handlePromoInput"
-              size="large"
-              style="flex: 1;"
-            />
-            <el-button 
-              v-if="promoApplied && !uploadingFiles && !isGeneratingContract"
-              type="info" 
-              @click="removePromoCode"
-              size="default"
-            >
-              Отменить
-            </el-button>
-            <span v-if="promoLoading" class="promo_loading">Проверка...</span>
-          </div>
-          <div v-if="promoDiscount > 0" class="promo_discount_info">
-            Применена скидка {{ promoDiscount }}%
+      <!-- Права на инструменты -->
+      <div class="form__group">
+        <label for="rightsInfo" class="form__label button">Правила на инструменты</label>
+        <p class="form__hint text_small">В поле ниже, пожалуйста, укажите в столбик «Название трека – тип прав».</p>
+        <el-input
+          v-model="formData.rightsInfo"
+          type="textarea"
+          :rows="6"
+          placeholder="1. Название первого трека - исключительная лицензия
+2. Название второго трека - wav лицензия"
+          @input="errors.rightsInfo = ''"
+          size="large"
+          :disabled="uploadingFiles || isGeneratingContract"
+        />
+        <div class="form__group_inner">
+          <label for="rightsContractLink" class="form__label button text_small">Ссылка на договор в Яндекс Диске (не обязательно)</label>
+          <el-input
+            v-model="formData.rightsContractLink"
+            type="text"
+            placeholder="https://disk.yandex.ru/..."
+            @blur="validateUrlField('rightsContractLink')"
+            @input="errors.rightsContractLink = ''"
+            size="large"
+            :disabled="uploadingFiles || isGeneratingContract"
+          />
+          <div v-if="errors.rightsContractLink" class="error text_very">
+            {{ errors.rightsContractLink }}
           </div>
         </div>
+      </div>
 
-        <!-- Бонусы -->
-        <div class="form__group">
-          <label for="bonuses" class="form__label button">Бонусы</label>
-          <p class="form__hint text_small">У вас доступно {{ userBonuses }} бонусов. 1 бонус = 1 {{ currencySymbol }}. Максимум можно использовать {{ maxBonuses }} бонусов.</p>
-          <div class="form__bonus_input">
-            <el-input-number
-              v-model="formData.usedBonuses"
-              :min="0"
-              :max="maxBonuses"
-              :step="1"
-              :precision="0"
-              placeholder="Введите количество бонусов"
-              @change="handleBonusesChange"
-              @input="validateField('usedBonuses')"
-              size="large"
-              style="width: 200px;"
-              :disabled="uploadingFiles || isGeneratingContract"
-            />
-            <span class="form__bonus_hint">доступно: {{ userBonuses }}</span>
-          </div>
-          <div v-if="errors.usedBonuses" class="error text_very">
-            {{ errors.usedBonuses }}
-          </div>
-          <div v-if="finalAmount < 1 && formData.usedBonuses > 0" class="warning text_very">
-            ⚠️ Минимальная сумма к оплате — 1 {{ currencySymbol }}. Бонусы будут скорректированы.
-          </div>
+      <!-- Дополнительные комментарии -->
+      <div class="form__group">
+        <label for="additionalComments" class="form__label button">дополнительные комментарии</label>
+        <el-input
+          v-model="formData.additionalComments"
+          type="textarea"
+          :rows="4"
+          placeholder="Ваши комментарии и пожелания..."
+          @input="errors.additionalComments = ''"
+          size="large"
+          :disabled="uploadingFiles || isGeneratingContract"
+        />
+      </div>
+
+      <!-- Промо-план релиза -->
+      <div class="form__group">
+        <label for="promoPlan" class="form__label button">Промо-план релиза для редакторов площадок</label>
+        <el-input
+          v-model="formData.promoPlan"
+          type="textarea"
+          :rows="4"
+          placeholder="Информация об артисте, релизе, планах по рекламе..."
+          @input="errors.promoPlan = ''"
+          size="large"
+          :disabled="uploadingFiles || isGeneratingContract"
+        />
+      </div>
+
+      <!-- Ссылка на Bandlink -->
+      <div class="form__group">
+        <label for="bandlinkUrl" class="form__label button">ССЫЛКА НА ВАШ ПРЕДСТОЯЩИЙ РЕЛИЗ В BANDLINK</label>
+        <el-input
+          v-model="formData.bandlinkUrl"
+          type="text"
+          :class="{ 'error': errors.bandlinkUrl }"
+          placeholder="https://band.link/..."
+          @blur="validateUrlField('bandlinkUrl')"
+          @input="errors.bandlinkUrl = ''"
+          size="large"
+          :disabled="uploadingFiles || isGeneratingContract"
+        />
+        <div v-if="errors.bandlinkUrl" class="error text_very">
+          {{ errors.bandlinkUrl }}
         </div>
+      </div>
 
-        <!-- Итого к оплате -->
-        <div class="form__group">
-          <div class="quiz__form_sum">
-            <p class="quiz__form_sum_text">Итого к оплате:</p>
-            <div class="quiz__form_total_wrapper">
-              <div class="quiz__form_price_container">
-                <h4 class="quiz__form_total"><span>{{ formatPrice(finalAmount) }}</span> {{ currencySymbol }}</h4>
-                <span v-if="hasDiscount" class="quiz__form_original_price_strikethrough">{{ formatPrice(originalTotalAmount) }} {{ currencySymbol }}</span>
-              </div>
-              <div v-if="promoDiscount > 0" class="quiz__form_discount_info">
-                Скидка по промокоду: {{ promoDiscount }}%
-              </div>
-              <p v-if="finalAmount < 1" class="quiz__form_error_price">
-                Сумма не может быть меньше 1 {{ currencySymbol }}
-              </p>
+      <!-- Промокод -->
+      <div class="form__group">
+        <label for="promoCode" class="form__label button">промокод</label>
+        <div class="form__promo_input">
+          <el-input
+            v-model="formData.promoCode"
+            type="text"
+            placeholder="Введите промокод"
+            :disabled="promoApplied || uploadingFiles || isGeneratingContract"
+            @input="handlePromoInput"
+            size="large"
+            style="flex: 1;"
+          />
+          <el-button 
+            v-if="promoApplied && !uploadingFiles && !isGeneratingContract"
+            type="info" 
+            @click="removePromoCode"
+            size="default"
+          >
+            Отменить
+          </el-button>
+          <span v-if="promoLoading" class="promo_loading">Проверка...</span>
+        </div>
+        <div v-if="promoDiscount > 0" class="promo_discount_info">
+          Применена скидка {{ promoDiscount }}%
+        </div>
+      </div>
+
+      <!-- Бонусы -->
+      <div class="form__group">
+        <label for="bonuses" class="form__label button">Бонусы</label>
+        <p class="form__hint text_small">У вас доступно {{ userBonuses }} бонусов. 1 бонус = 1 {{ currencySymbol }}. Максимум можно использовать {{ maxBonuses }} бонусов.</p>
+        <div class="form__bonus_input">
+          <el-input-number
+            v-model="formData.usedBonuses"
+            :min="0"
+            :max="maxBonuses"
+            :step="1"
+            :precision="0"
+            placeholder="Введите количество бонусов"
+            @change="handleBonusesChange"
+            @input="validateField('usedBonuses')"
+            size="large"
+            style="width: 200px;"
+            :disabled="uploadingFiles || isGeneratingContract"
+          />
+          <span class="form__bonus_hint">доступно: {{ userBonuses }}</span>
+        </div>
+        <div v-if="errors.usedBonuses" class="error text_very">
+          {{ errors.usedBonuses }}
+        </div>
+        <div v-if="finalAmount < 1 && formData.usedBonuses > 0" class="warning text_very">
+          ⚠️ Минимальная сумма к оплате — 1 {{ currencySymbol }}. Бонусы будут скорректированы.
+        </div>
+      </div>
+
+      <!-- Итого к оплате -->
+      <div class="form__group">
+        <div class="quiz__form_sum">
+          <p class="quiz__form_sum_text">Итого к оплате:</p>
+          <div class="quiz__form_total_wrapper">
+            <div class="quiz__form_price_container">
+              <h4 class="quiz__form_total"><span>{{ formatPrice(finalAmount) }}</span> {{ currencySymbol }}</h4>
+              <span v-if="hasDiscount" class="quiz__form_original_price_strikethrough">{{ formatPrice(originalTotalAmount) }} {{ currencySymbol }}</span>
             </div>
+            <div v-if="promoDiscount > 0" class="quiz__form_discount_info">
+              Скидка по промокоду: {{ promoDiscount }}%
+            </div>
+            <p v-if="finalAmount < 1" class="quiz__form_error_price">
+              Сумма не может быть меньше 1 {{ currencySymbol }}
+            </p>
           </div>
         </div>
+      </div>
 
-        <!-- Подтверждение -->
-        <div class="form__group">
-          <div class="form__checkbox_group">
-            <el-checkbox
-              v-model="formData.confirmNoRightsViolation"
-              :class="{ 'error': errors.confirmNoRightsViolation }"
-              @change="validateField('confirmNoRightsViolation')"
-              :disabled="uploadingFiles || isGeneratingContract"
-            >
-              Я подтверждаю, что мои треки не нарушают права других авторов музыки и текста*
-            </el-checkbox>
-          </div>
-          <div v-if="errors.confirmNoRightsViolation" class="error text_very">
-            {{ errors.confirmNoRightsViolation }}
-          </div>
+      <!-- Подтверждение -->
+      <div class="form__group">
+        <div class="form__checkbox_group">
+          <el-checkbox
+            v-model="formData.confirmNoRightsViolation"
+            :class="{ 'error': errors.confirmNoRightsViolation }"
+            @change="validateField('confirmNoRightsViolation')"
+            :disabled="uploadingFiles || isGeneratingContract"
+          >
+            Я подтверждаю, что мои треки не нарушают права других авторов музыки и текста*
+          </el-checkbox>
+        </div>
+        <div v-if="errors.confirmNoRightsViolation" class="error text_very">
+          {{ errors.confirmNoRightsViolation }}
         </div>
       </div>
-      
-      <!-- Прогресс загрузки файлов -->
-      <div v-if="uploadingFiles" class="upload_progress">
-        <div class="upload_progress_bar">
-          <div class="upload_progress_bar_fill" :style="{ width: uploadProgress + '%' }"></div>
-        </div>
-        <p class="upload_progress_count">Отправлено {{ uploadedCount }} из {{ totalFilesCount }}</p>
+    </div>
+    
+    <!-- Прогресс загрузки файлов -->
+    <div v-if="uploadingFiles" class="upload_progress">
+      <div class="upload_progress_bar">
+        <div class="upload_progress_bar_fill" :style="{ width: uploadProgress + '%' }"></div>
       </div>
-      
-      <div class="quiz__form_bottom">
-        <div class="quiz__form_buttons">
-          <button 
-            class="form__back button__second button" 
-            @click="goBack"
-            :disabled="isLoading || uploadingFiles || isGeneratingContract"
-          >
-            <span><BackSVG /></span>
-            <span>Назад</span>
-          </button>
-          <button 
-            class="quiz__form_button button__black button"
-            @click="handleContinue"
-            :disabled="!isReadyForNextStep || isLoading || uploadingFiles || isGeneratingContract || finalAmount < 1"
-          >
-            <span v-if="uploadingFiles">Отправка файлов...</span>
-            <span v-else-if="isGeneratingContract">Генерация договора...</span>
-            <span v-else>{{ isLoading ? 'Загрузка...' : 'Сгенерировать договор' }}</span>
-          </button>
-        </div>
+      <p class="upload_progress_count">Отправлено {{ uploadedCount }} из {{ totalFilesCount }}</p>
+    </div>
+    
+    <div class="quiz__form_bottom">
+      <div class="quiz__form_buttons">
+        <button 
+          class="form__back button__second button" 
+          @click="goBack"
+          :disabled="isLoading || uploadingFiles || isGeneratingContract"
+        >
+          <span><BackSVG /></span>
+          <span>Назад</span>
+        </button>
+        <button 
+          class="quiz__form_button button__black button"
+          @click="handleContinue"
+          :disabled="!isReadyForNextStep || isLoading || uploadingFiles || isGeneratingContract || finalAmount < 1"
+        >
+          <span v-if="uploadingFiles">Отправка файлов...</span>
+          <span v-else-if="isGeneratingContract">Генерация договора...</span>
+          <span v-else>{{ isLoading ? 'Загрузка...' : 'Сгенерировать договор' }}</span>
+        </button>
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script lang="ts" setup>
@@ -383,13 +383,10 @@ const initDB = async () => {
       upgrade(db, oldVersion, newVersion) {
         console.log(`Quiz6: Upgrading DB from version ${oldVersion} to ${newVersion}`);
         
-        // При обновлении с версии 1 до 2
         if (oldVersion < 2) {
-          // Если старое хранилище существует, удаляем его
           if (db.objectStoreNames.contains('quizState')) {
             db.deleteObjectStore('quizState');
           }
-          // Создаем новое хранилище
           const store = db.createObjectStore('quizState', { keyPath: 'id' });
           store.createIndex('timestamp', 'timestamp');
           console.log('Quiz6: Created new quizState store');
@@ -480,7 +477,6 @@ const safeDBOperation = async <T>(
 
 // Функция для создания безопасной копии состояния (без циклических ссылок)
 const createSafeStateCopy = () => {
-  // Создаем простой объект без сложных структур
   const safeFormData = {
     platforms: Array.isArray(formData.platforms) ? [...formData.platforms] : [],
     otherPlatform: String(formData.otherPlatform || ''),
@@ -495,7 +491,6 @@ const createSafeStateCopy = () => {
     confirmNoRightsViolation: Boolean(formData.confirmNoRightsViolation)
   };
   
-  // Безопасная копия contractData
   let safeContractData = null;
   if (contractData.value) {
     safeContractData = {
@@ -562,8 +557,6 @@ const loadStateFromDB = async () => {
         promoApplied.value = savedState.promoApplied || false;
         promoDiscount.value = savedState.promoDiscount || 0;
         
-        // Восстанавливаем contractData ТОЛЬКО если он был загружен с бека
-        // и не был сгенерирован вручную
         if (savedState.contractData && savedState.contractLoadedFromBackend) {
           contractData.value = savedState.contractData;
           contractLoadedFromBackend.value = true;
@@ -1128,6 +1121,7 @@ const saveProductNumbers = async (uploadedFiles: UploadedFileInfo[]): Promise<vo
         
         console.log(`Quiz6: Saving product_id ${productId} for file: ${fileName}`);
         
+        // Ищем в синглах
         if (quiz2State.singleTracks && Array.isArray(quiz2State.singleTracks)) {
           const singleTrack = quiz2State.singleTracks.find((track: any) => 
             track.audioFileName === fileName
@@ -1141,6 +1135,7 @@ const saveProductNumbers = async (uploadedFiles: UploadedFileInfo[]): Promise<vo
           }
         }
         
+        // Ищем в альбомах
         if (quiz2State.albums && Array.isArray(quiz2State.albums)) {
           quiz2State.albums.forEach((album: any) => {
             if (album.tracks && Array.isArray(album.tracks)) {
@@ -1159,8 +1154,19 @@ const saveProductNumbers = async (uploadedFiles: UploadedFileInfo[]): Promise<vo
       });
       
       if (updated) {
+        // Сохраняем обновленное состояние Quiz2
         await quizDB.value.put('quizState', quiz2State);
-        console.log('Quiz6: Product numbers saved successfully');
+        console.log('Quiz6: Product numbers saved successfully to quiz2_state');
+        
+        // Также сохраняем у себя для использования в этом же компоненте
+        // Обновляем локальные данные quiz2Data для текущей сессии
+        if (quiz2State.singleTracks) {
+          quiz2State.singleTracks.forEach((track: any) => {
+            if (track.product_id) {
+              console.log(`✅ Product_id ${track.product_id} сохранен для сингла ${track.audioFileName}`);
+            }
+          });
+        }
       } else {
         console.log('Quiz6: No tracks were updated');
       }
@@ -1202,266 +1208,55 @@ const uploadAudioFile = async (file: File, type: 'single' | 'album', trackIndex?
   }
 };
 
-// Функция для очистки полей от запрещенных символов
-const cleanField = (value: string): string => {
-  if (!value) return '';
-  return value.replace(/[\/\\&@+=<>\[\]{}|~?*]/g, ' ').replace(/\s+/g, ' ').trim();
-};
-
-// Отправка обложки и всех данных в newDock.php
-const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'album'): Promise<ContractData> => {
-  console.log('========== НАЧАЛО ОТПРАВКИ В newDock.php ==========');
-  
-  // Создаем FormData для отправки
-  const formDataToSend = new FormData();
-  
-  // 1. Получаем все данные из всех шагов
-  console.log('Загружаем данные из IndexedDB...');
-  const quiz1State = await quizDB.value.get('quizState', 'quiz1_state');
-  const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
-  const quiz3State = await quizDB.value.get('quizState', 'quiz3_state');
-  const quiz4State = await quizDB.value.get('quizState', 'quiz4_state');
-  const quiz5State = await quizDB.value.get('quizState', 'quiz5_state');
-  
-  console.log('✅ Quiz1 state загружен:', !!quiz1State);
-  console.log('✅ Quiz2 state загружен:', !!quiz2State);
-  console.log('✅ Quiz3 state загружен:', !!quiz3State);
-  console.log('✅ Quiz4 state загружен:', !!quiz4State);
-  console.log('✅ Quiz5 state загружен:', !!quiz5State);
-  
-  // 2. Данные из Quiz1
-  if (quiz1State) {
-    console.log('📝 Добавляем данные Quiz1:');
-    formDataToSend.append('check-single', quiz1State.singleCount > 0 ? 'on' : 'off');
-    formDataToSend.append('check-album', quiz1State.albumCount > 0 ? 'on' : 'off');
-    formDataToSend.append('check-klip', quiz1State.clipCount > 0 ? 'on' : 'off');
-    formDataToSend.append('check-karta', quiz1State.cardCount > 0 ? 'on' : 'off');
-    formDataToSend.append('countSingle', String(quiz1State.singleCount || 0));
-    formDataToSend.append('countAlbum', String(quiz1State.albumCount || 0));
-  }
-  
-  // 3. Данные из Quiz2 - синглы
-  if (quiz2State?.singleTracks && quiz2State.singleTracks.length > 0) {
-    console.log(`📝 Добавляем данные Quiz2 - синглы (${quiz2State.singleTracks.length} шт):`);
-    quiz2State.singleTracks.forEach((track: any, index: number) => {
-      if (track.product_id) {
-        formDataToSend.append('trackID[]', track.product_id);
-        formDataToSend.append(`path-file[${track.product_id}]`, track.audioFileName || '');
-        formDataToSend.append(`name-file[${track.product_id}]`, track.audioFileName || '');
-        formDataToSend.append(`artist[${track.product_id}]`, cleanField(track.performerName || ''));
-        formDataToSend.append(`autor-music[${track.product_id}]`, cleanField(track.musicAuthor || ''));
-        formDataToSend.append(`autor-words[${track.product_id}]`, cleanField(track.textAuthor || ''));
-        formDataToSend.append(`autor-files[${track.product_id}]`, cleanField(track.performerName || ''));
-        console.log(`  - Трек ${index + 1}: ID=${track.product_id}, Name=${track.audioFileName}`);
-      }
-    });
-  }
-  
-  // 4. Данные из Quiz2 - альбомы
-  if (quiz2State?.albums && quiz2State.albums.length > 0) {
-    console.log(`📝 Добавляем данные Quiz2 - альбомы (${quiz2State.albums.length} шт):`);
-    quiz2State.albums.forEach((album: any, albumIndex: number) => {
-      if (album.tracks && album.tracks.length > 0) {
-        console.log(`  Альбом ${albumIndex + 1}: ${album.tracks.length} треков`);
-        album.tracks.forEach((track: any, trackIndex: number) => {
-          if (track.product_id) {
-            formDataToSend.append('albumID[]', track.product_id);
-            formDataToSend.append(`path-file-album[${track.product_id}]`, track.audioFileName || '');
-            formDataToSend.append(`name-file-album[${track.product_id}]`, track.audioFileName || '');
-            formDataToSend.append(`artist-album[${track.product_id}]`, cleanField(track.performerName || ''));
-            formDataToSend.append(`autor-music-album[${track.product_id}]`, cleanField(track.musicAuthor || ''));
-            formDataToSend.append(`autor-words-album[${track.product_id}]`, cleanField(track.textAuthor || ''));
-            formDataToSend.append(`autor-files-album[${track.product_id}]`, cleanField(track.performerName || ''));
-            console.log(`    Трек ${trackIndex + 1}: ID=${track.product_id}, Name=${track.audioFileName}`);
-          }
-        });
-      }
-    });
-  }
-  
-  // 5. Данные из Quiz3
-  if (quiz3State?.formData) {
-    const f = quiz3State.formData;
-    console.log('📝 Добавляем данные Quiz3:');
-    console.log('  - alias (псевдоним):', f.performerName);
-    console.log('  - name-relize (название):', f.releaseName);
-    
-    formDataToSend.append('alias', cleanField(f.performerName || ''));
-    formDataToSend.append('name-relize', cleanField(f.releaseName || ''));
-    formDataToSend.append('kuda_reliz1', '1');
-    formDataToSend.append('kuda-reliz', '1');
-    formDataToSend.append('others-kuda', f.otherPlatform || '');
-    formDataToSend.append('calendar-reliz', f.releaseDate || '');
-    formDataToSend.append('mat1', f.hasProfanity === 'yes' ? '12' : '13');
-    formDataToSend.append('mat', f.hasProfanity === 'yes' ? '12' : '13');
-    formDataToSend.append('others-mat', f.profanityTracks || '');
-    formDataToSend.append('mat1ai', '13');
-    formDataToSend.append('matai', '13');
-    formDataToSend.append('others-matai', '');
-    formDataToSend.append('all-obl', '1');
-    formDataToSend.append('vk', f.vkLink || '');
-    formDataToSend.append('email-clear', f.email || '');
-    
-    formDataToSend.append('alias-album', cleanField(f.performerName || ''));
-    formDataToSend.append('name-relize-album', '');
-    formDataToSend.append('kuda-reliz-album1', '');
-    formDataToSend.append('kuda-reliz-album', '1');
-    formDataToSend.append('others-kuda-album', '');
-    formDataToSend.append('calendar-reliz-album', '');
-    formDataToSend.append('mat-album1', '13');
-    formDataToSend.append('mat-album', '13');
-    formDataToSend.append('others-mat-album', '');
-    formDataToSend.append('mat-album1ai', '13');
-    formDataToSend.append('mat-albumai', '13');
-    formDataToSend.append('others-matai-album', '');
-    formDataToSend.append('vk-album', f.vkLink || '');
-    formDataToSend.append('email-clear-album', f.email || '');
-  }
-  
-  // 6. Данные из Quiz4
-  if (quiz4State?.formData) {
-    const u = quiz4State.formData;
-    console.log('📝 Добавляем данные Quiz4:');
-    
-    formDataToSend.append('citysenship1', '');
-    formDataToSend.append('citysenship', u.userType === 'individual' ? 'Физическое лицо' : 'Индивидуальный предприниматель');
-    formDataToSend.append('select__fizurlico', '');
-    formDataToSend.append('others', '');
-    formDataToSend.append('yur_arg_org', cleanField(u.legalAddress || ''));
-    formDataToSend.append('inn', u.inn || '');
-    formDataToSend.append('ogrn', u.ogrn || '');
-    formDataToSend.append('rasy', u.accountNumber || '');
-    formDataToSend.append('bank', cleanField(u.bankName || ''));
-    formDataToSend.append('inn_bank', u.bankInn || '');
-    formDataToSend.append('bik', u.bankBik || '');
-    formDataToSend.append('kor_s', u.correspondentAccount || '');
-    formDataToSend.append('yur_adr_bank', cleanField(u.bankLegalAddress || ''));
-    
-    formDataToSend.append('citysenship1', '');
-    formDataToSend.append('citysenship', formatCitizenship(u.citizenship, u.otherCitizenship));
-    formDataToSend.append('others', '');
-    formDataToSend.append('FAM', cleanField(u.lastName || ''));
-    formDataToSend.append('IMYA', cleanField(u.firstName || ''));
-    formDataToSend.append('OTCH', cleanField(u.middleName || ''));
-    formDataToSend.append('passport', u.passportNumber || '');
-    formDataToSend.append('who-doing', cleanField(u.passportIssuedBy || ''));
-    formDataToSend.append('kemvidan', '');
-    formDataToSend.append('when-doing', formatDateForAPI(u.passportIssueDate) || '');
-    formDataToSend.append('adress', cleanField(u.registrationAddress || ''));
-  }
-  
-  // 7. Данные из Quiz5
-  if (quiz5State?.formData) {
-    const g = quiz5State.formData;
-    console.log('📝 Добавляем данные Quiz5:');
-    
-    formDataToSend.append('genre', cleanField(g.genre || ''));
-    formDataToSend.append('time-play', g.tiktokStartSeconds || '');
-    formDataToSend.append('nark', g.hasDrugsMention === 'yes' ? '12' : '13');
-    formDataToSend.append('narc', g.hasDrugsMention === 'yes' ? '12' : '13');
-    formDataToSend.append('others-narc', g.drugsTracks || '');
-    formDataToSend.append('apple', g.appleMusicLinks || '');
-    formDataToSend.append('spotify', g.spotifyLinks || '');
-    formDataToSend.append('link-vk', g.vkLinks || '');
-    formDataToSend.append('link-yandex', g.yandexMusicLinks || '');
-    formDataToSend.append('socialartist', g.socialLinks || '');
-  }
-  
-  // 8. Данные из текущей формы (Quiz6)
-  console.log('📝 Добавляем данные Quiz6:');
-  formDataToSend.append('otkuda-uznali1', formData.platforms[0] || '');
-  formDataToSend.append('otkuda-uznali', formData.platforms[0] || '');
-  formDataToSend.append('others-otkuda', formData.otherPlatform || '');
-  formDataToSend.append('instrumentals', formData.rightsInfo || '');
-  formDataToSend.append('comments', formData.additionalComments || '');
-  formDataToSend.append('plan', formData.promoPlan || '');
-  formDataToSend.append('link-bandlink', formData.bandlinkUrl || '');
-  formDataToSend.append('promocode', formData.promoCode || '');
-  formDataToSend.append('promosum', '');
-  formDataToSend.append('sumOrder', String(finalAmount.value || 0));
-  formDataToSend.append('policy', formData.confirmNoRightsViolation ? 'on' : 'off');
-  
-  // 9. Добавляем обложку
-  if (type === 'album') {
-    formDataToSend.append('file-obl-album', file);
-    console.log('🖼️ Добавлена обложка как file-obl-album:', file.name);
-  } else {
-    const singleCount = quiz1State?.singleCount || 0;
-    for (let i = 1; i <= singleCount; i++) {
-      formDataToSend.append(`file-obl${i}`, file);
-    }
-    console.log(`🖼️ Добавлена обложка как file-obl1 - file-obl${singleCount}:`, file.name);
-  }
-  
-  // 10. Логируем ВСЕ что есть в FormData
-  console.log('📦 ПОЛНОЕ СОДЕРЖИМОЕ FormData:');
-  let fieldCount = 0;
-  for (const pair of (formDataToSend as any).entries()) {
-    fieldCount++;
-    if (pair[1] instanceof File) {
-      console.log(`  [${fieldCount}] ${pair[0]}: [ФАЙЛ] ${pair[1].name} (${pair[1].size} bytes)`);
-    } else {
-      console.log(`  [${fieldCount}] ${pair[0]}: ${pair[1]}`);
-    }
-  }
-  console.log(`📊 Всего полей в FormData: ${fieldCount}`);
-  console.log('=================================================');
-  
-  // 11. Отправляем запрос
-  try {
-    console.log('🚀 Отправляем запрос в newDock.php...');
-    const response = await FileRequest('post', '/ajax_vue/ajax/newDock.php', formDataToSend);
-    console.log('✅ Ответ сервера:', response.data);
-    
-    if (response.data && response.data.error === 0 && response.data.data) {
-      const data = response.data.data;
+// Функция для очистки старых данных договора и подписи
+const clearOldContractData = async (): Promise<void> => {
+  await safeDBOperation(
+    async () => {
+      console.log('Quiz6: Очистка старых данных договора и подписи...');
       
-      if (data.doc_pdf && data.doc_docx && Array.isArray(data.images)) {
-        const contract = {
-          doc_pdf: data.doc_pdf,
-          doc_docx: data.doc_docx,
-          images: data.images
-        };
-        
-        contractData.value = contract;
-        contractLoadedFromBackend.value = false; // Это ручная генерация, не с бека
-        return contract;
-      } else {
-        throw new Error('Неполные данные в ответе сервера');
+      // Удаляем состояние Quiz7 (договор и подписи)
+      try {
+        await quizDB.value.delete('quizState', 'quiz7_state');
+        console.log('✅ Quiz7 состояние удалено');
+      } catch (e) {
+        console.log('Quiz7 состояние не найдено или не удалено');
       }
-    } else {
-      throw new Error(response.data?.message || 'Ошибка генерации договора');
-    }
-  } catch (error) {
-    console.error('❌ Ошибка в uploadCoverAndGenerateContract:', error);
-    throw error;
-  }
-};
-
-// Функция для форматирования даты в формат DD/MM/YYYY
-const formatDateForAPI = (dateString?: string): string => {
-  if (!dateString) return '';
-  try {
-    const date = new Date(dateString);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  } catch {
-    return dateString;
-  }
-};
-
-// Функция для форматирования гражданства
-const formatCitizenship = (citizenship?: string, other?: string): string => {
-  if (!citizenship) return '';
-  if (citizenship === 'RU') return 'Российская Федерация';
-  if (citizenship === 'other') return other || '';
-  return citizenship;
+      
+      // Удаляем состояние Quiz8 (финальные данные)
+      try {
+        await quizDB.value.delete('quizState', 'quiz8_state');
+        console.log('✅ Quiz8 состояние удалено');
+      } catch (e) {
+        console.log('Quiz8 состояние не найдено или не удалено');
+      }
+      
+      // Очищаем данные договора в Quiz6, если они есть
+      if (contractData.value) {
+        contractData.value = null;
+        contractLoadedFromBackend.value = false;
+        console.log('✅ contractData в Quiz6 очищен');
+      }
+      
+      // Также очищаем сохраненные данные договора из состояния Quiz6 в БД
+      const quiz6State = await quizDB.value.get('quizState', 'quiz6_state');
+      if (quiz6State) {
+        delete quiz6State.contractData;
+        delete quiz6State.contractLoadedFromBackend;
+        await quizDB.value.put('quizState', quiz6State);
+        console.log('✅ contractData удален из состояния Quiz6 в БД');
+      }
+      
+      console.log('Quiz6: Очистка завершена');
+    },
+    null
+  );
 };
 
 // Отправка всех аудиофайлов на сервер
 const uploadAllAudioFiles = async (): Promise<UploadedFileInfo[]> => {
+  // СНАЧАЛА очищаем старые данные договора
+  await clearOldContractData();
+  
   const audioFiles = await getAllAudioFiles();
   
   if (audioFiles.length === 0) {
@@ -1521,6 +1316,264 @@ const uploadAllAudioFiles = async (): Promise<UploadedFileInfo[]> => {
   }
 };
 
+// Функция для очистки полей от запрещенных символов
+const cleanField = (value: string): string => {
+  if (!value) return '';
+  return value.replace(/[\/\\&@+=<>\[\]{}|~?*]/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
+// Отправка обложки и всех данных в newDock.php
+const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'album'): Promise<ContractData> => {
+  // Дополнительно убеждаемся, что старые данные договора не мешают
+  if (contractData.value) {
+    console.log('Quiz6: Сбрасываем старый contractData перед генерацией нового');
+    contractData.value = null;
+    contractLoadedFromBackend.value = false;
+  }
+  
+  console.log('========== НАЧАЛО ОТПРАВКИ В newDock.php ==========');
+  
+  const formDataToSend = new FormData();
+  
+  console.log('Загружаем данные из IndexedDB...');
+  const quiz1State = await quizDB.value.get('quizState', 'quiz1_state');
+  const quiz2State = await quizDB.value.get('quizState', 'quiz2_state');
+  const quiz3State = await quizDB.value.get('quizState', 'quiz3_state');
+  const quiz4State = await quizDB.value.get('quizState', 'quiz4_state');
+  const quiz5State = await quizDB.value.get('quizState', 'quiz5_state');
+  
+  console.log('✅ Quiz1 state загружен:', !!quiz1State);
+  console.log('✅ Quiz2 state загружен:', !!quiz2State);
+  console.log('✅ Quiz3 state загружен:', !!quiz3State);
+  console.log('✅ Quiz4 state загружен:', !!quiz4State);
+  console.log('✅ Quiz5 state загружен:', !!quiz5State);
+  
+  if (quiz1State) {
+    console.log('📝 Добавляем данные Quiz1:');
+    formDataToSend.append('check-single', quiz1State.singleCount > 0 ? 'on' : 'off');
+    formDataToSend.append('check-album', quiz1State.albumCount > 0 ? 'on' : 'off');
+    formDataToSend.append('check-klip', quiz1State.clipCount > 0 ? 'on' : 'off');
+    formDataToSend.append('check-karta', quiz1State.cardCount > 0 ? 'on' : 'off');
+    formDataToSend.append('countSingle', String(quiz1State.singleCount || 0));
+    formDataToSend.append('countAlbum', String(quiz1State.albumCount || 0));
+  }
+  
+  if (quiz2State?.singleTracks && quiz2State.singleTracks.length > 0) {
+    console.log(`📝 Добавляем данные Quiz2 - синглы (${quiz2State.singleTracks.length} шт):`);
+    quiz2State.singleTracks.forEach((track: any, index: number) => {
+      if (track.product_id) {
+        formDataToSend.append('trackID[]', track.product_id);
+        formDataToSend.append(`path-file[${track.product_id}]`, track.audioFileName || '');
+        formDataToSend.append(`name-file[${track.product_id}]`, track.audioFileName || '');
+        formDataToSend.append(`artist[${track.product_id}]`, cleanField(track.performerName || ''));
+        formDataToSend.append(`autor-music[${track.product_id}]`, cleanField(track.musicAuthor || ''));
+        formDataToSend.append(`autor-words[${track.product_id}]`, cleanField(track.textAuthor || ''));
+        formDataToSend.append(`autor-files[${track.product_id}]`, cleanField(track.performerName || ''));
+        console.log(`  - Трек ${index + 1}: ID=${track.product_id}, Name=${track.audioFileName}`);
+      }
+    });
+  }
+  
+  if (quiz2State?.albums && quiz2State.albums.length > 0) {
+    console.log(`📝 Добавляем данные Quiz2 - альбомы (${quiz2State.albums.length} шт):`);
+    quiz2State.albums.forEach((album: any, albumIndex: number) => {
+      if (album.tracks && album.tracks.length > 0) {
+        console.log(`  Альбом ${albumIndex + 1}: ${album.tracks.length} треков`);
+        album.tracks.forEach((track: any, trackIndex: number) => {
+          if (track.product_id) {
+            formDataToSend.append('albumID[]', track.product_id);
+            formDataToSend.append(`path-file-album[${track.product_id}]`, track.audioFileName || '');
+            formDataToSend.append(`name-file-album[${track.product_id}]`, track.audioFileName || '');
+            formDataToSend.append(`artist-album[${track.product_id}]`, cleanField(track.performerName || ''));
+            formDataToSend.append(`autor-music-album[${track.product_id}]`, cleanField(track.musicAuthor || ''));
+            formDataToSend.append(`autor-words-album[${track.product_id}]`, cleanField(track.textAuthor || ''));
+            formDataToSend.append(`autor-files-album[${track.product_id}]`, cleanField(track.performerName || ''));
+            console.log(`    Трек ${trackIndex + 1}: ID=${track.product_id}, Name=${track.audioFileName}`);
+          }
+        });
+      }
+    });
+  }
+  
+  if (quiz3State?.formData) {
+    const f = quiz3State.formData;
+    console.log('📝 Добавляем данные Quiz3:');
+    console.log('  - alias (псевдоним):', f.performerName);
+    console.log('  - name-relize (название):', f.releaseName);
+    
+    formDataToSend.append('alias', cleanField(f.performerName || ''));
+    formDataToSend.append('name-relize', cleanField(f.releaseName || ''));
+    formDataToSend.append('kuda_reliz1', '1');
+    formDataToSend.append('kuda-reliz', '1');
+    formDataToSend.append('others-kuda', f.otherPlatform || '');
+    formDataToSend.append('calendar-reliz', f.releaseDate || '');
+    formDataToSend.append('mat1', f.hasProfanity === 'yes' ? '12' : '13');
+    formDataToSend.append('mat', f.hasProfanity === 'yes' ? '12' : '13');
+    formDataToSend.append('others-mat', f.profanityTracks || '');
+    formDataToSend.append('mat1ai', '13');
+    formDataToSend.append('matai', '13');
+    formDataToSend.append('others-matai', '');
+    formDataToSend.append('all-obl', '1');
+    formDataToSend.append('vk', f.vkLink || '');
+    formDataToSend.append('email-clear', f.email || '');
+    
+    formDataToSend.append('alias-album', cleanField(f.performerName || ''));
+    formDataToSend.append('name-relize-album', '');
+    formDataToSend.append('kuda-reliz-album1', '');
+    formDataToSend.append('kuda-reliz-album', '1');
+    formDataToSend.append('others-kuda-album', '');
+    formDataToSend.append('calendar-reliz-album', '');
+    formDataToSend.append('mat-album1', '13');
+    formDataToSend.append('mat-album', '13');
+    formDataToSend.append('others-mat-album', '');
+    formDataToSend.append('mat-album1ai', '13');
+    formDataToSend.append('mat-albumai', '13');
+    formDataToSend.append('others-matai-album', '');
+    formDataToSend.append('vk-album', f.vkLink || '');
+    formDataToSend.append('email-clear-album', f.email || '');
+  }
+  
+  if (quiz4State?.formData) {
+    const u = quiz4State.formData;
+    console.log('📝 Добавляем данные Quiz4:');
+    
+    formDataToSend.append('citysenship1', '');
+    formDataToSend.append('citysenship', u.userType === 'individual' ? 'Физическое лицо' : 'Индивидуальный предприниматель');
+    formDataToSend.append('select__fizurlico', '');
+    formDataToSend.append('others', '');
+    formDataToSend.append('yur_arg_org', cleanField(u.legalAddress || ''));
+    formDataToSend.append('inn', u.inn || '');
+    formDataToSend.append('ogrn', u.ogrn || '');
+    formDataToSend.append('rasy', u.accountNumber || '');
+    formDataToSend.append('bank', cleanField(u.bankName || ''));
+    formDataToSend.append('inn_bank', u.bankInn || '');
+    formDataToSend.append('bik', u.bankBik || '');
+    formDataToSend.append('kor_s', u.correspondentAccount || '');
+    formDataToSend.append('yur_adr_bank', cleanField(u.bankLegalAddress || ''));
+    
+    const formatCitizenship = (citizenship?: string, other?: string): string => {
+      if (!citizenship) return '';
+      if (citizenship === 'RU') return 'Российская Федерация';
+      if (citizenship === 'other') return other || '';
+      return citizenship;
+    };
+    
+    const formatDateForAPI = (dateString?: string): string => {
+      if (!dateString) return '';
+      try {
+        const date = new Date(dateString);
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+      } catch {
+        return dateString;
+      }
+    };
+    
+    formDataToSend.append('citysenship1', '');
+    formDataToSend.append('citysenship', formatCitizenship(u.citizenship, u.otherCitizenship));
+    formDataToSend.append('others', '');
+    formDataToSend.append('FAM', cleanField(u.lastName || ''));
+    formDataToSend.append('IMYA', cleanField(u.firstName || ''));
+    formDataToSend.append('OTCH', cleanField(u.middleName || ''));
+    formDataToSend.append('passport', u.passportNumber || '');
+    formDataToSend.append('who-doing', cleanField(u.passportIssuedBy || ''));
+    formDataToSend.append('kemvidan', '');
+    formDataToSend.append('when-doing', formatDateForAPI(u.passportIssueDate) || '22/22/2222');
+    formDataToSend.append('adress', cleanField(u.registrationAddress || ''));
+  }
+  
+  if (quiz5State?.formData) {
+    const g = quiz5State.formData;
+    console.log('📝 Добавляем данные Quiz5:');
+    
+    formDataToSend.append('genre', cleanField(g.genre || ''));
+    formDataToSend.append('time-play', g.tiktokStartSeconds || '');
+    formDataToSend.append('nark', g.hasDrugsMention === 'yes' ? '12' : '13');
+    formDataToSend.append('narc', g.hasDrugsMention === 'yes' ? '12' : '13');
+    formDataToSend.append('others-narc', g.drugsTracks || '');
+    formDataToSend.append('apple', g.appleMusicLinks || '');
+    formDataToSend.append('spotify', g.spotifyLinks || '');
+    formDataToSend.append('link-vk', g.vkLinks || '');
+    formDataToSend.append('link-yandex', g.yandexMusicLinks || '');
+    formDataToSend.append('socialartist', g.socialLinks || '');
+  }
+  
+  console.log('📝 Добавляем данные Quiz6:');
+  formDataToSend.append('otkuda-uznali1', formData.platforms[0] || '');
+  formDataToSend.append('otkuda-uznali', formData.platforms[0] || '');
+  formDataToSend.append('others-otkuda', formData.otherPlatform || '');
+  formDataToSend.append('instrumentals', formData.rightsInfo || '');
+  formDataToSend.append('comments', formData.additionalComments || '');
+  formDataToSend.append('plan', formData.promoPlan || '');
+  formDataToSend.append('link-bandlink', formData.bandlinkUrl || '');
+  formDataToSend.append('promocode', formData.promoCode || '');
+  formDataToSend.append('promosum', '');
+  formDataToSend.append('sumOrder', String(finalAmount.value || 0));
+  formDataToSend.append('policy', formData.confirmNoRightsViolation ? 'on' : 'off');
+  
+  if (type === 'album') {
+    formDataToSend.append('file-obl-album', file);
+    console.log('🖼️ Добавлена обложка как file-obl-album:', file.name);
+  } else {
+    const singleCount = quiz1State?.singleCount || 0;
+    for (let i = 1; i <= singleCount; i++) {
+      formDataToSend.append(`file-obl${i}`, file);
+    }
+    console.log(`🖼️ Добавлена обложка как file-obl1 - file-obl${singleCount}:`, file.name);
+  }
+  
+  console.log('📦 ПОЛНОЕ СОДЕРЖИМОЕ FormData:');
+  let fieldCount = 0;
+  for (const pair of (formDataToSend as any).entries()) {
+    fieldCount++;
+    if (pair[1] instanceof File) {
+      console.log(`  [${fieldCount}] ${pair[0]}: [ФАЙЛ] ${pair[1].name} (${pair[1].size} bytes)`);
+    } else {
+      console.log(`  [${fieldCount}] ${pair[0]}: ${pair[1]}`);
+    }
+  }
+  console.log(`📊 Всего полей в FormData: ${fieldCount}`);
+  console.log('=================================================');
+  
+  try {
+    console.log('🚀 Отправляем запрос в newDock.php...');
+    const response = await FileRequest('post', '/ajax_vue/ajax/newDock.php', formDataToSend);
+    console.log('✅ Ответ сервера:', response.data);
+    
+    if (response.data && response.data.error === 0 && response.data.data) {
+      const data = response.data.data;
+      
+      if (data.doc_pdf && data.doc_docx && Array.isArray(data.images)) {
+        const contract = {
+          doc_pdf: data.doc_pdf,
+          doc_docx: data.doc_docx,
+          images: data.images
+        };
+        
+        contractData.value = contract;
+        contractLoadedFromBackend.value = true; // Это новый договор, а не из бэка
+        
+        // Явно сохраняем contractData в состояние Quiz6
+        const quiz6State = await quizDB.value.get('quizState', 'quiz6_state') || { id: 'quiz6_state' };
+        quiz6State.contractData = contract;
+        quiz6State.contractLoadedFromBackend = true;
+        await quizDB.value.put('quizState', quiz6State);
+        
+        return contract;
+      } else {
+        throw new Error('Неполные данные в ответе сервера');
+      }
+    } else {
+      throw new Error(response.data?.message || 'Ошибка генерации договора');
+    }
+  } catch (error) {
+    console.error('❌ Ошибка в uploadCoverAndGenerateContract:', error);
+    throw error;
+  }
+};
+
 const goBack = () => {
   emit('go-back');
 };
@@ -1539,7 +1592,6 @@ const handleContinue = async () => {
   }
   
   try {
-    // Шаг 1: Отправляем аудиофайлы
     ElMessage.info('Начинаем отправку аудиофайлов на сервер...');
     const uploadedFiles = await uploadAllAudioFiles();
     
@@ -1548,7 +1600,6 @@ const handleContinue = async () => {
       return;
     }
     
-    // Шаг 2: Получаем обложку
     const coverFile = await getCoverFile();
     
     if (!coverFile) {
@@ -1556,7 +1607,6 @@ const handleContinue = async () => {
       return;
     }
     
-    // Шаг 3: Отправляем обложку и ВСЕ данные договора
     ElMessage.info('Генерируем договор...');
     isGeneratingContract.value = true;
     
@@ -1575,7 +1625,6 @@ const handleContinue = async () => {
   }
 };
 
-// Debounced save
 const debouncedSave = () => {
   if (saveTimeout) {
     clearTimeout(saveTimeout);
@@ -1587,7 +1636,6 @@ const debouncedSave = () => {
   }, 500);
 };
 
-// Watchers с debounce
 watch(() => formData.platforms, () => { if (dataLoaded.value) debouncedSave(); }, { deep: true });
 watch(() => formData.otherPlatform, () => { if (dataLoaded.value) debouncedSave(); });
 watch(() => formData.rightsInfo, () => { if (dataLoaded.value) debouncedSave(); });
@@ -1750,7 +1798,7 @@ onUnmounted(() => {
   font-size: 14px;
 }
 .promo_loading {
-  color: var(--text-gray);
+  color: var(text-gray);
   font-size: 14px;
 }
 .promo_discount_info {

@@ -310,16 +310,15 @@ const getFullUrl = (path: string) => {
 
 // Функция для загрузки страницы релизов
 const fetchReleasesPage = async (page: number) => {
-  loading.value = true;
-  isLoadingReleases.value = true;
+  // Убираем loading.value = true
+  isLoadingReleases.value = true; // Оставляем только специфичный флаг
   try {
     const response = await sendRequest('get', `/ajax_vue/ajax/getData.php?PAGEN_1=${page}`, {});
     
     if (response.data && response.data.releases) {
       releasesData.value = response.data.releases.items.map((item: any) => ({
         id: item.ID || item.id,
-        name: item.NAME || item.name,
-        date: item.DATE_CREATE || item.date,
+        name: item.NAME || item.name,        date: item.DATE_CREATE || item.date,
         upcCode: item.PROPERTY_ZVONKO_UPC_VALUE,
         link: item.PROPERTY_ZVONKO_SMART_LINK_URL_VALUE,
         contractFile: item.CONTRACT_FILE ? getFullUrl(item.CONTRACT_FILE) : null,
@@ -346,13 +345,13 @@ const fetchReleasesPage = async (page: number) => {
     console.error('Ошибка при загрузке релизов:', error);
   } finally {
     isLoadingReleases.value = false;
-    loading.value = false;
+    // Убираем loading.value = false
   }
 };
 
 // Функция для загрузки страницы отчетов
 const fetchReportsPage = async (page: number) => {
-  loading.value = true;
+  // Убираем loading.value = true
   isLoadingReports.value = true;
   try {
     const response = await sendRequest('get', `/ajax_vue/ajax/getData.php?report_page=${page}`, {});
@@ -381,13 +380,13 @@ const fetchReportsPage = async (page: number) => {
     console.error('Ошибка при загрузке отчетов:', error);
   } finally {
     isLoadingReports.value = false;
-    loading.value = false;
+    // Убираем loading.value = false
   }
 };
 
 // Функция для загрузки страницы транзакций
 const fetchTransactionsPage = async (page: number) => {
-  loading.value = true;
+  // Убираем loading.value = true
   isLoadingTransactions.value = true;
   try {
     const response = await sendRequest('get', `/ajax_vue/ajax/getData.php?PAGEN_2=${page}`, {});
@@ -417,7 +416,7 @@ const fetchTransactionsPage = async (page: number) => {
     console.error('Ошибка при загрузке транзакций:', error);
   } finally {
     isLoadingTransactions.value = false;
-    loading.value = false;
+    // Убираем loading.value = false
   }
 };
 
