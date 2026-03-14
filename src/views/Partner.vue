@@ -8,7 +8,7 @@ import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
 import ClipSVG from "@/uikit/icon/ClipSVG.vue";
 import { sendRequest } from '@/utils/api';
 
-const loading = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
 const loadingSvg = `
   <path class="path" d="
     M 30 15
@@ -37,7 +37,6 @@ const referralData = ref({
 });
 
 const referralUsers = ref<ReferralUser[]>([]);
-const isLoading = ref(false);
 const isAccepting = ref(false);
 const copySuccess = ref(false);
 
@@ -103,7 +102,6 @@ const prevPartnersPage = () => {
 // Загрузка данных
 const fetchData = async () => {
   isLoading.value = true;
-  loading.value = true;
   try {
     const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
     console.log('Данные из API:', response.data);
@@ -122,7 +120,6 @@ const fetchData = async () => {
     console.error('Ошибка при загрузке данных:', error);
   } finally {
     isLoading.value = false;
-    loading.value = false;
   }
 };
 
@@ -168,13 +165,20 @@ onMounted(() => {
 
 <template>
 <Header></Header>
-<section v-if="loading === true" class="loading">
-  <div v-loading="loading" :element-loading-svg="loadingSvg" class="loading__svg" element-loading-svg-view-box="-10, -10, 50, 50" style="width: 100%"></div>
-</section>
-<section v-else class="personal">
+<section class="personal">
   <div class="container personal__container">
     <Menu />
-    <div class="personal__block">
+    <div v-if="isLoading === true" class="personal__block">
+      <div class="loading__container">
+        <div 
+          v-loading="isLoading" 
+          :element-loading-svg="loadingSvg" 
+          class="loading__svg" 
+          element-loading-svg-view-box="-10, -10, 50, 50"
+        ></div>
+      </div>
+    </div>
+    <div v-else class="personal__block">
       <div class="partner__top">
         <h3 class="partner__head">ЧТО ТАКОЕ ПАРТНЁРСКАЯ ПРОГРАММА VAUVISION?</h3>
         <p class="partner__desc">Получайте 400 рублей за каждого друга, выкладывающего релизы через VAUVISION по вашей реферальной ссылке! А также за их каждый следующий релиз и за каждый релиз их друзей!</p>
@@ -344,6 +348,17 @@ onMounted(() => {
 </template>
 
 <style lang="css" scoped>
+.loading__container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.loading__svg {
+  width: 100px;
+  height: 100px;
+}
+
 .personal {
   margin: 0 0 auto;
 }

@@ -15,7 +15,7 @@ import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
 import Tr from "@/i18n/translation"
 import SignaturePopup from "@/components/layout/Signature.vue";
 
-const loading = ref<boolean>(false);
+const loading = ref<boolean>(true); // Изначально true, пока грузятся все данные
 const loadingSvg = `
   <path class="path" d="
     M 30 15
@@ -26,6 +26,9 @@ const loadingSvg = `
     L 15 15
   " style="stroke-width: 4px; fill: rgba(0, 0, 0, 0)"/>
 `;
+
+// Счетчик загруженных данных и общее количество запросов
+const loadedCount = ref(0);
 
 // Получаем базовый URL из текущего окна
 const API_BASE_URL = window.location.origin;
@@ -310,15 +313,15 @@ const getFullUrl = (path: string) => {
 
 // Функция для загрузки страницы релизов
 const fetchReleasesPage = async (page: number) => {
-  // Убираем loading.value = true
-  isLoadingReleases.value = true; // Оставляем только специфичный флаг
+  isLoadingReleases.value = true;
   try {
     const response = await sendRequest('get', `/ajax_vue/ajax/getData.php?PAGEN_1=${page}`, {});
     
     if (response.data && response.data.releases) {
       releasesData.value = response.data.releases.items.map((item: any) => ({
         id: item.ID || item.id,
-        name: item.NAME || item.name,        date: item.DATE_CREATE || item.date,
+        name: item.NAME || item.name,
+        date: item.DATE_CREATE || item.date,
         upcCode: item.PROPERTY_ZVONKO_UPC_VALUE,
         link: item.PROPERTY_ZVONKO_SMART_LINK_URL_VALUE,
         contractFile: item.CONTRACT_FILE ? getFullUrl(item.CONTRACT_FILE) : null,
@@ -345,13 +348,11 @@ const fetchReleasesPage = async (page: number) => {
     console.error('Ошибка при загрузке релизов:', error);
   } finally {
     isLoadingReleases.value = false;
-    // Убираем loading.value = false
   }
 };
 
 // Функция для загрузки страницы отчетов
 const fetchReportsPage = async (page: number) => {
-  // Убираем loading.value = true
   isLoadingReports.value = true;
   try {
     const response = await sendRequest('get', `/ajax_vue/ajax/getData.php?report_page=${page}`, {});
@@ -380,13 +381,11 @@ const fetchReportsPage = async (page: number) => {
     console.error('Ошибка при загрузке отчетов:', error);
   } finally {
     isLoadingReports.value = false;
-    // Убираем loading.value = false
   }
 };
 
 // Функция для загрузки страницы транзакций
 const fetchTransactionsPage = async (page: number) => {
-  // Убираем loading.value = true
   isLoadingTransactions.value = true;
   try {
     const response = await sendRequest('get', `/ajax_vue/ajax/getData.php?PAGEN_2=${page}`, {});
@@ -416,7 +415,6 @@ const fetchTransactionsPage = async (page: number) => {
     console.error('Ошибка при загрузке транзакций:', error);
   } finally {
     isLoadingTransactions.value = false;
-    // Убираем loading.value = false
   }
 };
 
@@ -647,7 +645,8 @@ const handleImageError = (event: Event) => {
   }
 };
 
-const fetchData = async () => {
+// Функция для загрузки профиля
+const fetchProfileData = async () => {
   try {
     const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
     console.log('Данные из API:', response.data);
@@ -669,6 +668,17 @@ const fetchData = async () => {
       reportYears.value = response.data.reportYears;
     }
     
+    return response.data;
+  } catch (error) {
+    console.error('Ошибка при загрузке профиля:', error);
+    throw error;
+  }
+};
+
+// Функция для загрузки релизов
+const fetchReleases = async () => {
+  try {
+    const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
     if (response.data && response.data.releases) {
       releasesData.value = response.data.releases.items.map((item: any) => ({
         id: item.ID || item.id,
@@ -695,7 +705,16 @@ const fetchData = async () => {
       };
       currentReleasesPage.value = releasesPagination.value.currentPage;
     }
-    
+  } catch (error) {
+    console.error('Ошибка при загрузке релизов:', error);
+    throw error;
+  }
+};
+
+// Функция для загрузки отчетов
+const fetchReports = async () => {
+  try {
+    const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
     if (response.data && response.data.downloadedReports) {
       reportsData.value = response.data.downloadedReports.items.map((item: any) => ({
         id: item.id,
@@ -715,7 +734,16 @@ const fetchData = async () => {
       };
       currentReportsPage.value = reportsPagination.value.currentPage;
     }
-    
+  } catch (error) {
+    console.error('Ошибка при загрузке отчетов:', error);
+    throw error;
+  }
+};
+
+// Функция для загрузки транзакций
+const fetchTransactions = async () => {
+  try {
+    const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
     if (response.data && response.data.finances) {
       transactionsData.value = response.data.finances.items.map((item: any, index: number) => ({
         id: item.ID || index + 1,
@@ -736,25 +764,34 @@ const fetchData = async () => {
       };
       currentTransactionsPage.value = transactionsPagination.value.currentPage;
     }
-    
-    // Загружаем статьи (берем из общего ответа или делаем отдельный запрос)
+  } catch (error) {
+    console.error('Ошибка при загрузке транзакций:', error);
+    throw error;
+  }
+};
+
+// Функция для загрузки статей
+const fetchArticles = async () => {
+  try {
+    const response = await sendRequest('get', '/ajax_vue/ajax/getData.php?articles', {});
     if (response.data && response.data.articles) {
-      articlesData.value = response.data.articles || [];
+      articlesData.value = response.data.articles;
     } else {
-      // Если статей нет в общем ответе, делаем отдельный запрос
-      try {
-        const articlesResponse = await sendRequest('get', '/ajax_vue/ajax/getData.php?articles', {});
-        if (articlesResponse.data && articlesResponse.data.articles) {
-          articlesData.value = articlesResponse.data.articles;
-        }
-      } catch (error) {
-        console.error('Ошибка при загрузке статей:', error);
-      }
+      articlesData.value = [];
     }
-    
-    // Загружаем партнеров
-    if (response.data && response.data.profile && response.data.profile.referralUsers) {
-      partnersData.value = response.data.profile.referralUsers.map((user: any, index: number) => ({
+  } catch (error) {
+    console.error('Ошибка при загрузке статей:', error);
+    articlesData.value = [];
+    throw error;
+  }
+};
+
+// Функция для загрузки партнеров
+const fetchPartners = async () => {
+  try {
+    const partnerResponse = await sendRequest('get', '/ajax_vue/ajax/getData.php?referral', {});
+    if (partnerResponse.data && partnerResponse.data.profile && partnerResponse.data.profile.referralUsers) {
+      partnersData.value = partnerResponse.data.profile.referralUsers.map((user: any, index: number) => ({
         id: parseInt(user.ID) || index + 1,
         name: user.LOGIN || 'Без имени',
         email: user.EMAIL || '',
@@ -763,27 +800,12 @@ const fetchData = async () => {
         releases: formatReleases(user.UF_RELEASES)
       }));
     } else {
-      // Если партнеров нет в общем ответе, делаем отдельный запрос
-      try {
-        const partnerResponse = await sendRequest('get', '/ajax_vue/ajax/getData.php?referral', {});
-        if (partnerResponse.data && partnerResponse.data.profile && partnerResponse.data.profile.referralUsers) {
-          partnersData.value = partnerResponse.data.profile.referralUsers.map((user: any, index: number) => ({
-            id: parseInt(user.ID) || index + 1,
-            name: user.LOGIN || 'Без имени',
-            email: user.EMAIL || '',
-            date: formatDate(user.DATE_REGISTER),
-            earnings: user.PAYOUT || '0 ₽',
-            releases: formatReleases(user.UF_RELEASES)
-          }));
-        }
-      } catch (error) {
-        console.error('Ошибка при загрузке партнеров:', error);
-      }
+      partnersData.value = [];
     }
-    
-    return response.data;
   } catch (error) {
-    console.error('Ошибка при загрузке данных:', error);
+    console.error('Ошибка при загрузке партнеров:', error);
+    partnersData.value = [];
+    throw error;
   }
 };
 
@@ -896,7 +918,7 @@ const submitToVyplataApi = async () => {
     if (response.data && response.data.error === 0) {
       alert('Выплата успешно обработана');
       closeAllPopups();
-      await fetchData(); // Обновляем данные
+      await fetchProfileData(); // Обновляем данные
     } else {
       vyplataError.value = response.data?.message || 'Ошибка при обработке выплаты';
       alert(vyplataError.value);
@@ -1020,7 +1042,7 @@ const submitBonusPayout = async () => {
       if (response.data.error === 0 || response.data.error === false || response.data.error === '0') {
         alert('Запрос на выплату бонусов успешно отправлен');
         closeBonusPayoutPopup();
-        await fetchData();
+        await fetchProfileData();
         return;
       }
       
@@ -1028,7 +1050,7 @@ const submitBonusPayout = async () => {
       if (response.data.success === true || response.data.success === '1' || response.data.success === 1) {
         alert('Запрос на выплату бонусов успешно отправлен');
         closeBonusPayoutPopup();
-        await fetchData();
+        await fetchProfileData();
         return;
       }
       
@@ -1036,7 +1058,7 @@ const submitBonusPayout = async () => {
       if (response.data.status === 'ok' || response.data.status === 'success') {
         alert('Запрос на выплату бонусов успешно отправлен');
         closeBonusPayoutPopup();
-        await fetchData();
+        await fetchProfileData();
         return;
       }
       
@@ -1048,7 +1070,7 @@ const submitBonusPayout = async () => {
       )) {
         alert(response.data.message);
         closeBonusPayoutPopup();
-        await fetchData();
+        await fetchProfileData();
         return;
       }
       
@@ -1056,7 +1078,7 @@ const submitBonusPayout = async () => {
       if (!response.data.error && !response.data.errorCode) {
         alert('Запрос на выплату бонусов успешно отправлен');
         closeBonusPayoutPopup();
-        await fetchData();
+        await fetchProfileData();
         return;
       }
     }
@@ -1097,6 +1119,28 @@ const closeBonusPayoutPopup = () => {
   document.documentElement.classList.remove('noscroll');
 };
 
+// Функция для загрузки всех данных
+const loadAllData = async () => {
+  loading.value = true;
+  loadedCount.value = 0;
+  
+  try {
+    // Запускаем все запросы параллельно
+    await Promise.all([
+      fetchProfileData().finally(() => loadedCount.value++),
+      fetchReleases().finally(() => loadedCount.value++),
+      fetchReports().finally(() => loadedCount.value++),
+      fetchTransactions().finally(() => loadedCount.value++),
+      fetchArticles().finally(() => loadedCount.value++),
+      fetchPartners().finally(() => loadedCount.value++)
+    ]);
+  } catch (error) {
+    console.error('Ошибка при загрузке данных:', error);
+  } finally {
+    loading.value = false;
+  }
+};
+
 // Следим за изменением страницы отчетов
 watch(currentReportsPage, async (newPage) => {
   if (newPage > 0) {
@@ -1106,19 +1150,26 @@ watch(currentReportsPage, async (newPage) => {
 
 // Инициализация при монтировании
 onMounted(() => {
-  fetchData();
+  loadAllData();
 });
 </script>
 
 <template>
 <Header></Header>
-<section v-if="loading === true" class="loading">
-  <div v-loading="loading" :element-loading-svg="loadingSvg" class="loading__svg" element-loading-svg-view-box="-10, -10, 50, 50" style="width: 100%"></div>
-</section>
-<section v-else class="personal">
+<section class="personal">
   <div class="container personal__container">
     <Menu />
-    <div class="personal__block">
+    <div v-if="loading" class="personal__block">
+      <div class="loading__container">
+        <div 
+          v-loading="loading" 
+          :element-loading-svg="loadingSvg" 
+          class="loading__svg" 
+          element-loading-svg-view-box="-10, -10, 50, 50"
+        ></div>
+      </div>
+    </div>
+    <div v-else class="personal__block">
       <div class="personal__balance">
         <div class="personal__balance_info">
           <h3 class="personal__balance_head">Баланс и бонусы аккаунта</h3>
@@ -1192,10 +1243,10 @@ onMounted(() => {
             <RouterLink class="personal__release_button button__black button" :to="Tr.i18nRoute({ name: 'release' })">
               <span>Выложить релиз</span>
             </RouterLink>
-            <div class="personal__release_image">
+            <!-- <div class="personal__release_image">
               <img src="@/assets/img/personal/release/cassette.webp" alt="">
               <img src="@/assets/img/personal/release/cassette_back.webp" alt="">
-            </div>
+            </div> -->
           </div>
           <div class="personal__releases">
             <div class="personal__releases_block">
@@ -1759,7 +1810,17 @@ onMounted(() => {
 </template>
 
 <style lang="css" scoped>
-/* Все стили остаются без изменений */
+.loading__container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.loading__svg {
+  width: 100px;
+  height: 100px;
+}
+
 .personal__flex {
   display: flex;
   gap: 20px;

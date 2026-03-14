@@ -6,7 +6,7 @@ import Menu from "@/components/layout/Menu.vue";
 import ArrowSVG from "@/uikit/icon/ArrowSVG.vue";
 import Tr from "@/i18n/translation";
 
-const loading = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
 const loadingSvg = `
   <path class="path" d="
     M 30 15
@@ -28,7 +28,6 @@ interface FAQItem {
 const faqItems = ref<FAQItem[]>([]);
 const activeItemId = ref<number | string | null>(null);
 const contentRefs = ref<HTMLElement[]>([]);
-const isLoading = ref<boolean>(true);
 const error = ref<string | null>(null);
 
 const toggleAccordion = (id: number | string) => {
@@ -130,7 +129,6 @@ const fetchData = async () => {
     ];
   } finally {
     isLoading.value = false;
-    loading.value = false;
   }
 };
 
@@ -142,13 +140,20 @@ onMounted(() => {
 
 <template>
 <Header></Header>
-<section v-if="loading === true" class="loading">
-  <div v-loading="loading" :element-loading-svg="loadingSvg" class="loading__svg" element-loading-svg-view-box="-10, -10, 50, 50" style="width: 100%"></div>
-</section>
-<section v-else class="personal">
+<section class="personal">
   <div class="container personal__container">
     <Menu />
-    <div class="personal__block">
+    <div v-if="isLoading === true" class="personal__block">
+      <div class="loading__container">
+        <div 
+          v-loading="isLoading" 
+          :element-loading-svg="loadingSvg" 
+          class="loading__svg" 
+          element-loading-svg-view-box="-10, -10, 50, 50"
+        ></div>
+      </div>
+    </div>
+    <div v-else class="personal__block">
       <div class="faq__content">
         <div class="faq__top">
           <h3 class="faq__head">ответы на ваши вопросы</h3>
@@ -161,13 +166,8 @@ onMounted(() => {
           </p>
         </div>
         
-        <!-- Индикатор загрузки -->
-        <div v-if="isLoading" class="faq__loading">
-          <p>Загрузка вопросов...</p>
-        </div>
-        
         <!-- Сообщение об ошибке -->
-        <div v-else-if="error" class="faq__error">
+        <div v-if="error" class="faq__error">
           <p>{{ error }}</p>
           <button @click="fetchData" class="faq__retry-btn">Повторить попытку</button>
         </div>
@@ -218,6 +218,17 @@ onMounted(() => {
 </template>
 
 <style lang="css" scoped>
+.loading__container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.loading__svg {
+  width: 100px;
+  height: 100px;
+}
+
 .personal {
   margin: 0 0 auto;
 }
@@ -307,7 +318,6 @@ onMounted(() => {
 .faq__description :deep(strong) {
   font-weight: 600;
 }
-.faq__loading,
 .faq__error,
 .faq__empty {
   padding: 60px 40px;
@@ -366,7 +376,6 @@ onMounted(() => {
   .faq__description {
     padding: 0 20px 20px;
   }
-  .faq__loading,
   .faq__error,
   .faq__empty {
     padding: 40px 20px;

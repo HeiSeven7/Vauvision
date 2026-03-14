@@ -282,6 +282,7 @@ interface UploadedFileInfo {
   file_name: string;
   product_id: string;
   type: 'single' | 'album';
+  path?: string;
   track_number?: number;
   album_number?: number;
 }
@@ -1018,7 +1019,11 @@ const getAllAudioFiles = async (): Promise<Array<{ file: File; type: 'single' | 
                 type: audioData.fileType || 'audio/mpeg' 
               });
               
-              files.push({ file, type: 'single', trackIndex: i });
+              files.push({ 
+                file, 
+                type: 'single', 
+                trackIndex: i 
+              });
             }
           }
         }
@@ -1042,7 +1047,12 @@ const getAllAudioFiles = async (): Promise<Array<{ file: File; type: 'single' | 
                     type: audioData.fileType || 'audio/mpeg' 
                   });
                   
-                  files.push({ file, type: 'album', albumIndex: a, trackIndex: t });
+                  files.push({ 
+                    file, 
+                    type: 'album', 
+                    albumIndex: a, 
+                    trackIndex: t 
+                  });
                 }
               }
             }
@@ -1118,38 +1128,52 @@ const saveProductNumbers = async (uploadedFiles: UploadedFileInfo[]): Promise<vo
       uploadedFiles.forEach((file: UploadedFileInfo) => {
         const fileName = file.file_name;
         const productId = file.product_id;
+        const fileType = file.type;
         
-        console.log(`Quiz6: Saving product_id ${productId} for file: ${fileName}`);
+        console.log(`Quiz6: Saving product_id ${productId} for ${fileType} file: ${fileName}`);
         
-        // Ищем в синглах
-        if (quiz2State.singleTracks && Array.isArray(quiz2State.singleTracks)) {
-          const singleTrack = quiz2State.singleTracks.find((track: any) => 
-            track.audioFileName === fileName
-          );
-          
-          if (singleTrack) {
-            console.log(`Quiz6: Found matching single track, saving product_id ${productId}`);
-            singleTrack.product_id = productId;
-            updated = true;
-            return;
-          }
-        }
-        
-        // Ищем в альбомах
-        if (quiz2State.albums && Array.isArray(quiz2State.albums)) {
-          quiz2State.albums.forEach((album: any) => {
-            if (album.tracks && Array.isArray(album.tracks)) {
-              const albumTrack = album.tracks.find((track: any) => 
-                track.audioFileName === fileName
-              );
-              
-              if (albumTrack) {
-                console.log(`Quiz6: Found matching album track, saving product_id ${productId}`);
-                albumTrack.product_id = productId;
-                updated = true;
-              }
+        if (fileType === 'single') {
+          // Ищем в синглах
+          if (quiz2State.singleTracks && Array.isArray(quiz2State.singleTracks)) {
+            const singleTrack = quiz2State.singleTracks.find((track: any) => 
+              track.audioFileName === fileName
+            );
+            
+            if (singleTrack) {
+              console.log(`Quiz6: Found matching single track, saving product_id ${productId}`);
+              singleTrack.product_id = productId;
+              updated = true;
+            } else {
+              console.log(`Quiz6: No matching single track found for file: ${fileName}`);
             }
-          });
+          }
+        } else if (fileType === 'album') {
+          // Ищем в альбомах
+          if (quiz2State.albums && Array.isArray(quiz2State.albums)) {
+            let found = false;
+            
+            for (const album of quiz2State.albums) {
+              if (album.tracks && Array.isArray(album.tracks)) {
+                const albumTrack = album.tracks.find((track: any) => 
+                  track.audioFileName === fileName
+                );
+                
+                if (albumTrack) {
+                  console.log(`Quiz6: Found matching album track, saving product_id ${productId}`);
+                  albumTrack.product_id = productId;
+                  updated = true;
+                  found = true;
+                  break;
+                }
+              }
+              
+              if (found) break;
+            }
+            
+            if (!found) {
+              console.log(`Quiz6: No matching album track found for file: ${fileName}`);
+            }
+          }
         }
       });
       
@@ -1157,16 +1181,6 @@ const saveProductNumbers = async (uploadedFiles: UploadedFileInfo[]): Promise<vo
         // Сохраняем обновленное состояние Quiz2
         await quizDB.value.put('quizState', quiz2State);
         console.log('Quiz6: Product numbers saved successfully to quiz2_state');
-        
-        // Также сохраняем у себя для использования в этом же компоненте
-        // Обновляем локальные данные quiz2Data для текущей сессии
-        if (quiz2State.singleTracks) {
-          quiz2State.singleTracks.forEach((track: any) => {
-            if (track.product_id) {
-              console.log(`✅ Product_id ${track.product_id} сохранен для сингла ${track.audioFileName}`);
-            }
-          });
-        }
       } else {
         console.log('Quiz6: No tracks were updated');
       }
@@ -1283,12 +1297,70 @@ const uploadAllAudioFiles = async (): Promise<UploadedFileInfo[]> => {
       
       if (response && response.error === 0) {
         console.log(`Quiz6: Audio file ${i + 1}/${audioFiles.length} uploaded successfully`);
+        console.log(`Quiz6: Response for ${type}:`, response);
         
-        const uploaded = response.data?.uploaded || response.uploaded;
-        
-        if (uploaded && Array.isArray(uploaded)) {
-          console.log(`Quiz6: Received ${uploaded.length} file entries in response`);
-          uploadedFilesData.push(...uploaded);
+        // Получаем данные из ответа
+        if (response.data) {
+          const uploadedData = response.data.uploaded;
+          
+          if (uploadedData) {
+            if (type === 'album') {
+              // Для альбома - обрабатываем как объект
+              console.log('Quiz6: Album upload response (object):', uploadedData);
+              
+              // Проверяем, есть ли в объекте нужные поля
+              if (uploadedData.file_name && uploadedData.product_id) {
+                // Создаем объект, соответствующий интерфейсу UploadedFileInfo
+                const fileInfo: UploadedFileInfo = {
+                  file_name: uploadedData.file_name,
+                  product_id: uploadedData.product_id,
+                  type: 'album',
+                  path: uploadedData.path, // Теперь path существует в интерфейсе
+                  track_number: trackIndex !== undefined ? trackIndex + 1 : undefined,
+                  album_number: albumIndex !== undefined ? albumIndex + 1 : undefined
+                };
+                
+                uploadedFilesData.push(fileInfo);
+                console.log(`Quiz6: Added album file: ${fileInfo.file_name} with product_id: ${fileInfo.product_id}`);
+              } else if (Array.isArray(uploadedData)) {
+                // Если все-таки массив (на всякий случай)
+                uploadedData.forEach((item: any) => {
+                  const fileInfo: UploadedFileInfo = {
+                    file_name: item.file_name,
+                    product_id: item.product_id,
+                    type: 'album',
+                    path: item.path
+                  };
+                  uploadedFilesData.push(fileInfo);
+                });
+                console.log(`Quiz6: Added ${uploadedData.length} album files from array`);
+              }
+            } else {
+              // Для сингла - обрабатываем как массив
+              if (Array.isArray(uploadedData)) {
+                uploadedData.forEach((item: any) => {
+                  const fileInfo: UploadedFileInfo = {
+                    file_name: item.file_name,
+                    product_id: item.product_id,
+                    type: 'single',
+                    path: item.path
+                  };
+                  uploadedFilesData.push(fileInfo);
+                });
+                console.log(`Quiz6: Added ${uploadedData.length} single files from array`);
+              } else if (uploadedData.file_name && uploadedData.product_id) {
+                // Если вдруг сингл тоже пришел как объект
+                const fileInfo: UploadedFileInfo = {
+                  file_name: uploadedData.file_name,
+                  product_id: uploadedData.product_id,
+                  type: 'single',
+                  path: uploadedData.path
+                };
+                uploadedFilesData.push(fileInfo);
+                console.log(`Quiz6: Added single file as object: ${fileInfo.file_name}`);
+              }
+            }
+          }
         }
       } else {
         console.log(`Quiz6: Audio file ${i + 1}/${audioFiles.length} upload returned error:`, response);
@@ -1348,6 +1420,7 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
   console.log('✅ Quiz4 state загружен:', !!quiz4State);
   console.log('✅ Quiz5 state загружен:', !!quiz5State);
   
+  // --- Данные из Quiz1 ---
   if (quiz1State) {
     console.log('📝 Добавляем данные Quiz1:');
     formDataToSend.append('check-single', quiz1State.singleCount > 0 ? 'on' : 'off');
@@ -1357,11 +1430,13 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
     formDataToSend.append('countSingle', String(quiz1State.singleCount || 0));
     formDataToSend.append('countAlbum', String(quiz1State.albumCount || 0));
   }
-  
+
+  // --- Данные из Quiz2 (СИНГЛЫ) ---
   if (quiz2State?.singleTracks && quiz2State.singleTracks.length > 0) {
     console.log(`📝 Добавляем данные Quiz2 - синглы (${quiz2State.singleTracks.length} шт):`);
     quiz2State.singleTracks.forEach((track: any, index: number) => {
       if (track.product_id) {
+        // Используем только ключи для СИНГЛОВ
         formDataToSend.append('trackID[]', track.product_id);
         formDataToSend.append(`path-file[${track.product_id}]`, track.audioFileName || '');
         formDataToSend.append(`name-file[${track.product_id}]`, track.audioFileName || '');
@@ -1373,7 +1448,8 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
       }
     });
   }
-  
+
+  // --- Данные из Quiz2 (АЛЬБОМЫ) ---
   if (quiz2State?.albums && quiz2State.albums.length > 0) {
     console.log(`📝 Добавляем данные Quiz2 - альбомы (${quiz2State.albums.length} шт):`);
     quiz2State.albums.forEach((album: any, albumIndex: number) => {
@@ -1381,6 +1457,7 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
         console.log(`  Альбом ${albumIndex + 1}: ${album.tracks.length} треков`);
         album.tracks.forEach((track: any, trackIndex: number) => {
           if (track.product_id) {
+            // Используем только ключи для АЛЬБОМОВ
             formDataToSend.append('albumID[]', track.product_id);
             formDataToSend.append(`path-file-album[${track.product_id}]`, track.audioFileName || '');
             formDataToSend.append(`name-file-album[${track.product_id}]`, track.audioFileName || '');
@@ -1395,6 +1472,7 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
     });
   }
   
+  // --- Данные из Quiz3 ---
   if (quiz3State?.formData) {
     const f = quiz3State.formData;
     console.log('📝 Добавляем данные Quiz3:');
@@ -1417,6 +1495,7 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
     formDataToSend.append('vk', f.vkLink || '');
     formDataToSend.append('email-clear', f.email || '');
     
+    // Эти поля, вероятно, для альбомов, но оставим их здесь, т.к. бэкенд может их игнорировать, если нет альбомов
     formDataToSend.append('alias-album', cleanField(f.performerName || ''));
     formDataToSend.append('name-relize-album', '');
     formDataToSend.append('kuda-reliz-album1', '');
@@ -1433,6 +1512,7 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
     formDataToSend.append('email-clear-album', f.email || '');
   }
   
+  // --- Данные из Quiz4 ---
   if (quiz4State?.formData) {
     const u = quiz4State.formData;
     console.log('📝 Добавляем данные Quiz4:');
@@ -1484,6 +1564,7 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
     formDataToSend.append('adress', cleanField(u.registrationAddress || ''));
   }
   
+  // --- Данные из Quiz5 ---
   if (quiz5State?.formData) {
     const g = quiz5State.formData;
     console.log('📝 Добавляем данные Quiz5:');
@@ -1500,6 +1581,7 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
     formDataToSend.append('socialartist', g.socialLinks || '');
   }
   
+  // --- Данные из Quiz6 (текущий шаг) ---
   console.log('📝 Добавляем данные Quiz6:');
   formDataToSend.append('otkuda-uznali1', formData.platforms[0] || '');
   formDataToSend.append('otkuda-uznali', formData.platforms[0] || '');
@@ -1513,10 +1595,12 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
   formDataToSend.append('sumOrder', String(finalAmount.value || 0));
   formDataToSend.append('policy', formData.confirmNoRightsViolation ? 'on' : 'off');
   
+  // --- Прикрепляем файл обложки ---
   if (type === 'album') {
     formDataToSend.append('file-obl-album', file);
     console.log('🖼️ Добавлена обложка как file-obl-album:', file.name);
   } else {
+    // Для синглов, даже если их несколько, обложка одна для всех
     const singleCount = quiz1State?.singleCount || 0;
     for (let i = 1; i <= singleCount; i++) {
       formDataToSend.append(`file-obl${i}`, file);

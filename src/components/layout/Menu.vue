@@ -1,152 +1,3 @@
-<script setup lang="ts">
-import { onMounted, ref } from "vue";
-import { RouterLink } from "vue-router";
-import { sendRequest } from '@/utils/api';
-import HomeSVG from "@/uikit/menu/HomeSVG.vue";
-import UploadSVG from "@/uikit/menu/UploadSVG.vue";
-import SettingSVG from "@/uikit/menu/SettingSVG.vue";
-import PartnerSVG from "@/uikit/menu/PartnerSVG.vue";
-import FaqSVG from "@/uikit/menu/FaqSVG.vue";
-import ArticlesSVG from "@/uikit/menu/ArticlesSVG.vue";
-import LogoutSVG from "@/uikit/menu/LogoutSVG.vue";
-import PaySVG from "@/uikit/icon/PaySVG.vue";
-import LinkSVG from "@/uikit/icon/LinkSVG.vue";
-import PersonalSVG from "@/uikit/icon/PersonalSVG.vue";
-import Tr from "@/i18n/translation";
-
-// Состояние загрузки
-const isLoading = ref(true);
-
-// Данные пользователя
-const userData = ref({
-  name: '',
-  email: '',
-  balance: 0,
-  avatar: '',
-  login: ''
-});
-
-// Реферальная ссылка
-const referralLink = ref('');
-
-// Ссылка для выхода
-const logoutUrl = ref('');
-
-// Состояние копирования
-const isCopying = ref(false);
-const copySuccess = ref(false);
-
-// Получаем базовый URL из текущего окна
-const baseUrl = window.location.origin;
-
-// Функция для загрузки данных
-const fetchUserData = async () => {
-  try {
-    const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
-    console.log('Menu данные из API:', response.data);
-    
-    if (response.data) {
-      // Данные пользователя
-      if (response.data.user) {
-        userData.value.name = response.data.user.name || response.data.user.login || 'Пользователь';
-        userData.value.email = response.data.user.email || '';
-        userData.value.login = response.data.user.login || '';
-        
-        // Аватарка пользователя
-        if (response.data.user.personalPhoto) {
-          userData.value.avatar = response.data.user.personalPhoto;
-        }
-      }
-      
-      // Баланс
-      if (response.data.profile) {
-        userData.value.balance = response.data.profile.balance || 0;
-      }
-      
-      // Реферальная ссылка
-      if (response.data.referral && response.data.referral.link) {
-        referralLink.value = response.data.referral.link;
-      }
-      
-      // Ссылка для выхода - КАК В HEADER
-      if (response.data.unauth) {
-        logoutUrl.value = response.data.unauth;
-      }
-    }
-  } catch (error) {
-    console.error('Ошибка при загрузке данных в Menu:', error);
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-// Функция для копирования ссылки - КАК В HEADER
-const copyReferralLink = async () => {
-  if (!referralLink.value) return;
-  
-  isCopying.value = true;
-  copySuccess.value = false;
-  
-  try {
-    await navigator.clipboard.writeText(referralLink.value);
-    copySuccess.value = true;
-    
-    setTimeout(() => {
-      copySuccess.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Ошибка при копировании:', err);
-  } finally {
-    isCopying.value = false;
-  }
-};
-
-// Функция для получения полного URL аватарки - КАК В HEADER
-const getAvatarUrl = (avatarPath: string) => {
-  if (!avatarPath) return '';
-  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
-    return avatarPath;
-  }
-  const cleanPath = avatarPath.startsWith('/') ? avatarPath : `/${avatarPath}`;
-  return `${baseUrl}${cleanPath}`;
-};
-
-// Функция для выхода - КАК В HEADER
-const handleLogout = () => {
-  if (logoutUrl.value) {
-    window.location.href = `${baseUrl}${logoutUrl.value}`;
-  }
-};
-
-// Форматирование баланса - КАК В HEADER
-const formattedBalance = (balance: number) => {
-  return balance.toLocaleString('ru-RU');
-};
-
-// Обработчик ошибки загрузки аватарки - КАК В HEADER
-const handleAvatarError = (event: Event) => {
-  const img = event.target as HTMLImageElement;
-  img.style.display = 'none';
-  const parent = img.parentElement;
-  if (parent) {
-    const svg = parent.querySelector('svg');
-    if (svg) {
-      svg.style.display = 'block';
-    }
-  }
-  userData.value.avatar = '';
-};
-
-// Переход на старую версию
-const goToOldVersion = () => {
-  window.location.href = 'https://vauvision.com/auth/profile/';
-};
-
-onMounted(() => {
-  fetchUserData();
-});
-</script>
-
 <template>
 <div class="menu__back"></div>
 <div class="menu__block">
@@ -163,12 +14,12 @@ onMounted(() => {
         <PersonalSVG v-else />
       </div>
       <div class="menu__personal_info">
-        <h6 class="menu__personal_name">{{ userData.name || 'Пользователь' }}</h6>
-        <p class="menu__personal_mail">{{ userData.email || 'email@example.com' }}</p>
+        <h6 class="menu__personal_name">{{ userData.name }}</h6>
+        <p class="menu__personal_mail">{{ userData.email }}</p>
       </div>
     </div>
 
-    <!-- Кнопка Баланс - ИСПРАВЛЕНО КАК В HEADER -->
+    <!-- Кнопка Баланс -->
     <div class="menu__balance">
       <div 
         class="menu__balance_button" 
@@ -179,7 +30,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Кнопка Реферальная ссылка - ИСПРАВЛЕНО КАК В HEADER -->
+    <!-- Кнопка Реферальная ссылка -->
     <div v-if="referralLink" class="menu__referral">
       <button 
         class="menu__referral_button"
@@ -242,7 +93,7 @@ onMounted(() => {
         </a>
       </li>
       
-      <!-- Кнопка Выйти из аккаунта - ИСПРАВЛЕНО КАК В HEADER -->
+      <!-- Кнопка Выйти из аккаунта -->
       <li class="menu__item menu__logout">
         <button class="menu__link" @click="handleLogout">
           <span><LogoutSVG /></span>
@@ -266,6 +117,289 @@ onMounted(() => {
 </div>
 </template>
 
+<script setup lang="ts">
+import { onMounted, ref, onUnmounted } from "vue";
+import { RouterLink } from "vue-router";
+import { sendRequest } from '@/utils/api';
+import HomeSVG from "@/uikit/menu/HomeSVG.vue";
+import UploadSVG from "@/uikit/menu/UploadSVG.vue";
+import SettingSVG from "@/uikit/menu/SettingSVG.vue";
+import PartnerSVG from "@/uikit/menu/PartnerSVG.vue";
+import FaqSVG from "@/uikit/menu/FaqSVG.vue";
+import ArticlesSVG from "@/uikit/menu/ArticlesSVG.vue";
+import LogoutSVG from "@/uikit/menu/LogoutSVG.vue";
+import PaySVG from "@/uikit/icon/PaySVG.vue";
+import LinkSVG from "@/uikit/icon/LinkSVG.vue";
+import PersonalSVG from "@/uikit/icon/PersonalSVG.vue";
+import Tr from "@/i18n/translation";
+
+// Типы для данных пользователя
+interface UserData {
+  name: string;
+  email: string;
+  balance: number;
+  avatar: string;
+  login: string;
+}
+
+interface StoredData {
+  userData: UserData;
+  referralLink: string;
+  logoutUrl: string;
+  timestamp: number;
+}
+
+// Ключ для localStorage
+const STORAGE_KEY = 'menu_user_data';
+
+// Функция для сохранения в localStorage
+const saveToStorage = (data: StoredData) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error('Ошибка сохранения в localStorage:', e);
+  }
+};
+
+// Функция для загрузки из localStorage
+const loadFromStorage = (): StoredData | null => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Ошибка загрузки из localStorage:', e);
+  }
+  return null;
+};
+
+// Загружаем сохраненные данные
+const savedData = loadFromStorage();
+
+// Данные пользователя - берем из localStorage или используем начальные
+const userData = ref<UserData>(
+  savedData?.userData || {
+    name: 'Загрузка...',
+    email: 'Загрузка...',
+    balance: 0,
+    avatar: '',
+    login: ''
+  }
+);
+
+// Реферальная ссылка
+const referralLink = ref(savedData?.referralLink || '');
+
+// Ссылка для выхода
+const logoutUrl = ref(savedData?.logoutUrl || '');
+
+// Состояние копирования
+const isCopying = ref(false);
+const copySuccess = ref(false);
+
+// Таймер для обновления данных
+let updateTimer: number | null = null;
+
+// Получаем базовый URL из текущего окна
+const baseUrl = window.location.origin;
+
+// Функция для загрузки данных с сервера
+const fetchUserData = async () => {
+  try {
+    const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
+    console.log('Menu данные из API:', response.data);
+    
+    if (response.data) {
+      // Данные пользователя
+      const newUserData: UserData = {
+        name: 'Пользователь',
+        email: 'email@example.com',
+        balance: 0,
+        avatar: '',
+        login: ''
+      };
+      
+      if (response.data.user) {
+        newUserData.name = response.data.user.name || response.data.user.login || 'Пользователь';
+        newUserData.email = response.data.user.email || 'email@example.com';
+        newUserData.login = response.data.user.login || '';
+        
+        // Аватарка пользователя
+        if (response.data.user.personalPhoto) {
+          newUserData.avatar = response.data.user.personalPhoto;
+        }
+      }
+      
+      // Баланс
+      if (response.data.profile) {
+        newUserData.balance = response.data.profile.balance || 0;
+      }
+      
+      // Реферальная ссылка
+      const newReferralLink = response.data.referral?.link || '';
+      
+      // Ссылка для выхода
+      const newLogoutUrl = response.data.unauth || '';
+      
+      // Обновляем локальные данные
+      userData.value = newUserData;
+      referralLink.value = newReferralLink;
+      logoutUrl.value = newLogoutUrl;
+      
+      // Сохраняем в localStorage
+      saveToStorage({
+        userData: newUserData,
+        referralLink: newReferralLink,
+        logoutUrl: newLogoutUrl,
+        timestamp: Date.now()
+      });
+    }
+  } catch (error) {
+    console.error('Ошибка при загрузке данных в Menu:', error);
+  }
+};
+
+// Функция для обновления баланса
+const updateBalance = (newBalance: number) => {
+  if (userData.value) {
+    userData.value.balance = newBalance;
+    
+    // Обновляем в localStorage
+    const currentData = loadFromStorage();
+    if (currentData) {
+      currentData.userData.balance = newBalance;
+      currentData.timestamp = Date.now();
+      saveToStorage(currentData);
+    }
+  }
+};
+
+// Функция для принудительного обновления всех данных
+const refreshUserData = async () => {
+  await fetchUserData();
+};
+
+// Функция для копирования ссылки
+const copyReferralLink = async () => {
+  if (!referralLink.value) return;
+  
+  isCopying.value = true;
+  copySuccess.value = false;
+  
+  try {
+    await navigator.clipboard.writeText(referralLink.value);
+    copySuccess.value = true;
+    
+    setTimeout(() => {
+      copySuccess.value = false;
+    }, 2000);
+  } catch (err) {
+    console.error('Ошибка при копировании:', err);
+  } finally {
+    isCopying.value = false;
+  }
+};
+
+// Функция для получения полного URL аватарки
+const getAvatarUrl = (avatarPath: string) => {
+  if (!avatarPath) return '';
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+    return avatarPath;
+  }
+  const cleanPath = avatarPath.startsWith('/') ? avatarPath : `/${avatarPath}`;
+  return `${baseUrl}${cleanPath}`;
+};
+
+// Функция для выхода
+const handleLogout = () => {
+  if (logoutUrl.value) {
+    // Очищаем localStorage при выходе
+    localStorage.removeItem(STORAGE_KEY);
+    window.location.href = `${baseUrl}${logoutUrl.value}`;
+  }
+};
+
+// Форматирование баланса
+const formattedBalance = (balance: number) => {
+  return balance.toLocaleString('ru-RU');
+};
+
+// Обработчик ошибки загрузки аватарки
+const handleAvatarError = (event: Event) => {
+  const img = event.target as HTMLImageElement;
+  img.style.display = 'none';
+  const parent = img.parentElement;
+  if (parent) {
+    const svg = parent.querySelector('svg');
+    if (svg) {
+      svg.style.display = 'block';
+    }
+  }
+  if (userData.value) {
+    userData.value.avatar = '';
+    
+    // Обновляем в localStorage
+    const currentData = loadFromStorage();
+    if (currentData) {
+      currentData.userData.avatar = '';
+      currentData.timestamp = Date.now();
+      saveToStorage(currentData);
+    }
+  }
+};
+
+// Переход на старую версию
+const goToOldVersion = () => {
+  window.location.href = 'https://vauvision.com/auth/profile/';
+};
+
+// Проверяем, нужно ли обновить данные
+const shouldUpdateData = (): boolean => {
+  if (!savedData) return true;
+  
+  const fiveMinutes = 5 * 60 * 1000;
+  const now = Date.now();
+  
+  // Если данные старше 5 минут - обновляем
+  return (now - savedData.timestamp) > fiveMinutes;
+};
+
+// Периодическое обновление данных (каждые 5 минут)
+const startPeriodicUpdate = () => {
+  if (updateTimer) {
+    clearInterval(updateTimer);
+  }
+  
+  updateTimer = window.setInterval(() => {
+    fetchUserData();
+  }, 5 * 60 * 1000); // 5 минут
+};
+
+// Экспортируем методы для использования в других компонентах
+// @ts-ignore
+window.__menuApi = {
+  updateBalance,
+  refreshUserData
+};
+
+onMounted(() => {
+  // Если нет сохраненных данных или они устарели - загружаем
+  if (shouldUpdateData()) {
+    fetchUserData();
+  }
+  
+  startPeriodicUpdate();
+});
+
+onUnmounted(() => {
+  if (updateTimer) {
+    clearInterval(updateTimer);
+    updateTimer = null;
+  }
+});
+</script>
+
 <style scoped>
 .menu__block {
   display: flex;
@@ -281,6 +415,7 @@ onMounted(() => {
   background-color: var(--bg);
   transform: translateX(-50%);
 }
+
 .menu__block::after {
   content: "";
   height: 100vh;
@@ -291,6 +426,7 @@ onMounted(() => {
   z-index: 1;
   background-color: var(--bg);
 }
+
 .menu__scroll {
   display: flex;
   height: 100vh;
@@ -301,10 +437,12 @@ onMounted(() => {
   overflow-y: auto;
   overflow-x: hidden;
 }
+
 .menu__scroll::-webkit-scrollbar {
   display: none;
   width: 0px;
 }
+
 .menu__scroll::-webkit-scrollbar-thumb {
   display: none;
   width: 0px;
@@ -322,7 +460,7 @@ onMounted(() => {
   transform: translateX(-50%);
 }
 
-/* Стили для блока个人信息 - КАК В BURGER */
+/* Стили для блока个人信息 */
 .menu__personal {
   display: flex;
   padding: 0 20px 20px 20px;
@@ -386,7 +524,7 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
-/* Стили для кнопки баланса - КАК В HEADER */
+/* Стили для кнопки баланса */
 .menu__balance {
   padding: 0 20px 15px 20px;
   border-bottom: 1px solid var(--border);
@@ -424,7 +562,7 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
-/* Стили для кнопки реферальной ссылки - КАК В HEADER */
+/* Стили для кнопки реферальной ссылки */
 .menu__referral {
   padding: 0 20px 15px 20px;
   border-bottom: 1px solid var(--border);
@@ -562,17 +700,20 @@ onMounted(() => {
     transform: none;
   }
 }
+
 @media (max-width: 1439px) {
   .menu__back,
   .menu__block {
     display: none;
   }
 }
+
 @media (max-width: 1023px) {
   .menu__block {
     left: 15px;
   }
 }
+
 @media (max-width: 767px) {
 }
 </style>

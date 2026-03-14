@@ -5,7 +5,7 @@ import { sendRequest, FileRequest } from '@/utils/api';
 import { useRouter } from 'vue-router';
 import Tr from "@/i18n/translation";
 
-const loading = ref<boolean>(false);
+const loading = ref<boolean>(true); // Изначально true, пока грузятся все данные
 const loadingSvg = `
   <path class="path" d="
     M 30 15
@@ -16,6 +16,9 @@ const loadingSvg = `
     L 15 15
   " style="stroke-width: 4px; fill: rgba(0, 0, 0, 0)"/>
 `;
+
+// Счетчик загруженных данных и общее количество запросов
+const loadedCount = ref(0);
 
 import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
@@ -79,8 +82,8 @@ const errors = reactive({
   }
 })
 
-// Загрузочное состояние
-const isLoading = ref(false)
+// Загрузочное состояние для операций
+const isOperationLoading = ref(false)
 
 // Состояние для загрузки фото
 const profileImage = ref<string | null>(null)
@@ -251,7 +254,7 @@ const savePassportData = async () => {
   }
   
   loading.value = true;
-  isLoading.value = true
+  isOperationLoading.value = true
   try {
     const passportData = {
       'citysenship-profile-others': passportForm.citizenship,
@@ -291,7 +294,7 @@ const savePassportData = async () => {
       ElMessage.error('Ошибка при сохранении данных')
     }
   } finally {
-    isLoading.value = false
+    isOperationLoading.value = false
     loading.value = false;
   }
 }
@@ -304,7 +307,7 @@ const submitPasswordChange = async () => {
     return
   }
   
-  isLoading.value = true
+  isOperationLoading.value = true
   try {
     const response = await sendRequest(
       "post",
@@ -335,7 +338,7 @@ const submitPasswordChange = async () => {
       ElMessage.error('Ошибка при отправке запроса')
     }
   } finally {
-    isLoading.value = false
+    isOperationLoading.value = false
   }
 }
 
@@ -346,7 +349,7 @@ const confirmDeleteAccount = async () => {
     return
   }
   
-  isLoading.value = true
+  isOperationLoading.value = true
   try {
     const response = await sendRequest(
       "post",
@@ -386,7 +389,7 @@ const confirmDeleteAccount = async () => {
       ElMessage.error('Ошибка при удалении аккаунта')
     }
   } finally {
-    isLoading.value = false
+    isOperationLoading.value = false
     closeDeleteModal()
   }
 }
@@ -401,7 +404,7 @@ const submitPersonalData = async () => {
     return
   }
   
-  isLoading.value = true
+  isOperationLoading.value = true
   try {
     const nameData = {
       'alias-profile-name': formData.firstName.trim(),
@@ -445,7 +448,7 @@ const submitPersonalData = async () => {
       ElMessage.error('Ошибка при сохранении данных')
     }
   } finally {
-    isLoading.value = false
+    isOperationLoading.value = false
   }
 }
 
@@ -460,7 +463,7 @@ const submitGeneralData = async () => {
     return
   }
   
-  isLoading.value = true
+  isOperationLoading.value = true
   try {
     // Здесь будет API запрос
     await new Promise(resolve => setTimeout(resolve, 1000))
@@ -468,7 +471,7 @@ const submitGeneralData = async () => {
   } catch (error) {
     ElMessage.error('Ошибка при сохранении данных')
   } finally {
-    isLoading.value = false
+    isOperationLoading.value = false
   }
 }
 
@@ -479,7 +482,7 @@ const submitIndividualBankDetails = async () => {
     return
   }
   
-  isLoading.value = true
+  isOperationLoading.value = true
   try {
     const individualData = {
       'sp-profile': bankDetails.individual.fullName,
@@ -513,7 +516,7 @@ const submitIndividualBankDetails = async () => {
       ElMessage.error('Ошибка при сохранении банковских данных')
     }
   } finally {
-    isLoading.value = false
+    isOperationLoading.value = false
   }
 }
 
@@ -524,7 +527,7 @@ const submitEntrepreneurBankDetails = async () => {
     return
   }
   
-  isLoading.value = true
+  isOperationLoading.value = true
   try {
     const entrepreneurData = {
       'sp-profile': bankDetails.entrepreneur.fullName,
@@ -563,7 +566,7 @@ const submitEntrepreneurBankDetails = async () => {
       ElMessage.error('Ошибка при сохранении банковских данных')
     }
   } finally {
-    isLoading.value = false
+    isOperationLoading.value = false
   }
 }
 
@@ -678,26 +681,50 @@ const refreshUserData = async () => {
         }
       }
     }
+    
+    return response.data;
   } catch (error) {
     console.error('Ошибка при обновлении данных:', error);
+    throw error;
+  }
+};
+
+// Функция для загрузки всех данных
+const loadAllData = async () => {
+  loading.value = true;
+  loadedCount.value = 0;
+  
+  try {
+    await refreshUserData().finally(() => loadedCount.value++);
+  } catch (error) {
+    console.error('Ошибка при загрузке данных:', error);
+  } finally {
+    loading.value = false;
   }
 };
 
 // Загрузка начальных данных при монтировании компонента
 onMounted(() => {
-  refreshUserData();
-})
+  loadAllData();
+});
 </script>
 
 <template>
 <Header></Header>
-<section v-if="loading === true" class="loading">
-  <div v-loading="loading" :element-loading-svg="loadingSvg" class="loading__svg" element-loading-svg-view-box="-10, -10, 50, 50" style="width: 100%"></div>
-</section>
-<section v-else class="personal">
+<section class="personal">
   <div class="container personal__container">
     <Menu />
-    <div class="personal__block">
+    <div v-if="loading" class="personal__block">
+      <div class="loading__container">
+        <div 
+          v-loading="loading" 
+          :element-loading-svg="loadingSvg" 
+          class="loading__svg" 
+          element-loading-svg-view-box="-10, -10, 50, 50"
+        ></div>
+      </div>
+    </div>
+    <div v-else class="personal__block">
       <div class="setting__top">
         <h3 class="setting__head">настройки профиля</h3>
         <p class="setting__desc">Измените данные или настройки профиля.</p>
@@ -749,7 +776,7 @@ onMounted(() => {
                   v-model="formData.firstName"
                   :class="{ 'error': errors.firstName }"
                   placeholder="Имя"
-                  :disabled="isLoading"
+                  :disabled="isOperationLoading"
                   @blur="validateForm('firstName')"
                   @input="errors.firstName = ''"
                   size="large"
@@ -765,7 +792,7 @@ onMounted(() => {
                   v-model="formData.lastName"
                   :class="{ 'error': errors.lastName }"
                   placeholder="Фамилия"
-                  :disabled="isLoading"
+                  :disabled="isOperationLoading"
                   @blur="validateForm('lastName')"
                   @input="errors.lastName = ''"
                   size="large"
@@ -779,9 +806,9 @@ onMounted(() => {
               <button 
                 class="setting__personal_button button__primary" 
                 @click="submitPersonalData"
-                :disabled="isLoading || hasFormErrors"
+                :disabled="isOperationLoading || hasFormErrors"
               >
-                <span v-if="!isLoading">сохранить изменения</span>
+                <span v-if="!isOperationLoading">сохранить изменения</span>
                 <span v-else>Сохранение...</span>
               </button>
             </div>
@@ -796,7 +823,7 @@ onMounted(() => {
                   v-model="formData.nickname"
                   :class="{ 'error': errors.nickname }"
                   placeholder="Псевдоним"
-                  :disabled="isLoading"
+                  :disabled="isOperationLoading"
                   @blur="validateForm('nickname')"
                   @input="errors.nickname = ''"
                   size="large"
@@ -813,7 +840,7 @@ onMounted(() => {
                   type="email"
                   :class="{ 'error': errors.email }"
                   placeholder="e-mail"
-                  :disabled="isLoading"
+                  :disabled="isOperationLoading"
                   @blur="validateForm('email')"
                   @input="errors.email = ''"
                   size="large"
@@ -829,7 +856,7 @@ onMounted(() => {
                   v-model="formData.country"
                   :class="{ 'error': errors.country }"
                   placeholder="страна"
-                  :disabled="isLoading"
+                  :disabled="isOperationLoading"
                   @blur="validateForm('country')"
                   @input="errors.country = ''"
                   size="large"
@@ -843,9 +870,9 @@ onMounted(() => {
               <button 
                 class="setting__general_button button__primary" 
                 @click="submitGeneralData"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
               >
-                <span v-if="!isLoading">сохранить изменения</span>
+                <span v-if="!isOperationLoading">сохранить изменения</span>
                 <span v-else>Сохранение...</span>
               </button>
             </div>
@@ -857,7 +884,7 @@ onMounted(() => {
               <button 
                 class="setting__passport_button button__primary" 
                 @click="openPassportModal"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
               >
                 <span>изменить</span>
               </button>
@@ -870,7 +897,7 @@ onMounted(() => {
               <button 
                 class="setting__password_button button__primary" 
                 @click="openPasswordModal"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
               >
                 <span>изменить пароль</span>
               </button>
@@ -889,7 +916,7 @@ onMounted(() => {
                     v-model="bankDetailsType" 
                     value="individual"
                     class="form__label_input"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @change="switchBankDetailsType"
                   >
                   <span class="form__label_text">Физическое лицо</span>
@@ -900,7 +927,7 @@ onMounted(() => {
                     v-model="bankDetailsType" 
                     value="entrepreneur"
                     class="form__label_input"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @change="switchBankDetailsType"
                   >
                   <span class="form__label_text">Индивидуальный предприниматель</span>
@@ -914,7 +941,7 @@ onMounted(() => {
                     v-model="bankDetails.individual.fullName"
                     :class="{ 'error': errors.bankDetails.individual?.fullName }"
                     placeholder="Иванов Иван Иванович"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @blur="validateBankDetails"
                     size="large"
                   />
@@ -929,7 +956,7 @@ onMounted(() => {
                     v-model="bankDetails.individual.account"
                     :class="{ 'error': errors.bankDetails.individual?.account }"
                     placeholder="408028102544110556789"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @blur="validateBankDetails"
                     size="large"
                   />
@@ -944,7 +971,7 @@ onMounted(() => {
                     v-model="bankDetails.individual.bik"
                     :class="{ 'error': errors.bankDetails.individual?.bik }"
                     placeholder="044513655"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @blur="validateBankDetails"
                     size="large"
                   />
@@ -958,9 +985,9 @@ onMounted(() => {
               <button 
                 class="setting__details_button button__primary" 
                 @click="submitIndividualBankDetails"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
               >
-                <span v-if="!isLoading">сохранить изменения</span>
+                <span v-if="!isOperationLoading">сохранить изменения</span>
                 <span v-else>Сохранение...</span>
               </button>
             </div>
@@ -978,7 +1005,7 @@ onMounted(() => {
                     v-model="bankDetailsType" 
                     value="individual"
                     class="form__label_input"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @change="switchBankDetailsType"
                   >
                   <span class="form__label_text">Физическое лицо</span>
@@ -989,7 +1016,7 @@ onMounted(() => {
                     v-model="bankDetailsType" 
                     value="entrepreneur"
                     class="form__label_input"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @change="switchBankDetailsType"
                   >
                   <span class="form__label_text">Индивидуальный предприниматель</span>
@@ -1003,7 +1030,7 @@ onMounted(() => {
                     v-model="bankDetails.entrepreneur.fullName"
                     :class="{ 'error': errors.bankDetails.entrepreneur?.fullName }"
                     placeholder="Иванов Иван Иванович"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @blur="validateBankDetails"
                     size="large"
                   />
@@ -1018,7 +1045,7 @@ onMounted(() => {
                     v-model="bankDetails.entrepreneur.ogrnip"
                     :class="{ 'error': errors.bankDetails.entrepreneur?.ogrnip }"
                     placeholder="318000000100730"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @blur="validateBankDetails"
                     size="large"
                   />
@@ -1033,7 +1060,7 @@ onMounted(() => {
                     v-model="bankDetails.entrepreneur.address"
                     :class="{ 'error': errors.bankDetails.entrepreneur?.address }"
                     placeholder="г. Москва, ул. Примерная, д. 1"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @blur="validateBankDetails"
                     size="large"
                   />
@@ -1048,7 +1075,7 @@ onMounted(() => {
                     v-model="bankDetails.entrepreneur.inn"
                     :class="{ 'error': errors.bankDetails.entrepreneur?.inn }"
                     placeholder="840000001004"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @blur="validateBankDetails"
                     size="large"
                   />
@@ -1063,7 +1090,7 @@ onMounted(() => {
                     v-model="bankDetails.entrepreneur.account"
                     :class="{ 'error': errors.bankDetails.entrepreneur?.account }"
                     placeholder="408028102544110556789"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @blur="validateBankDetails"
                     size="large"
                   />
@@ -1078,7 +1105,7 @@ onMounted(() => {
                     v-model="bankDetails.entrepreneur.bik"
                     :class="{ 'error': errors.bankDetails.entrepreneur?.bik }"
                     placeholder="123456789"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @blur="validateBankDetails"
                     size="large"
                   />
@@ -1093,7 +1120,7 @@ onMounted(() => {
                     v-model="bankDetails.entrepreneur.correspondentAccount"
                     :class="{ 'error': errors.bankDetails.entrepreneur?.correspondentAccount }"
                     placeholder="30101810640004000068"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @blur="validateBankDetails"
                     size="large"
                   />
@@ -1108,7 +1135,7 @@ onMounted(() => {
                     v-model="bankDetails.entrepreneur.email"
                     :class="{ 'error': errors.bankDetails.entrepreneur?.email }"
                     placeholder="test@test.ru"
-                    :disabled="isLoading"
+                    :disabled="isOperationLoading"
                     @blur="validateBankDetails"
                     size="large"
                   />
@@ -1122,9 +1149,9 @@ onMounted(() => {
               <button 
                 class="setting__details_button button__primary" 
                 @click="submitEntrepreneurBankDetails"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
               >
-                <span v-if="!isLoading">сохранить изменения</span>
+                <span v-if="!isOperationLoading">сохранить изменения</span>
                 <span v-else>Сохранение...</span>
               </button>
             </div>
@@ -1137,7 +1164,7 @@ onMounted(() => {
               <button 
                 class="setting__delete_button button__primary" 
                 @click="openDeleteModal"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
                 style="background-color: #f56c6c; border-color: #f56c6c;"
               >
                 <span>удалить</span>
@@ -1170,7 +1197,7 @@ onMounted(() => {
               <el-select
                 v-model="passportForm.citizenship"
                 placeholder="Выберите гражданство"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
                 size="large"
                 class="passport-select"
                 clearable
@@ -1189,7 +1216,7 @@ onMounted(() => {
               <el-input
                 v-model="passportForm.issuedBy"
                 placeholder="Кем выдан паспорт"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
                 size="large"
               />
             </div>
@@ -1199,7 +1226,7 @@ onMounted(() => {
               <el-input
                 v-model="passportForm.fam"
                 placeholder="Фамилия"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
                 size="large"
               />
             </div>
@@ -1209,7 +1236,7 @@ onMounted(() => {
               <el-input
                 v-model="passportForm.imya"
                 placeholder="Имя"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
                 size="large"
               />
             </div>
@@ -1222,7 +1249,7 @@ onMounted(() => {
               <el-input
                 v-model="passportForm.otch"
                 placeholder="Отчество"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
                 size="large"
               />
             </div>
@@ -1232,7 +1259,7 @@ onMounted(() => {
               <el-input
                 v-model="passportForm.number"
                 placeholder="0000 000000"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
                 size="large"
               />
             </div>
@@ -1245,7 +1272,7 @@ onMounted(() => {
                 placeholder="Выберите дату"
                 format="DD.MM.YYYY"
                 value-format="DD.MM.YYYY"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
                 size="large"
                 class="passport-datepicker"
               />
@@ -1256,7 +1283,7 @@ onMounted(() => {
               <el-input
                 v-model="passportForm.adress"
                 placeholder="Адрес регистрации"
-                :disabled="isLoading"
+                :disabled="isOperationLoading"
                 size="large"
               />
             </div>
@@ -1268,16 +1295,16 @@ onMounted(() => {
         <button 
           class="passport-modal__button passport-modal__button--clear"
           @click="clearPassportForm"
-          :disabled="isLoading"
+          :disabled="isOperationLoading"
         >
           очистить
         </button>
         <button 
           class="passport-modal__button passport-modal__button--save"
           @click="savePassportData"
-          :disabled="isLoading"
+          :disabled="isOperationLoading"
         >
-          <span v-if="!isLoading">сохранить изменения</span>
+          <span v-if="!isOperationLoading">сохранить изменения</span>
           <span v-else>Сохранение...</span>
         </button>
       </div>
@@ -1306,16 +1333,16 @@ onMounted(() => {
         <button 
           class="modal__button modal__button--clear"
           @click="closePasswordModal"
-          :disabled="isLoading"
+          :disabled="isOperationLoading"
         >
           отмена
         </button>
         <button 
           class="modal__button modal__button--save"
           @click="submitPasswordChange"
-          :disabled="isLoading"
+          :disabled="isOperationLoading"
         >
-          <span v-if="!isLoading">отправить ссылку</span>
+          <span v-if="!isOperationLoading">отправить ссылку</span>
           <span v-else>Отправка...</span>
         </button>
       </div>
@@ -1350,7 +1377,7 @@ onMounted(() => {
           <el-input
             v-model="deleteConfirmText"
             placeholder="Введите 'УДАЛИТЬ' для подтверждения"
-            :disabled="isLoading"
+            :disabled="isOperationLoading"
             size="large"
           />
         </div>
@@ -1360,16 +1387,16 @@ onMounted(() => {
         <button 
           class="modal__button modal__button--clear"
           @click="closeDeleteModal"
-          :disabled="isLoading"
+          :disabled="isOperationLoading"
         >
           отмена
         </button>
         <button 
           class="modal__button modal__button--delete"
           @click="confirmDeleteAccount"
-          :disabled="isLoading || deleteConfirmText !== 'УДАЛИТЬ'"
+          :disabled="isOperationLoading || deleteConfirmText !== 'УДАЛИТЬ'"
         >
-          <span v-if="!isLoading">удалить аккаунт</span>
+          <span v-if="!isOperationLoading">удалить аккаунт</span>
           <span v-else>Удаление...</span>
         </button>
       </div>
@@ -1379,6 +1406,17 @@ onMounted(() => {
 </template>
 
 <style lang="css" scoped>
+.loading__container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.loading__svg {
+  width: 100px;
+  height: 100px;
+}
+
 .personal {
   margin: 0 0 auto;
 }

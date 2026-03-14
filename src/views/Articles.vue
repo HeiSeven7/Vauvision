@@ -5,6 +5,18 @@ import Menu from "@/components/layout/Menu.vue";
 import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
 import { sendRequest } from '@/utils/api';
 
+const isLoading = ref<boolean>(false);
+const loadingSvg = `
+  <path class="path" d="
+    M 30 15
+    L 28 17
+    M 25.61 25.61
+    A 15 15, 0, 0, 1, 15 30
+    A 15 15, 0, 1, 1, 27.99 7.5
+    L 15 15
+  " style="stroke-width: 4px; fill: rgba(0, 0, 0, 0)"/>
+`;
+
 // Интерфейс для статьи из API
 interface Article {
   img: string;
@@ -14,7 +26,6 @@ interface Article {
 
 // Данные из API
 const articles = ref<Article[]>([]);
-const isLoading = ref(false);
 
 // Пагинация для статей
 const articlesPerPage = ref<number>(9); // Показываем по 9 статей на странице
@@ -104,20 +115,26 @@ onMounted(() => {
 <section class="personal">
   <div class="container personal__container">
     <Menu />
-    <div class="personal__block">
+    <div v-if="isLoading === true" class="personal__block">
+      <div class="loading__container">
+        <div 
+          v-loading="isLoading" 
+          :element-loading-svg="loadingSvg" 
+          class="loading__svg" 
+          element-loading-svg-view-box="-10, -10, 50, 50"
+        ></div>
+      </div>
+    </div>
+    <div v-else class="personal__block">
       <div class="articles__top">
         <h3 class="articles__head">Статьи</h3>
         <p class="articles__desc">Полезные статьи о музыке, продвижении и работе с VAUVISION</p>
       </div>
       
       <div class="articles__content">
-        <!-- Загрузка -->
-        <div v-if="isLoading" class="articles__loading">
-          Загрузка статей...
-        </div>
         
         <!-- Нет статей -->
-        <div v-else-if="articles.length === 0" class="articles__empty">
+        <div v-if="articles.length === 0" class="articles__empty">
           Статьи временно недоступны
         </div>
         
@@ -177,6 +194,17 @@ onMounted(() => {
 </template>
 
 <style lang="css" scoped>
+.loading__container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.loading__svg {
+  width: 100px;
+  height: 100px;
+}
+
 .personal {
   margin: 0 0 auto;
 }
