@@ -1181,7 +1181,7 @@ onMounted(() => {
               <div class="personal__balance_svg"><WalletSVG/></div>
               <div class="personal__balance_top_info">
                 <h4 class="personal__balance_heading">Квартальный отчет</h4>
-                <p class="personal__balance_desc">Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится</p>
+                <p class="personal__balance_desc">Баланс обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится</p>
               </div>
             </div>
             <button 
@@ -1198,7 +1198,7 @@ onMounted(() => {
               <div class="personal__balance_svg"><WalletSVG/></div>
               <div class="personal__balance_top_info">
                 <h4 class="personal__balance_heading">
-                  <span class="personal__balance_description text_one">Счет</span>
+                  <span class="personal__balance_description text_one">Баланс</span>
                   {{ profileData.balance.toLocaleString() }} ₽
                 </h4>
               </div>
@@ -1227,6 +1227,7 @@ onMounted(() => {
               @click="openBonusPayoutPopup"
               :disabled="profileData.bonus <= 0"
               :class="{ 'button__disabled': profileData.bonus <= 0 }"
+              style="display: none;"
             >
               <span>Запросить выплаты бонусов</span>
             </button>
@@ -1270,22 +1271,22 @@ onMounted(() => {
                     <div class="personal__releases_flex">
                       <div class="personal__releases_top">
                         <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Сингл' : 'Релиз' }}</span> {{ release.name }}</h5>
-                        <p class="personal__releases_album text_very">{{ release.propertyDateRelizValue || 'Альбом' }}</p>
+                        <p class="personal__releases_album text_very"></p>
                       </div>
-                      <p class="personal__releases_date text_very">{{ release.date }}</p>
+                      <p class="personal__releases_date text_very">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
                     </div>
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
                       <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Сингл' : 'Релиз' }}</span> {{ release.name }}</h5>
-                      <p class="personal__releases_album text_very">{{ release.propertyDateRelizValue || 'Альбом' }}</p>
+                      <p class="personal__releases_album text_very"></p>
                     </div>
                     <div class="personal__releases_codes">
                       <button v-if="release.upcCode" class="personal__releases_code"><span>UPC код: {{ release.upcCode }}</span></button>
                       <button v-if="release.link" class="personal__releases_code"><LinkSVG/><span>{{ release.link }}</span></button>
                     </div>
                     <div class="personal__releases_bottom">
-                      <p class="personal__releases_date text_very">{{ release.date }}</p>
+                      <p class="personal__releases_date text_very">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
                       <div class="personal__releases_agreements">
                         <a 
                           v-if="release.contractFile" 
@@ -1544,7 +1545,7 @@ onMounted(() => {
                 v-for="partner in lastThreePartners" 
                 :key="partner.id"
               >
-                <a href="#" class="personal__partners_link">
+                <a href="#" target="_blank" class="personal__partners_link">
                   <p class="personal__partners_heading button">{{ partner.name }}</p>
                   <p class="personal__partners_desc text_very">{{ partner.email }} • {{ partner.date }}</p>
                 </a>
@@ -1850,19 +1851,36 @@ onMounted(() => {
   height: 1px;
   background-color: var(--border);
 }
+
+/* Вертикальные разделители для блока баланса */
 .personal__balance_list {
   display: flex;
   padding: 40px;
   flex-wrap: wrap;
-  gap: 20px 40px;
+  gap: 20px;
+  position: relative;
 }
+
 .personal__balance_item {
   display: flex;
   max-width: calc(33.333% - 27px);
   flex-direction: column;
   justify-content: space-between;
   gap: 20px;
+  position: relative;
+  padding: 0 20px;
 }
+
+.personal__balance_item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 1px;
+  background-color: var(--border);
+}
+
 .personal__balance_top {
   display: flex;
   flex: 0 0 auto;
@@ -2676,6 +2694,7 @@ onMounted(() => {
   object-fit: contain;
 }
 
+/* Адаптация для десктопов (1919px и меньше) */
 @media (max-width: 1919px) {
   .personal__flex {
     gap: 20px;
@@ -2684,10 +2703,11 @@ onMounted(() => {
     width: calc(100% - 340px);
   }
   .personal__balance_list {
-    gap: 20px 40px;
+    gap: 20px;
   }
   .personal__balance_item {
     max-width: calc(33.333% - 27px);
+    padding: 0 20px;
   }
   .personal__partner {
     gap: 84px;
@@ -2704,6 +2724,8 @@ onMounted(() => {
     height: 140px;
   }
 }
+
+/* Адаптация для планшетов (1439px и меньше) */
 @media (max-width: 1439px) {
   .personal__right {
     display: none;
@@ -2714,18 +2736,32 @@ onMounted(() => {
   .personal__balance_info {
     padding: 30px 30px 20px;
   }
+  
+  /* Адаптация разделителей для планшетов */
   .personal__balance_list {
     padding: 30px;
-    gap: 30px 40px;
-    justify-content: flex-start;
+    gap: 30px;
   }
+  
   .personal__balance_item:first-child {
     width: 100%;
     max-width: 100%;
+    padding: 0;
   }
+  
+  .personal__balance_item:first-child::after {
+    display: none;
+  }
+  
   .personal__balance_item {
     max-width: 100%;
+    padding: 0;
   }
+  
+  .personal__balance_item:not(:last-child)::after {
+    display: none;
+  }
+  
   .personal__release_desc {
     max-width: 480px;
   }
@@ -2744,6 +2780,8 @@ onMounted(() => {
     min-height: auto;
   }
 }
+
+/* Адаптация для мобильных устройств (1023px и меньше) */
 @media (max-width: 1023px) {
   .personal__reports_header,
   .personal__transactions_header {
@@ -2783,7 +2821,19 @@ onMounted(() => {
     width: 100%;
     flex: 0 0 auto;
   }
+  
+  .popup__header {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .popup__title {
+    position: static;
+    transform: none;
+  }
 }
+
+/* Адаптация для маленьких мобильных устройств (767px и меньше) */
 @media (max-width: 767px) {
   .personal__container {
     padding: 0;
@@ -2796,10 +2846,17 @@ onMounted(() => {
   .personal__balance_info {
     padding: 30px 15px 20px;
   }
+  
+  /* Адаптация разделителей для мобильных */
   .personal__balance_list {
     padding: 30px 15px;
-    flex-direction: column;
+    gap: 20px;
   }
+  
+  .personal__balance_item {
+    padding: 0;
+  }
+  
   .personal__release {
     padding: 30px 15px;
   }
@@ -2837,22 +2894,13 @@ onMounted(() => {
     height: 100px;
   }
 
-  .popup__header {
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .popup__title {
-    position: static;
-    transform: none;
-  }
-  
   .popup__images-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     max-height: 300px;
   }
 }
 
+/* Адаптация для очень маленьких устройств (580px и меньше) */
 @media (max-width: 580px) {
   .personal__release_image {
     width: 150px;
@@ -2860,6 +2908,7 @@ onMounted(() => {
   }
 }
 
+/* Адаптация для самых маленьких устройств (480px и меньше) */
 @media (max-width: 480px) {
   .popup__actions {
     flex-direction: column;

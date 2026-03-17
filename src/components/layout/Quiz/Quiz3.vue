@@ -32,6 +32,11 @@ const filesDB = ref<any>(null);
 const dbInitialized = ref(false);
 const filesDBInitialized = ref(false);
 
+// Данные профиля из API
+const profile = ref<any>({
+  region: 'Russia' // значение по умолчанию
+});
+
 // Данные формы - используем reactive для реактивности
 const formData = reactive({
   performerName: '',
@@ -324,6 +329,12 @@ const loadUserData = async () => {
     
     const data = response.data as any;
     
+    // Сохраняем данные профиля
+    if (data.profile) {
+      profile.value = data.profile;
+      console.log('Quiz3: User profile loaded:', data.profile);
+    }
+    
     // Сохраняем данные из API
     if (data.user?.email) {
       formData.email = data.user.email;
@@ -374,6 +385,23 @@ const isValidUrl = (url: string) => {
   try {
     new URL(url);
     return true;
+  } catch {
+    return false;
+  }
+};
+
+// Валидация ссылки на соцсеть в зависимости от региона
+const isValidSocialLink = (url: string, region: string) => {
+  try {
+    new URL(url);
+    
+    if (region === 'Russia') {
+      // Для России разрешаем vk.com и vk.ru
+      return url.includes('vk.com/') || url.includes('vk.ru/');
+    } else {
+      // Для других регионов разрешаем instagram.com и telegram.org
+      return url.includes('instagram.com/') || url.includes('telegram.org/');
+    }
   } catch {
     return false;
   }
@@ -453,8 +481,11 @@ const validateForm = () => {
   } else if (!isValidUrl(formData.vkLink)) {
     errors.vkLink = 'Введите корректную ссылку (начинается с https://)';
     isValid = false;
-  } else if (!formData.vkLink.includes('vk.com/') && !formData.vkLink.includes('instagram.com/')) {
-    errors.vkLink = 'Ссылка должна вести на VK (vk.com) или Instagram (instagram.com)';
+  } else if (!isValidSocialLink(formData.vkLink, profile.value.region)) {
+    const expected = profile.value.region === 'Russia' 
+      ? 'VK (vk.com или vk.ru)' 
+      : 'Instagram (instagram.com) или Telegram (telegram.org)';
+    errors.vkLink = `Ссылка должна вести на ${expected}`;
     isValid = false;
   }
   
@@ -882,7 +913,7 @@ onUnmounted(() => {
             <p class="form__hint text_small">Заложите минимум 3 полных рабочих дня (выходные и праздники не считаются). Если релиз важный, то рекомендуем заложить 7-10 рабочих дней: на случай возвратов, ошибок и вопросов со стороны модерации...</p>
           </li>
           <li class="form__hint_item">
-            <p class="form__hint text_small">Если дата релиза важна, то рекомендуется заложить минимум 7 дней на загрузку. Также площадка <a href="https://music.apple.com/">Apple Music</a> сообщает, что отображение релиза на их площадке может занять до 5 рабочих дней с момента прохождения модерации. Рекомендуем учитывать это при выборе даты релиза.</p>
+            <p class="form__hint text_small">Если дата релиза важна, то рекомендуется заложить минимум 7 дней на загрузку. Также площадка <a href="https://music.apple.com/" target="_blank">Apple Music</a> сообщает, что отображение релиза на их площадке может занять до 5 рабочих дней с момента прохождения модерации. Рекомендуем учитывать это при выборе даты релиза.</p>
           </li>
         </ul>
         <el-date-picker
@@ -1005,16 +1036,28 @@ onUnmounted(() => {
         </div>
       </div>
       
-      <!-- Ссылка на ВК/Instagram -->
+      <!-- Ссылка на страницу для проверки и подписания договора -->
       <div class="form__group">
-        <label for="vkLink" class="form__label button">Ссылка на вашу страницу в ВК для проверки и подписания договора<span>*</span></label>
-        <p class="form__hint text_small">Если у вас нет ВК, то укажите ссылку на ваш инстаграм. Не указывайте ссылку на ваш паблик – только на личную страницу. Ссылка должна быть кликабельная в формате https://vk.com/... или https://instagram.com/... – не указывайте свои адреса через @ или другие отметки.</p>
+        <label for="vkLink" class="form__label button">
+          Ссылка на вашу страницу для проверки и подписания договора<span>*</span>
+        </label>
+        <p class="form__hint text_small">
+          <template v-if="profile.region === 'Russia'">
+            Не указывайте ссылку на ваш паблик – только на личную страницу. Ссылка должна быть кликабельная в формате <a href="https://vk.com/" target="_blank" rel="noopener noreferrer">https://vk.com/</a>.
+          </template>
+          <template v-else>
+            Не указывайте ссылку на ваш паблик – только на личную страницу. Ссылка должна быть кликабельная в формате <a href="https://instagram.com" target="_blank" rel="noopener noreferrer">Instagram</a> или 
+            <a href="https://telegram.org" target="_blank" rel="noopener noreferrer">Telegram</a>.
+          </template>
+        </p>
         <el-input
           id="vkLink"
           v-model="formData.vkLink"
           type="text"
           :class="{ 'error': errors.vkLink }"
-          placeholder="https://vk.com/username или https://instagram.com/username"
+          :placeholder="profile.region === 'Russia' ? 
+            'https://vk.com/username или https://vk.ru/username' : 
+            'https://instagram.com/username или https://telegram.org/username'"
           :disabled="isUploading"
           @blur="validateForm"
           @input="errors.vkLink = ''"
@@ -1088,7 +1131,7 @@ onUnmounted(() => {
       <p class="quiz__important_description">Разрешаются обложки без надписей вообще.</p>
     </li>
     <li class="quiz__important_item">
-      <p class="quiz__important_description">Также приглашаем изучить рекомендации (носящие обязательный характер) от <a href="https://music.apple.com/">Apple Music</a></p>
+      <p class="quiz__important_description">Также приглашаем изучить рекомендации (носящие обязательный характер) от <a href="https://music.apple.com/" target="_blank">Apple Music</a></p>
     </li>
   </ul>
   <div class="quiz__form_bottom">

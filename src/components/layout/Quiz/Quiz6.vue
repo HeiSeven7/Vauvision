@@ -2,20 +2,7 @@
 <div class="quiz__form quiz__form_six">
   <h4 class="quiz__form_head">дополнительная информация</h4>
   
-  <!-- Индикатор загрузки -->
-  <div v-if="isLoading" class="quiz__form_loading">
-    <div class="loading-spinner"></div>
-    <p>Загрузка данных...</p>
-  </div>
-  
-  <div v-else>
-    <!-- Индикатор загрузки файлов и генерации договора -->
-    <div v-if="uploadingFiles || isGeneratingContract" class="quiz__form_contract_loading">
-      <div class="loading-spinner"></div>
-      <p v-if="uploadingFiles">Отправка файлов на сервер... {{ uploadedCount }}/{{ totalFilesCount }}</p>
-      <p v-else-if="isGeneratingContract">Генерация договора... Это может занять несколько секунд</p>
-    </div>
-    
+  <div v-if="!isLoading">
     <div class="form__flex" :class="{ 'blur-content': uploadingFiles || isGeneratingContract }">
       <!-- Откуда узнали -->
       <div class="form__group">
@@ -58,7 +45,7 @@
 
       <!-- Права на инструменты -->
       <div class="form__group">
-        <label for="rightsInfo" class="form__label button">Правила на инструменты</label>
+        <label for="rightsInfo" class="form__label button">Права на инструментал</label>
         <p class="form__hint text_small">В поле ниже, пожалуйста, укажите в столбик «Название трека – тип прав».</p>
         <el-input
           v-model="formData.rightsInfo"
@@ -226,6 +213,14 @@
       </div>
     </div>
     
+    <!-- БЛОК ЗАГРУЗКИ ПЕРЕНЕСЕН ВНИЗ НАД КНОПКАМИ -->
+    <!-- Индикатор загрузки файлов и генерации договора -->
+    <div v-if="uploadingFiles || isGeneratingContract" class="quiz__form_contract_loading">
+      <div class="loading-spinner"></div>
+      <p v-if="uploadingFiles">Отправка файлов на сервер... {{ uploadedCount }}/{{ totalFilesCount }}</p>
+      <p v-else-if="isGeneratingContract">Генерация договора... Это может занять несколько секунд</p>
+    </div>
+    
     <!-- Прогресс загрузки файлов -->
     <div v-if="uploadingFiles" class="upload_progress">
       <div class="upload_progress_bar">
@@ -255,6 +250,12 @@
         </button>
       </div>
     </div>
+  </div>
+  
+  <!-- Индикатор начальной загрузки (показывается только при isLoading) -->
+  <div v-if="isLoading" class="quiz__form_loading">
+    <div class="loading-spinner"></div>
+    <p>Загрузка данных...</p>
   </div>
 </div>
 </template>

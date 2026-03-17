@@ -2,6 +2,19 @@
 <div class="quiz__form quiz__form_eight">
   <h4 class="quiz__form_head">Отправка данных</h4>
   
+  <!-- ПРОСТАЯ СВОДКА -->
+  <div v-if="dataLoaded && !isLoading" class="quiz__simple_summary">
+    <div>Тип релиза: 
+      {{ 
+        (singleCount > 0 && albumCount > 0) ? 'сингл / альбом' :
+        (singleCount > 0) ? 'сингл' :
+        (albumCount > 0) ? 'альбом' : 'не указан'
+      }}
+    </div>
+    <div>Псевдоним и название сингла / альбома: {{ summaryData.releaseInfo?.performerName || 'не указано' }} - {{ summaryData.releaseInfo?.releaseName || 'не указано' }}</div>
+    <div>Дата релиза: {{ formatDate(summaryData.releaseInfo?.releaseDate) }}</div>
+  </div>
+  
   <div v-if="isLoading" class="quiz__form_loading">
     <div class="loading-spinner"></div>
     <span>Загрузка данных...</span>
@@ -9,181 +22,6 @@
   
   <div v-else-if="!dataLoaded" class="quiz__form_error">
     <p class="error">Не удалось загрузить данные. Пожалуйста, вернитесь на предыдущие шаги.</p>
-  </div>
-  
-  <div v-else class="quiz__summary">
-    <h5 class="quiz__summary_title">Сводка данных</h5>
-    
-    <!-- Статус проверки -->
-    <div class="quiz__summary_status">
-      <div class="status_item" :class="{ 'status_success': hasContract, 'status_error': !hasContract }">
-        <span class="status_icon">{{ hasContract ? '✅' : '❌' }}</span>
-        <span class="status_text">Договор: {{ hasContract ? 'загружен' : 'не найден' }}</span>
-      </div>
-      <div class="status_item" :class="{ 'status_success': hasSignature, 'status_error': !hasSignature }">
-        <span class="status_icon">{{ hasSignature ? '✅' : '❌' }}</span>
-        <span class="status_text">Подпись: {{ hasSignature ? 'получена' : 'не найдена' }}</span>
-      </div>
-    </div>
-    
-    <!-- Статус файлов -->
-    <div class="quiz__summary_status">
-      <div class="status_item" :class="{ 'status_success': hasCover, 'status_error': !hasCover }">
-        <span class="status_icon">{{ hasCover ? '✅' : '❌' }}</span>
-        <span class="status_text">Обложка: {{ hasCover ? coverFileName : 'не найдена' }}</span>
-      </div>
-      <div class="status_item" :class="{ 'status_success': audioFilesCount > 0, 'status_error': audioFilesCount === 0 }">
-        <span class="status_icon">{{ audioFilesCount > 0 ? '✅' : '❌' }}</span>
-        <span class="status_text">Аудиофайлы: {{ audioFilesCount }} шт.</span>
-      </div>
-      <div class="status_item" :class="{ 'status_success': hasAppleMusicFile, 'status_error': !hasAppleMusicFile }">
-        <span class="status_icon">{{ hasAppleMusicFile ? '✅' : '❌' }}</span>
-        <span class="status_text">Текст (docx): {{ hasAppleMusicFile ? appleMusicFileName : 'не найден' }}</span>
-      </div>
-      <div class="status_item" :class="{ 'status_success': hasKaraokeFile, 'status_error': !hasKaraokeFile }">
-        <span class="status_icon">{{ hasKaraokeFile ? '✅' : '❌' }}</span>
-        <span class="status_text">Караоке (ttml): {{ hasKaraokeFile ? karaokeFileName : 'не найден' }}</span>
-      </div>
-    </div>
-    
-    <!-- Информация о выбранных типах -->
-    <div class="quiz__summary_status">
-      <div class="status_item" :class="{ 'status_success': hasSingles, 'status_error': !hasSingles }">
-        <span class="status_icon">{{ hasSingles ? '✅' : '❌' }}</span>
-        <span class="status_text">Синглы: {{ hasSingles ? singleCount + ' шт.' : 'не выбраны' }}</span>
-      </div>
-      <div class="status_item" :class="{ 'status_success': hasAlbums, 'status_error': !hasAlbums }">
-        <span class="status_icon">{{ hasAlbums ? '✅' : '❌' }}</span>
-        <span class="status_text">Альбомы: {{ hasAlbums ? albumCount + ' шт.' : 'не выбраны' }}</span>
-      </div>
-    </div>
-    
-    <!-- Шаг 1: Количество треков -->
-    <div class="quiz__summary_section" v-if="singleCount || albumCount">
-      <h6>Шаг 1: Количество треков</h6>
-      <div class="quiz__summary_content">
-        <p v-if="singleCount">Синглов: <strong>{{ singleCount }}</strong></p>
-        <p v-if="albumCount">Альбомов: <strong>{{ albumCount }}</strong></p>
-        <p v-if="clipCount">Клипов: <strong>{{ clipCount }}</strong></p>
-        <p v-if="cardCount">Оформлений карточек: <strong>{{ cardCount }}</strong></p>
-      </div>
-    </div>
-    
-    <!-- Шаг 2: Синглы (только если есть синглы) -->
-    <div class="quiz__summary_section" v-if="hasSingles && summaryData.singleTracks && summaryData.singleTracks.length > 0">
-      <h6>Шаг 2: Синглы ({{ summaryData.singleTracks.length }})</h6>
-      <div class="quiz__summary_content">
-        <div v-for="(track, index) in summaryData.singleTracks" :key="index" class="summary_item">
-          <p><strong>Сингл {{ index + 1 }}:</strong> {{ track.trackName || 'Без названия' }}</p>
-          <p class="text_small">Исполнитель: {{ track.performerName || 'Не указан' }}</p>
-          <p class="text_small">Музыка: {{ track.musicAuthor || 'Не указан' }}</p>
-          <p class="text_small">Текст: {{ track.textAuthor || 'Не указан' }}</p>
-          <p class="text_small" v-if="track.audioFileName">Аудио: {{ track.audioFileName }}</p>
-          <p class="text_small" v-if="track.product_id">ID: {{ track.product_id }}</p>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Шаг 2: Альбомы (только если есть альбомы) -->
-    <div class="quiz__summary_section" v-if="hasAlbums && summaryData.albums && summaryData.albums.length > 0">
-      <h6>Шаг 2: Альбомы ({{ summaryData.albums.length }})</h6>
-      <div class="quiz__summary_content">
-        <div v-for="(album, albumIndex) in summaryData.albums" :key="albumIndex" class="summary_item">
-          <p><strong>Альбом {{ albumIndex + 1 }}:</strong> {{ album.albumName || 'Без названия' }}</p>
-          <p class="text_small">Треков: {{ album.tracks?.length || 0 }}</p>
-          <div v-if="album.tracks && album.tracks.length > 0" class="summary_subitem">
-            <div v-for="(track, trackIndex) in album.tracks" :key="trackIndex">
-              <p class="text_small"><strong>Трек {{ track.trackNumber }}:</strong> {{ track.trackName || 'Без названия' }}</p>
-              <p class="text_small" v-if="track.audioFileName">Аудио: {{ track.audioFileName }}</p>
-              <p class="text_small" v-if="track.product_id">ID: {{ track.product_id }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Шаг 3: Информация о релизе (всегда отправляется) -->
-    <div class="quiz__summary_section" v-if="summaryData.releaseInfo">
-      <h6>Шаг 3: Информация о релизе</h6>
-      <div class="quiz__summary_content">
-        <p><strong>Артист:</strong> {{ summaryData.releaseInfo.performerName || 'Не указано' }}</p>
-        <p><strong>Название релиза:</strong> {{ summaryData.releaseInfo.releaseName || 'Не указано' }}</p>
-        <p><strong>Email:</strong> {{ summaryData.releaseInfo.email || 'Не указано' }}</p>
-        <p><strong>Ссылка VK:</strong> {{ summaryData.releaseInfo.vkLink || 'Не указано' }}</p>
-        <p><strong>Дата релиза:</strong> {{ formatDate(summaryData.releaseInfo.releaseDate) }}</p>
-        <p><strong>Мат:</strong> {{ summaryData.releaseInfo.hasProfanity === 'yes' ? 'Да' : 'Нет' }}</p>
-      </div>
-    </div>
-    
-    <!-- Шаг 4: Данные пользователя -->
-    <div class="quiz__summary_section" v-if="summaryData.userInfo">
-      <h6>Шаг 4: Данные пользователя</h6>
-      <div class="quiz__summary_content">
-        <p><strong>Тип лица:</strong> {{ summaryData.userInfo.userType === 'individual' ? 'Физическое лицо' : 'ИП' }}</p>
-        <p><strong>Фамилия:</strong> {{ summaryData.userInfo.lastName || 'Не указано' }}</p>
-        <p><strong>Имя:</strong> {{ summaryData.userInfo.firstName || 'Не указано' }}</p>
-        <p><strong>Отчество:</strong> {{ summaryData.userInfo.middleName || 'Не указано' }}</p>
-        <p><strong>Паспорт:</strong> {{ summaryData.userInfo.passportNumber || 'Не указано' }}</p>
-      </div>
-    </div>
-    
-    <!-- Шаг 5: Жанр и текст -->
-    <div class="quiz__summary_section" v-if="summaryData.genreInfo">
-      <h6>Шаг 5: Жанр и текст</h6>
-      <div class="quiz__summary_content">
-        <p><strong>Жанр:</strong> {{ summaryData.genreInfo.genre || 'Не указано' }}</p>
-        <p><strong>Упоминание наркотиков:</strong> {{ summaryData.genreInfo.hasDrugsMention === 'yes' ? 'Да' : 'Нет' }}</p>
-        <p><strong>Ссылки на соцсети:</strong> {{ summaryData.genreInfo.socialLinks || 'Не указано' }}</p>
-      </div>
-    </div>
-    
-    <!-- Шаг 6: Дополнительная информация -->
-    <div class="quiz__summary_section" v-if="summaryData.additionalInfo">
-      <h6>Шаг 6: Дополнительная информация</h6>
-      <div class="quiz__summary_content">
-        <p><strong>Откуда узнали:</strong> {{ formatPlatforms(summaryData.additionalInfo.platforms) }}</p>
-        <p><strong>Подтверждение прав:</strong> 
-          <span :class="summaryData.additionalInfo.confirmNoRightsViolation ? 'success' : 'warning'">
-            {{ summaryData.additionalInfo.confirmNoRightsViolation ? 'Да' : 'Нет' }}
-          </span>
-        </p>
-      </div>
-    </div>
-    
-    <!-- Данные договора из Quiz6/Quiz7 (Ответ из newdock) -->
-    <div class="quiz__summary_section" v-if="contractImages.length > 0">
-      <h6>Договор (сгенерированные страницы)</h6>
-      <div class="quiz__summary_content">
-        <p><strong>PDF:</strong> {{ contractPdfUrl }}</p>
-        <p><strong>DOCX:</strong> {{ contractDocxUrl }}</p>
-        <p><strong>Количество страниц:</strong> {{ contractImages.length }}</p>
-      </div>
-    </div>
-    
-    <!-- Подпись из Quiz7 -->
-    <div class="quiz__summary_section" v-if="summaryData.signature">
-      <h6>Подпись (Шаг 7)</h6>
-      <div class="quiz__summary_content">
-        <p><strong>Подпись:</strong> получена</p>
-      </div>
-    </div>
-    
-    <!-- Чекбоксы из Quiz7 -->
-    <div class="quiz__summary_section" v-if="summaryData.agreement">
-      <h6>Согласия</h6>
-      <div class="quiz__summary_content">
-        <p><strong>Условия оферты:</strong> {{ summaryData.agreement.acceptTerms ? 'Принято' : 'Не принято' }}</p>
-        <p><strong>Обработка данных:</strong> {{ summaryData.agreement.acceptPrivacy ? 'Согласие дано' : 'Не дано' }}</p>
-      </div>
-    </div>
-    
-    <!-- Общая информация -->
-    <div class="quiz__summary_section total">
-      <h6>Всего треков к загрузке:</h6>
-      <div class="quiz__summary_content">
-        <p class="total_count"><strong>{{ summaryData.totalTracks || 0 }}</strong> треков</p>
-      </div>
-    </div>
   </div>
   
   <div v-if="isSubmitting" class="quiz__form_contract_loading">
@@ -716,28 +554,8 @@ const audioFilesCount = computed(() => {
   return audioFilesList.value.length;
 });
 
-const hasAppleMusicFile = computed(() => {
-  return appleMusicFile.value !== null;
-});
-
-const hasKaraokeFile = computed(() => {
-  return karaokeFile.value !== null;
-});
-
 const contractData = computed(() => {
   return quiz7Data.value?.contractData || quiz6Data.value?.contractData;
-});
-
-const contractPdfUrl = computed(() => {
-  return contractData.value?.doc_pdf || '';
-});
-
-const contractDocxUrl = computed(() => {
-  return contractData.value?.doc_docx || '';
-});
-
-const contractImages = computed(() => {
-  return contractData.value?.images || [];
 });
 
 const summaryData = computed((): AllData => {
@@ -836,22 +654,6 @@ const formatDate = (dateString?: string): string => {
   } catch {
     return dateString;
   }
-};
-
-const formatPlatforms = (platforms?: string[]): string => {
-  if (!platforms || platforms.length === 0) return 'Не указано';
-  return platforms.map(p => {
-    switch(p) {
-      case 'social': return 'Социальные сети';
-      case 'friends': return 'Рекомендация друзей';
-      case 'search': return 'Поиск в интернете';
-      case 'youtube': return 'YouTube';
-      case 'forums': return 'Музыкальные форумы';
-      case 'previous': return 'Ранее пользовались';
-      case 'other': return 'Другое';
-      default: return p;
-    }
-  }).join(', ');
 };
 
 const formatDateForAPI = (dateString?: string): string => {
@@ -1653,123 +1455,14 @@ onMounted(async () => {
   gap: 30px;
 }
 
-.quiz__summary {
+.quiz__simple_summary {
   margin: 30px 0;
   padding: 20px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background-color: var(--bg-color);
-  max-height: 500px;
-  overflow-y: auto;
-}
-
-.quiz__summary_title {
-  margin-bottom: 20px;
-  text-transform: uppercase;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.quiz__summary_status {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
-  padding: 15px;
-  background-color: var(--bg-light);
-  border-radius: 4px;
-  flex-wrap: wrap;
-}
-
-.status_item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 5px 10px;
-  border-radius: 4px;
-}
-
-.status_success {
-  background-color: rgba(103, 194, 58, 0.1);
-  color: #67c23a;
-}
-
-.status_error {
-  background-color: rgba(245, 108, 108, 0.1);
-  color: #f56c6c;
-}
-
-.status_icon {
-  font-size: 18px;
-}
-
-.status_text {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.quiz__summary_section {
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.quiz__summary_section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-.quiz__summary_section h6 {
-  margin-bottom: 10px;
-  font-weight: 600;
-}
-
-.quiz__summary_content {
-  padding-left: 15px;
-}
-
-.quiz__summary_content p {
-  margin-bottom: 5px;
-  line-height: 1.5;
-}
-
-.summary_item {
-  margin-bottom: 15px;
-  padding: 10px;
-  background-color: var(--bg-light);
-  border-radius: 4px;
-}
-
-.summary_subitem {
-  margin-top: 10px;
-  padding-left: 15px;
-  border-left: 2px solid var(--border);
-}
-
-.text_small {
-  font-size: 12px;
-  color: var(--text-gray);
-  margin-left: 10px;
-}
-
-.success {
-  color: #67c23a;
-}
-
-.warning {
-  color: #e6a23c;
-}
-
-.total {
-  background-color: var(--bg-highlight);
-  padding: 15px;
-  border-radius: 4px;
-  margin-top: 20px;
-}
-
-.total_count {
-  font-size: 18px;
-  color: var(--primary-color);
+  font-size: 16px;
+  line-height: 2;
 }
 
 .quiz__form_contract_loading {
@@ -1797,6 +1490,11 @@ onMounted(async () => {
   to { transform: rotate(360deg); }
 }
 
+.text_small {
+  font-size: 12px;
+  color: var(--text-gray);
+}
+
 @media (max-width: 1439px) {
   .quiz__form {
     width: 100%;
@@ -1812,14 +1510,6 @@ onMounted(async () => {
   }
   .quiz__form {
     padding: 0;
-  }
-  .quiz__summary {
-    padding: 15px;
-    max-height: 400px;
-  }
-  .quiz__summary_status {
-    flex-direction: column;
-    gap: 10px;
   }
 }
 </style>

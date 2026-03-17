@@ -30,18 +30,6 @@
       </div>
     </div>
 
-    <!-- Кнопка Реферальная ссылка -->
-    <div v-if="referralLink" class="menu__referral">
-      <button 
-        class="menu__referral_button"
-        @click="copyReferralLink"
-        :disabled="isCopying"
-      >
-        <LinkSVG />
-        <span>{{ copySuccess ? 'Скопировано!' : 'Скопировать реферальную ссылку' }}</span>
-      </button>
-    </div>
-
     <!-- Основная навигация -->
     <ul class="menu__list">
       <li class="menu__item">
@@ -87,7 +75,7 @@
         </RouterLink>
       </li>
       <li class="menu__item">
-        <a href="#" class="menu__link" @click.prevent="goToOldVersion">
+        <a href="#" target="_blank" class="menu__link" @click.prevent="goToOldVersion">
           <span><FaqSVG /></span>
           <span>Старая версия</span>
         </a>
@@ -129,7 +117,6 @@ import FaqSVG from "@/uikit/menu/FaqSVG.vue";
 import ArticlesSVG from "@/uikit/menu/ArticlesSVG.vue";
 import LogoutSVG from "@/uikit/menu/LogoutSVG.vue";
 import PaySVG from "@/uikit/icon/PaySVG.vue";
-import LinkSVG from "@/uikit/icon/LinkSVG.vue";
 import PersonalSVG from "@/uikit/icon/PersonalSVG.vue";
 import Tr from "@/i18n/translation";
 
@@ -144,7 +131,6 @@ interface UserData {
 
 interface StoredData {
   userData: UserData;
-  referralLink: string;
   logoutUrl: string;
   timestamp: number;
 }
@@ -188,15 +174,8 @@ const userData = ref<UserData>(
   }
 );
 
-// Реферальная ссылка
-const referralLink = ref(savedData?.referralLink || '');
-
 // Ссылка для выхода
 const logoutUrl = ref(savedData?.logoutUrl || '');
-
-// Состояние копирования
-const isCopying = ref(false);
-const copySuccess = ref(false);
 
 // Таймер для обновления данных
 let updateTimer: number | null = null;
@@ -236,21 +215,16 @@ const fetchUserData = async () => {
         newUserData.balance = response.data.profile.balance || 0;
       }
       
-      // Реферальная ссылка
-      const newReferralLink = response.data.referral?.link || '';
-      
       // Ссылка для выхода
       const newLogoutUrl = response.data.unauth || '';
       
       // Обновляем локальные данные
       userData.value = newUserData;
-      referralLink.value = newReferralLink;
       logoutUrl.value = newLogoutUrl;
       
       // Сохраняем в localStorage
       saveToStorage({
         userData: newUserData,
-        referralLink: newReferralLink,
         logoutUrl: newLogoutUrl,
         timestamp: Date.now()
       });
@@ -278,27 +252,6 @@ const updateBalance = (newBalance: number) => {
 // Функция для принудительного обновления всех данных
 const refreshUserData = async () => {
   await fetchUserData();
-};
-
-// Функция для копирования ссылки
-const copyReferralLink = async () => {
-  if (!referralLink.value) return;
-  
-  isCopying.value = true;
-  copySuccess.value = false;
-  
-  try {
-    await navigator.clipboard.writeText(referralLink.value);
-    copySuccess.value = true;
-    
-    setTimeout(() => {
-      copySuccess.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Ошибка при копировании:', err);
-  } finally {
-    isCopying.value = false;
-  }
 };
 
 // Функция для получения полного URL аватарки
@@ -557,50 +510,6 @@ onUnmounted(() => {
 }
 
 .menu__balance_button span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Стили для кнопки реферальной ссылки */
-.menu__referral {
-  padding: 0 20px 15px 20px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 15px;
-}
-
-.menu__referral_button {
-  display: flex;
-  width: 100%;
-  padding: 12px 15px;
-  align-items: center;
-  gap: 10px;
-  color: var(--text);
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 30px;
-  transition: all 0.15s linear;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.menu__referral_button:hover:not(:disabled) {
-  border-color: var(--text);
-}
-
-.menu__referral_button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-.menu__referral_button svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
-
-.menu__referral_button span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

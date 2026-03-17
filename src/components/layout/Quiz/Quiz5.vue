@@ -1031,7 +1031,7 @@ onUnmounted(() => {
       </div>
       
       <div class="form__group">
-        <label class="form__label button">Текст для <a href="https://music.apple.com/">Apple Music</a></label>
+        <label class="form__label button">Текст</label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
             <p class="form__hint text_small">Куплеты и припевы должны быть разделены пробелом, каждая строчка с большой буквы, в конце строчек без знаков препинания. В тексте должно быть только то, что произносится в песне.</p>
@@ -1129,7 +1129,7 @@ onUnmounted(() => {
       </div>
       
       <div class="form__group">
-        <label class="form__label button">Караоке текст для <a href="https://music.apple.com/">Apple Music</a> и <a href="https://www.spotify.com/i">Spotify</a>, <a href="https://music.yandex.ru/">Yandex Music</a>, <a href="https://music.vk.com/">VK</a></label>
+        <label class="form__label button">КАРАОКЕ ТЕКСТ МОЖНО <a href="https://vauvisionkaraoke.ru/" target="_blank">СДЕЛАТЬ ТУТ</a></label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
             <p class="form__hint text_small">Чтобы сделать караоке файл, зайдите на наш сайт, следуйте инструкции на сайте и создайте необходимые файлы. Обязательно подпишите их по названию треков, к которым они относятся.</p>
@@ -1189,7 +1189,7 @@ onUnmounted(() => {
         <label class="form__label button">ССЫЛКИ НА КАРТОЧКИ АРТИСТОВ</label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
-            <p class="form__hint text_small">Укажите через запятую ссылки на карточки в <a href="https://music.apple.com/">Apple Music</a> всех артистов, указанных в загружаемом релизе. Если карточек нет, укажите "Нужны новые карточки".</p>
+            <p class="form__hint text_small">Укажите через запятую ссылки на карточки в <a href="https://music.apple.com/" target="_blank">Apple Music</a> всех артистов, указанных в загружаемом релизе. Если карточек нет, укажите "Нужны новые карточки".</p>
           </li>
           <li class="form__hint_item">
             <p class="form__hint text_small">Указание карточек повышает шансы, что релиз попадёт по адресу, но НЕ ГАРАНТИРУЕТ этого. Распределение по карточкам совершают алгоритмы, поэтому есть вероятность ошибок. В случае ошибки, исправить её можно через нашу поддержку.</p>

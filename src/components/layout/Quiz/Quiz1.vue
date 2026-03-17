@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { sendRequest } from '@/utils/api';
 import { ElInputNumber, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
+import FaqSVG from "@/uikit/icon/FaqSVG.vue";
 import { openDB } from 'idb';
 
 const emit = defineEmits<{
@@ -83,6 +84,9 @@ const cardCountLocal = ref(0);
 
 // Состояние попапа
 const isPopupVisible = ref(false);
+
+// Состояние для активного тултипа
+const activeTooltip = ref<string | null>(null);
 
 // Сохраняем предыдущие значения для отслеживания реальных изменений
 const previousCounts = ref({
@@ -346,6 +350,14 @@ const cardName = computed(() => {
   return product?.name || 'Оформление карточки';
 });
 
+// Пояснительные тексты для каждой позиции
+const tooltipTexts = {
+  single: 'Сингл — это один трек. Вы можете загрузить несколько синглов одновременно. Каждый сингл обрабатывается отдельно и требует своей обложки. Стоимость указана за один сингл.',
+  album: 'Альбом — это сборник из нескольких треков (обычно от 4 и более). Все треки альбома объединены общей обложкой и концепцией. Стоимость указана за весь альбом целиком.',
+  clip: 'Клип — это видеоролик на ваш трек. Мы поможем с загрузкой и оптимизацией видео для всех площадок, поддерживающих видеоформат. Стоимость указана за один клип.',
+  card: 'Оформление карточки — это дополнительные материалы для вашего релиза: баннеры, обложки для плейлистов, промо-материалы. Эта услуга помогает выделить ваш релиз среди других.'
+};
+
 // Проверка, выбран ли хотя бы один сингл или альбом
 const isContinueDisabled = computed(() => {
   return singleCountLocal.value === 0 && albumCountLocal.value === 0;
@@ -507,6 +519,28 @@ const handleInstructionClick = () => {
   closePopup();
 };
 
+// Управление тултипами
+const showTooltip = (type: string) => {
+  activeTooltip.value = type;
+};
+
+const hideTooltip = () => {
+  activeTooltip.value = null;
+};
+
+// Обработчик клика по документу для закрытия тултипа
+const handleDocumentClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement;
+  if (!target.closest('.tooltip-container')) {
+    activeTooltip.value = null;
+  }
+};
+
+// Добавляем обработчик клика по документу
+if (typeof window !== 'undefined') {
+  document.addEventListener('click', handleDocumentClick);
+}
+
 // Следим за изменениями счетчиков
 watch([singleCountLocal, albumCountLocal, clipCountLocal, cardCountLocal], 
   async ([newSingle, newAlbum, newClip, newCard], 
@@ -557,7 +591,6 @@ if (typeof window !== 'undefined') {
 </script>
 
 <template>
-<!-- Template остается без изменений - такой же как в вашем оригинальном коде -->
 <div class="quiz__form quiz__form_one">
   <div class="quiz__form_top">
     <h4 class="quiz__form_head">Что вы хотите загрузить?</h4>
@@ -615,7 +648,7 @@ if (typeof window !== 'undefined') {
               
               <div class="quiz-popup__instruction">
                 <p>Перед загрузкой клипа прочтите 
-                  <a href="#" @click.prevent="handleInstructionClick">инструкцию</a>.
+                  <a href="#" target="_blank" @click.prevent="handleInstructionClick">инструкцию</a>.
                 </p>
               </div>
             </div>
@@ -632,8 +665,28 @@ if (typeof window !== 'undefined') {
   </Teleport>
 
   <ul class="quiz__form_one_list">
+    <!-- Сингл -->
     <li class="quiz__form_one_item">
-      <h6 class="quiz__form_one_head">{{ singleName }}</h6>
+      <div class="quiz__form_one_left">
+        <h6 class="quiz__form_one_head">{{ singleName }}</h6>
+        <div class="tooltip-container">
+          <button 
+            class="tooltip-trigger" 
+            @click.stop="showTooltip('single')"
+            @mouseenter="showTooltip('single')"
+            @mouseleave="hideTooltip"
+            type="button"
+            :aria-label="`Подробнее о ${singleName}`"
+          >
+            <FaqSVG />
+          </button>
+          <Transition name="tooltip-fade">
+            <div v-if="activeTooltip === 'single'" class="tooltip-content" role="tooltip">
+              {{ tooltipTexts.single }}
+            </div>
+          </Transition>
+        </div>
+      </div>
       <div class="quiz__form_one_right">
         <p class="quiz__form_one_price">{{ formatPrice(singlePrice) }} {{ currencySymbol }}</p>
         <div class="quiz__form_one_count">
@@ -648,8 +701,29 @@ if (typeof window !== 'undefined') {
         </div>
       </div>
     </li>
+    
+    <!-- Альбом -->
     <li class="quiz__form_one_item">
-      <h6 class="quiz__form_one_head">{{ albumName }}</h6>
+      <div class="quiz__form_one_left">
+        <h6 class="quiz__form_one_head">{{ albumName }}</h6>
+        <div class="tooltip-container">
+          <button 
+            class="tooltip-trigger" 
+            @click.stop="showTooltip('album')"
+            @mouseenter="showTooltip('album')"
+            @mouseleave="hideTooltip"
+            type="button"
+            :aria-label="`Подробнее о ${albumName}`"
+          >
+            <FaqSVG />
+          </button>
+          <Transition name="tooltip-fade">
+            <div v-if="activeTooltip === 'album'" class="tooltip-content" role="tooltip">
+              {{ tooltipTexts.album }}
+            </div>
+          </Transition>
+        </div>
+      </div>
       <div class="quiz__form_one_right">
         <p class="quiz__form_one_price">{{ formatPrice(albumPrice) }} {{ currencySymbol }}</p>
         <div class="quiz__form_one_count">
@@ -664,8 +738,29 @@ if (typeof window !== 'undefined') {
         </div>
       </div>
     </li>
+    
+    <!-- Клип -->
     <li class="quiz__form_one_item">
-      <h6 class="quiz__form_one_head">{{ clipName }}</h6>
+      <div class="quiz__form_one_left">
+        <h6 class="quiz__form_one_head">{{ clipName }}</h6>
+        <div class="tooltip-container">
+          <button 
+            class="tooltip-trigger" 
+            @click.stop="showTooltip('clip')"
+            @mouseenter="showTooltip('clip')"
+            @mouseleave="hideTooltip"
+            type="button"
+            :aria-label="`Подробнее о ${clipName}`"
+          >
+            <FaqSVG />
+          </button>
+          <Transition name="tooltip-fade">
+            <div v-if="activeTooltip === 'clip'" class="tooltip-content" role="tooltip">
+              {{ tooltipTexts.clip }}
+            </div>
+          </Transition>
+        </div>
+      </div>
       <div class="quiz__form_one_right">
         <p class="quiz__form_one_price">{{ formatPrice(clipPrice) }} {{ currencySymbol }}</p>
         <div class="quiz__form_one_count">
@@ -680,8 +775,29 @@ if (typeof window !== 'undefined') {
         </div>
       </div>
     </li>
+    
+    <!-- Оформление карточки -->
     <li class="quiz__form_one_item">
-      <h6 class="quiz__form_one_head">{{ cardName }}</h6>
+      <div class="quiz__form_one_left">
+        <h6 class="quiz__form_one_head">{{ cardName }}</h6>
+        <div class="tooltip-container">
+          <button 
+            class="tooltip-trigger" 
+            @click.stop="showTooltip('card')"
+            @mouseenter="showTooltip('card')"
+            @mouseleave="hideTooltip"
+            type="button"
+            :aria-label="`Подробнее о ${cardName}`"
+          >
+            <FaqSVG />
+          </button>
+          <Transition name="tooltip-fade">
+            <div v-if="activeTooltip === 'card'" class="tooltip-content" role="tooltip">
+              {{ tooltipTexts.card }}
+            </div>
+          </Transition>
+        </div>
+      </div>
       <div class="quiz__form_one_right">
         <p class="quiz__form_one_price">{{ formatPrice(cardPrice) }} {{ currencySymbol }}</p>
         <div class="quiz__form_one_count">
@@ -731,7 +847,7 @@ if (typeof window !== 'undefined') {
 </template>
 
 <style lang="css" scoped>
-/* Стили остаются без изменений - такие же как в вашем оригинальном коде */
+/* Основные стили */
 .quiz__form_top {
   display: flex;
   width: 100%;
@@ -757,8 +873,14 @@ if (typeof window !== 'undefined') {
 .quiz__form_one_item:not(:last-child) {
   border-bottom: 1px solid var(--border);
 }
+.quiz__form_one_left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .quiz__form_one_head {
   text-transform: uppercase;
+  margin: 0;
 }
 .quiz__form_one_right {
   display: flex;
@@ -1012,6 +1134,96 @@ if (typeof window !== 'undefined') {
   background: #555;
 }
 
+/* Стили для тултипов */
+.tooltip-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #999;
+  transition: color 0.2s ease;
+  border-radius: 50%;
+}
+
+.tooltip-trigger:hover {
+  color: #333;
+}
+
+.tooltip-trigger:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+.tooltip-trigger svg {
+  width: 18px;
+  height: 18px;
+}
+
+.tooltip-content {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 10px;
+  padding: 12px 16px;
+  background: #333;
+  color: white;
+  font-size: 13px;
+  line-height: 1.5;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  min-width: 250px;
+  white-space: normal;
+  text-align: left;
+}
+
+.tooltip-content::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+}
+
+/* Анимация для тултипов */
+.tooltip-fade-enter-active,
+.tooltip-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.tooltip-fade-enter-from,
+.tooltip-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(5px);
+}
+
+.tooltip-fade-enter-to,
+.tooltip-fade-leave-from {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Медиа-запросы */
+@media (max-width: 1439px) {
+  .quiz__form_one_list {
+    padding: 30px;
+  }
+}
 @media (max-width: 767px) {
   .quiz-popup__close {
     top: -60px;
@@ -1045,24 +1257,7 @@ if (typeof window !== 'undefined') {
     padding: 12px 24px;
     font-size: 14px;
   }
-}
-
-@media (max-width: 480px) {
-  .quiz-popup__close {
-    top: -50px;
-  }
   
-  .quiz-popup__content {
-    padding: 15px;
-  }
-}
-
-@media (max-width: 1439px) {
-  .quiz__form_one_list {
-    padding: 30px;
-  }
-}
-@media (max-width: 767px) {
   .quiz__form_one {
     padding: 15px;
   }
@@ -1076,6 +1271,64 @@ if (typeof window !== 'undefined') {
     border: 0;
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
+  }
+  .quiz__form_one_left {
+    gap: 8px;
+  }
+  .tooltip-trigger svg {
+    width: 16px;
+    height: 16px;
+  }
+  .tooltip-content {
+    min-width: 200px;
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .quiz-popup__close {
+    top: -50px;
+  }
+  
+  .quiz-popup__content {
+    padding: 15px;
+  }
+  
+  .quiz__form_one_item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .quiz__form_one_right {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .tooltip-content {
+    left: 0;
+    transform: none;
+    bottom: auto;
+    top: 100%;
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+  
+  .tooltip-content::after {
+    top: auto;
+    bottom: 100%;
+    border-color: transparent transparent #333 transparent;
+  }
+  
+  .tooltip-fade-enter-from,
+  .tooltip-fade-leave-to {
+    transform: translateY(-5px);
+  }
+  
+  .tooltip-fade-enter-to,
+  .tooltip-fade-leave-from {
+    transform: translateY(0);
   }
 }
 </style>
