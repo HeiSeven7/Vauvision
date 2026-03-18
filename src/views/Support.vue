@@ -104,7 +104,7 @@ onMounted(() => {
               </div>
               <div class="support__info_text">
                 <h4 class="support__info_title">Время ответа</h4>
-                <p class="support__info_desc">Обычно мы отвечаем в течение нескольких часов. Если ваш вопрос срочный, воспользуйтесь Telegram ботом.</p>
+                <p class="support__info_desc">Пожалуйста, напишите ваш вопрос максимально подробно в свободной форме, мы ответим вам как можно скорее!</p>
               </div>
             </div>
           </div>

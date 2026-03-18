@@ -543,7 +543,7 @@ section {
 .button__primary span,
 .button__red span,
 .button__black span{
-  min-width: 160px;
+  min-width: 240px;
 }
 
 .button__primary:disabled,

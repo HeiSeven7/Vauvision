@@ -109,7 +109,7 @@ const profileData = ref({
   bonus: 0,
   region: 'Russia'
 });
-
+const userName = ref<string>('');
 const showReportButton = ref(false);
 const reportYears = ref<string[]>([]);
 const selectedYear = ref<string>('');
@@ -152,7 +152,7 @@ const isDownloading = ref(false);
 // Общая информация о пагинации из API
 const releasesPagination = ref({
   currentPage: 1,
-  perPage: 6,
+  perPage: 4,
   total: "0"
 });
 
@@ -164,12 +164,12 @@ const reportsPagination = ref({
 
 const transactionsPagination = ref({
   currentPage: 1,
-  perPage: 6,
+  perPage: 4,
   total: "0"
 });
 
 // Пагинация для релизов
-const releasesPerPage = ref<number>(6);
+const releasesPerPage = ref<number>(4);
 const currentReleasesPage = ref<number>(1);
 const totalReleasesItems = computed(() => parseInt(releasesPagination.value.total) || 0);
 
@@ -179,7 +179,7 @@ const currentReportsPage = ref<number>(1);
 const totalReportsItems = computed(() => parseInt(reportsPagination.value.total) || 0);
 
 // Пагинация для транзакций
-const transactionsPerPage = ref<number>(6);
+const transactionsPerPage = ref<number>(4);
 const currentTransactionsPage = ref<number>(1);
 const totalTransactionsItems = computed(() => parseInt(transactionsPagination.value.total) || 0);
 
@@ -654,6 +654,10 @@ const fetchProfileData = async () => {
     if (response.data) {
       // Сохраняем isoldsumm
       isoldsumm.value = response.data.isoldsumm || "0";
+    }
+
+    if (response.data && response.data.user) {
+      userName.value = response.data.user.name || response.data.user.login || 'Пользователь';
     }
     
     if (response.data && response.data.profile) {
@@ -1172,7 +1176,7 @@ onMounted(() => {
     <div v-else class="personal__block">
       <div class="personal__balance">
         <div class="personal__balance_info">
-          <h3 class="personal__balance_head">Баланс и бонусы аккаунта</h3>
+          <h3 class="personal__balance_head">ЛИЧНЫЙ КАБИНЕТ {{ userName }}</h3>
         </div>
         <div class="personal__divider"></div>
         <ul class="personal__balance_list">
@@ -1180,17 +1184,17 @@ onMounted(() => {
             <div class="personal__balance_top">
               <div class="personal__balance_svg"><WalletSVG/></div>
               <div class="personal__balance_top_info">
-                <h4 class="personal__balance_heading">Квартальный отчет</h4>
+                <h4 class="personal__balance_heading text_one">Отчет</h4>
                 <p class="personal__balance_desc">Баланс обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится</p>
               </div>
             </div>
             <button 
-              class="personal__balance_button button__red" 
-              :class="{ 'button__disabled': !showReportButton }"
-              :disabled="!showReportButton"
-              @click="showReportPopupFunc"
+              class="personal__balance_button button__primary"
+              @click="openPayoutAmountPopup"
+              :disabled="profileData.balance < minPayoutAmount"
+              :class="{ 'button__disabled': profileData.balance < minPayoutAmount }"
             >
-              <span><DownloadSVG/>Скачать отчет</span>
+              <span>Запросить выплаты</span>
             </button>
           </li>
           <li class="personal__balance_item">
@@ -1204,12 +1208,12 @@ onMounted(() => {
               </div>
             </div>
             <button 
-              class="personal__balance_button button__primary"
-              @click="openPayoutAmountPopup"
-              :disabled="profileData.balance < minPayoutAmount"
-              :class="{ 'button__disabled': profileData.balance < minPayoutAmount }"
+              class="personal__balance_button button__black" 
+              :class="{ 'button__disabled': !showReportButton }"
+              :disabled="!showReportButton"
+              @click="showReportPopupFunc"
             >
-              <span>Запросить выплаты</span>
+              <span><DownloadSVG/>Скачать отчет</span>
             </button>
           </li>
           <li class="personal__balance_item">
@@ -1238,10 +1242,10 @@ onMounted(() => {
         <div class="personal__content">
           <div class="personal__release">
             <div class="personal__release_flex">
-              <h5 class="personal__release_head">Выложите релиз</h5>
-              <p class="personal__release_desc">Lorem ipsum dolor sit amet consectetur. Gravida elementum mauris penatibus lectus tellus ac neque mollis. Nascetur pulvinar tellus maecenas venenatis pharetra vulputate odio quis pretium.</p>
+              <h5 class="personal__release_head">ОТПРАВИТЬ РЕЛИЗ НА ПЛОЩАДКИ</h5>
+              <p class="personal__release_desc">Нажмите на кнопку ниже, чтобы заполнить форму и отправить свой релиз на все платформы!</p>
             </div>
-            <RouterLink class="personal__release_button button__black button" :to="Tr.i18nRoute({ name: 'release' })">
+            <RouterLink class="personal__release_button button__red button" :to="Tr.i18nRoute({ name: 'release' })">
               <span>Выложить релиз</span>
             </RouterLink>
             <!-- <div class="personal__release_image">
@@ -1251,7 +1255,7 @@ onMounted(() => {
           </div>
           <div class="personal__releases">
             <div class="personal__releases_block">
-              <h5 class="personal__releases_title">Релизы</h5>
+              <h5 class="personal__releases_title">ВАШИ РЕЛИЗЫ</h5>
               <ul class="personal__releases_list">
                 <li 
                   class="personal__releases_item" 
@@ -1488,11 +1492,11 @@ onMounted(() => {
               <img src="@/assets/img/personal/partner/partner.webp" alt="">
             </div>
             <div class="personal__partner_info">
-              <h5 class="personal__articles_head">Станьте партнером</h5>
-              <p class="personal__articles_desc">Take advantage of this incredible offer and maximize your profits.</p>
+              <h5 class="personal__articles_head">Стать партнёром VAUVISION</h5>
+              <p class="personal__articles_desc">Зарабатывайте деньги за рекомендации!</p>
             </div>
             <RouterLink class="personal__partner_button button__primary" :to="Tr.i18nRoute({ name: 'partner' })">
-              <span>стать партнером</span>
+              <span>Присоединиться</span>
             </RouterLink>
           </div>
           <div class="personal__articles">
@@ -1852,23 +1856,21 @@ onMounted(() => {
   background-color: var(--border);
 }
 
-/* Вертикальные разделители для блока баланса */
 .personal__balance_list {
   display: flex;
-  padding: 40px;
+  padding: 0 40px;
   flex-wrap: wrap;
-  gap: 20px;
   position: relative;
 }
 
 .personal__balance_item {
   display: flex;
   max-width: calc(33.333% - 27px);
+  padding: 40px 20px;
   flex-direction: column;
   justify-content: space-between;
   gap: 20px;
   position: relative;
-  padding: 0 20px;
 }
 
 .personal__balance_item:not(:last-child)::after {
@@ -2702,9 +2704,6 @@ onMounted(() => {
   .personal__content {
     width: calc(100% - 340px);
   }
-  .personal__balance_list {
-    gap: 20px;
-  }
   .personal__balance_item {
     max-width: calc(33.333% - 27px);
     padding: 0 20px;
@@ -2737,7 +2736,6 @@ onMounted(() => {
     padding: 30px 30px 20px;
   }
   
-  /* Адаптация разделителей для планшетов */
   .personal__balance_list {
     padding: 30px;
     gap: 30px;
