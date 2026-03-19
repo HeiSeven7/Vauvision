@@ -1469,19 +1469,18 @@ onMounted(async () => {
   position: relative;
   margin: 20px 0 30px;
   padding: 30px;
-  background-color: rgba(64, 158, 255, 0.1);
+  background-color: var(--bg-color);
   border-radius: 8px;
   text-align: center;
-  border: 1px solid #409eff;
+  border: 1px solid var(--color);
 }
 
 .loading-spinner {
   display: inline-block;
   width: 40px;
   height: 40px;
-  border: 4px solid rgba(64, 158, 255, 0.2);
   border-radius: 50%;
-  border-top-color: #409eff;
+  border-top-color: var(--color);
   animation: spin 1s ease-in-out infinite;
   margin-bottom: 15px;
 }

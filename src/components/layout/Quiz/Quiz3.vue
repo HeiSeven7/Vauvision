@@ -1114,6 +1114,7 @@ onUnmounted(() => {
 <!-- Блок с важной информацией -->
 <div class="quiz__form quiz__important" v-if="showImportantBlock">
   <h4 class="quiz__important_head">Игнорирование требований приведёт к увеличению сроков отгрузки релиза.</h4>
+  <h6 class="quiz__important_head">ПОЖАЛУЙСТА, ПРОВЕРЬТЕ ВНИМАТЕЛЬНО СООТВЕТСТВИЕ ТРЕБОВАНИЯМ. ПРИ НЕОБХОДИМОСТИ ВЕРНИТЕСЬ НА ШАГ НАЗАД.</h6>
   <ul class="quiz__important_list">
     <li class="quiz__important_item">
       <p class="quiz__important_description">Обложка должна быть квадратная, размером от 1500х1500 до 4000х4000 пикселей, в формате JPG, размером не больше 10-12 мегабайт.</p>

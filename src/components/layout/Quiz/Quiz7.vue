@@ -28,7 +28,7 @@
           size="large"
         >
           <span class="checkbox__text">
-            Я принимаю условия <a href="/offer" target="_blank" class="checkbox__link">публичной оферты</a>*
+            Я принимаю условия <a href="https://vauvision.com/upload/pdf/offer2.pdf" target="_blank" class="checkbox__link">публичной оферты</a>
           </span>
         </el-checkbox>
         <div v-if="errors.acceptTerms" class="error text_very">
@@ -43,7 +43,7 @@
           size="large"
         >
           <span class="checkbox__text">
-            Я даю согласие на обработку <a href="/privacy" target="_blank" class="checkbox__link">персональных данных</a>*
+            Я даю согласие на обработку <a href="https://vauvision.com/upload/pdf/personaldata.pdf" target="_blank" class="checkbox__link">персональных данных</a>
           </span>
         </el-checkbox>
         <div v-if="errors.acceptPrivacy" class="error text_very">
@@ -58,7 +58,7 @@
           size="large"
         >
           <span class="checkbox__text">
-            Я даю согласие на получение рекламных рассылок и специальных предложений
+            Я даю согласие на получение <a href="https://vauvision.com/upload/pdf/offer.pdf" target="_blank" class="checkbox__link">рекламных рассылок и специальных предложений</a>
           </span>
         </el-checkbox>
       </div>
@@ -592,7 +592,7 @@ onUnmounted(() => {
   height: 40px;
   border: 4px solid rgba(64, 158, 255, 0.2);
   border-radius: 50%;
-  border-top-color: #409eff;
+  border-top-color: var(--color);
   animation: spin 1s ease-in-out infinite;
   margin-bottom: 15px;
 }

@@ -1191,7 +1191,7 @@ if (typeof window !== 'undefined') {
     <div class="quiz__form_two_lists">
       <p class="quiz__form_two_description text_small">Отметить артистов можно 3 способами:</p>
       <ul class="quiz__form_two_list">
-        <li class="quiz__form_two_item">
+        <li class="form__hint_item">
           <p class="quiz__form_two_description text_small">Артист 1, Артист 2 (через запятую). Тогда оба артиста будут считаться основными, у всех появится своя карточка артиста, в которые попадёт релиз (либо попадёт в существующие, если карточки уже есть).</p>
         </li>
         <li class="form__hint_item">

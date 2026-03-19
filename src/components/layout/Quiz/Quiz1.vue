@@ -2,9 +2,10 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { sendRequest } from '@/utils/api';
 import { ElInputNumber, ElMessage } from 'element-plus';
+import { openDB } from 'idb';
+import Tr from "@/i18n/translation";
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import FaqSVG from "@/uikit/icon/FaqSVG.vue";
-import { openDB } from 'idb';
 
 const emit = defineEmits<{
   'go-back': [];
@@ -514,11 +515,6 @@ const closePopup = () => {
   document.body.style.overflow = '';
 };
 
-const handleInstructionClick = () => {
-  console.log('Quiz1: Переход к инструкции');
-  closePopup();
-};
-
 // Управление тултипами
 const showTooltip = (type: string) => {
   activeTooltip.value = type;
@@ -648,7 +644,9 @@ if (typeof window !== 'undefined') {
               
               <div class="quiz-popup__instruction">
                 <p>Перед загрузкой клипа прочтите 
-                  <a href="#" target="_blank" @click.prevent="handleInstructionClick">инструкцию</a>.
+                  <RouterLink :to="Tr.i18nRoute({ name: 'faq' })">
+                    <span>инструкцию</span>
+                  </RouterLink>.
                 </p>
               </div>
             </div>
@@ -979,8 +977,8 @@ if (typeof window !== 'undefined') {
 }
 
 .quiz-popup__warning {
-  background-color: #fff3cd;
-  border-left: 4px solid #ffc107;
+  background-color: var(--bg-color);
+  border-left: 4px solid var(--color);
   padding: 15px;
   margin-bottom: 20px;
   border-radius: 8px;
@@ -993,41 +991,19 @@ if (typeof window !== 'undefined') {
   font-size: 16px;
 }
 
-.quiz-popup__warning p {
-  color: #856404;
-  font-size: 15px;
-  line-height: 1.5;
-  margin: 0;
-}
-
 .quiz-popup__info {
-  background-color: #e3f2fd;
-  border-left: 4px solid #2196f3;
+  background-color: var(--bg-color);
+  border-left: 4px solid var(--color);
   padding: 15px;
   margin-bottom: 20px;
   border-radius: 8px;
 }
 
-.quiz-popup__info p {
-  color: #0c5460;
-  font-size: 15px;
-  line-height: 1.5;
-  margin: 0;
-}
-
 .quiz-popup__links {
-  background-color: #f8f9fa;
+  background-color: var(--bg-color);
   padding: 20px;
   margin-bottom: 20px;
   border-radius: 8px;
-  border: 1px solid #dee2e6;
-}
-
-.quiz-popup__links p {
-  font-size: 15px;
-  line-height: 1.5;
-  color: #333;
-  margin: 0;
 }
 
 .quiz-popup__links p:first-child {
@@ -1035,70 +1011,51 @@ if (typeof window !== 'undefined') {
 }
 
 .quiz-popup__links a {
-  color: #007bff;
+  color: var(--color);
   text-decoration: none;
   font-weight: 500;
-  border-bottom: 1px dashed #007bff;
+  border-bottom: 1px dashed var(--color);
 }
 
 .quiz-popup__links a:hover {
-  color: #0056b3;
-  border-bottom-color: #0056b3;
+  color: var(--text);
+  border-bottom-color: var(--text);
 }
 
 .quiz-popup__message {
-  background-color: #d4edda;
-  border-left: 4px solid #28a745;
+  background-color: var(--bg-color);
+  border-left: 4px solid var(--color);
   padding: 15px;
   margin-bottom: 20px;
   border-radius: 8px;
 }
 
-.quiz-popup__message p {
-  color: #155724;
-  font-size: 15px;
-  line-height: 1.6;
-  margin: 0;
-}
-
-.quiz-popup__message strong {
-  color: #155724;
-}
-
 .quiz-popup__message a {
-  color: #155724;
+  color: var(--color);
   text-decoration: underline;
-  font-weight: 500;
 }
 
 .quiz-popup__message a:hover {
-  color: #0b2e13;
+  color: var(--text);
 }
 
 .quiz-popup__instruction {
-  background-color: #f8f9fa;
+  background-color: var(--bg-color);
   padding: 15px;
   border-radius: 8px;
   text-align: center;
-  border: 1px solid #dee2e6;
-}
-
-.quiz-popup__instruction p {
-  font-size: 16px;
-  color: #333;
-  margin: 0;
 }
 
 .quiz-popup__instruction a {
-  color: #007bff;
+  color: var(--color);
   text-decoration: none;
   font-weight: 600;
-  border-bottom: 2px solid #007bff;
+  border-bottom: 2px solid var(--color);
 }
 
 .quiz-popup__instruction a:hover {
-  color: #0056b3;
-  border-bottom-color: #0056b3;
+  color: var(--text);
+  border-bottom-color: var(--text);
 }
 
 .quiz-popup__footer {

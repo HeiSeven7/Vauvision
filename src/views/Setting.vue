@@ -453,27 +453,27 @@ const submitPersonalData = async () => {
 }
 
 // Отправка общих данных
-const submitGeneralData = async () => {
-  validateForm('nickname')
-  validateForm('email')
-  validateForm('country')
+// const submitGeneralData = async () => {
+//   validateForm('nickname')
+//   validateForm('email')
+//   validateForm('country')
   
-  if (errors.nickname || errors.email || errors.country) {
-    ElMessage.error('Исправьте ошибки в форме')
-    return
-  }
+//   if (errors.nickname || errors.email || errors.country) {
+//     ElMessage.error('Исправьте ошибки в форме')
+//     return
+//   }
   
-  isOperationLoading.value = true
-  try {
-    // Здесь будет API запрос
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    ElMessage.success('Общие данные сохранены успешно')
-  } catch (error) {
-    ElMessage.error('Ошибка при сохранении данных')
-  } finally {
-    isOperationLoading.value = false
-  }
-}
+//   isOperationLoading.value = true
+//   try {
+//     // Здесь будет API запрос
+//     await new Promise(resolve => setTimeout(resolve, 1000))
+//     ElMessage.success('Общие данные сохранены успешно')
+//   } catch (error) {
+//     ElMessage.error('Ошибка при сохранении данных')
+//   } finally {
+//     isOperationLoading.value = false
+//   }
+// }
 
 // Сохранение банковских данных физического лица
 const submitIndividualBankDetails = async () => {
@@ -823,9 +823,7 @@ onMounted(() => {
                   v-model="formData.nickname"
                   :class="{ 'error': errors.nickname }"
                   placeholder="Псевдоним"
-                  :disabled="isOperationLoading"
-                  @blur="validateForm('nickname')"
-                  @input="errors.nickname = ''"
+                  disabled
                   size="large"
                 />
                 <div v-if="errors.nickname" class="error text_very">
@@ -840,9 +838,7 @@ onMounted(() => {
                   type="email"
                   :class="{ 'error': errors.email }"
                   placeholder="e-mail"
-                  :disabled="isOperationLoading"
-                  @blur="validateForm('email')"
-                  @input="errors.email = ''"
+                  disabled
                   size="large"
                 />
                 <div v-if="errors.email" class="error text_very">
@@ -856,25 +852,13 @@ onMounted(() => {
                   v-model="formData.country"
                   :class="{ 'error': errors.country }"
                   placeholder="страна"
-                  :disabled="isOperationLoading"
-                  @blur="validateForm('country')"
-                  @input="errors.country = ''"
+                  disabled
                   size="large"
                 />
                 <div v-if="errors.country" class="error text_very">
                   {{ errors.country }}
                 </div>
               </div>
-            </div>
-            <div class="setting__general_buttons">
-              <button 
-                class="setting__general_button button__primary" 
-                @click="submitGeneralData"
-                :disabled="isOperationLoading"
-              >
-                <span v-if="!isOperationLoading">сохранить изменения</span>
-                <span v-else>Сохранение...</span>
-              </button>
             </div>
           </div>
           <div class="setting__passport">

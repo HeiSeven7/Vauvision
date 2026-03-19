@@ -46,7 +46,7 @@
       <!-- Права на инструменты -->
       <div class="form__group">
         <label for="rightsInfo" class="form__label button">Права на инструментал</label>
-        <p class="form__hint text_small">В поле ниже, пожалуйста, укажите в столбик «Название трека – тип прав».</p>
+        <p class="form__hint text_small">В поле ниже, пожалуйста, укажите в столбик «Название трека – тип прав». Эта информация поможет загрузить релиз на площадки и соблюсти сроки. Если у вас только один трек, то напишите для одного трека. Если у вас несколько треков, то напишите для каждого трека. По желанию, вы можете прикрепить ссылку на сам договор на Яндекс Диске – это не обязательно.</p>
         <el-input
           v-model="formData.rightsInfo"
           type="textarea"
@@ -77,6 +77,7 @@
       <!-- Дополнительные комментарии -->
       <div class="form__group">
         <label for="additionalComments" class="form__label button">дополнительные комментарии</label>
+        <p class="form__hint text_small">Почти закончили! Напишите все, что считаете важным. Если вы пропустили какую-то информацию, у вас есть особые пожелания - самое время рассказать о них.</p>
         <el-input
           v-model="formData.additionalComments"
           type="textarea"
@@ -105,6 +106,7 @@
       <!-- Ссылка на Bandlink -->
       <div class="form__group">
         <label for="bandlinkUrl" class="form__label button">ССЫЛКА НА ВАШ ПРЕДСТОЯЩИЙ РЕЛИЗ В BANDLINK</label>
+        <p class="form__hint text_small">Если у вас есть верифицированный профиль <a href="https://band.link/" target="_blanc">Band.link</a>, то зайдите туда, перейдите в раздел «Страницы» и нажмите «Создать Bandlink». Создайте страницу релиза, указав псевдоним и название будущего релиза. Далее нажмите «Превью страницы» и скопируйте получившуюся ссылку. Её и нужно вставить в поле слева. Если у вас нет профиля в <a href="https://band.link/" target="_blanc">Band.link</a>, пропустить это поле.</p>
         <el-input
           v-model="formData.bandlinkUrl"
           type="text"
@@ -204,7 +206,7 @@
             @change="validateField('confirmNoRightsViolation')"
             :disabled="uploadingFiles || isGeneratingContract"
           >
-            Я подтверждаю, что мои треки не нарушают права других авторов музыки и текста*
+            Я подтверждаю, что мои треки не нарушают права других авторов музыки и текста
           </el-checkbox>
         </div>
         <div v-if="errors.confirmNoRightsViolation" class="error text_very">
@@ -1914,7 +1916,7 @@ onUnmounted(() => {
 }
 .upload_progress_bar_fill {
   height: 100%;
-  background-color: #409eff;
+  background-color: var(--color);
   transition: width 0.3s ease;
 }
 .upload_progress_count {
@@ -1926,19 +1928,17 @@ onUnmounted(() => {
   position: relative;
   margin: 20px 0 30px;
   padding: 30px;
-  background-color: rgba(64, 158, 255, 0.1);
+  background-color: var(--bg-color);
   border-radius: 8px;
   text-align: center;
-  border: 1px solid #409eff;
 }
 
 .loading-spinner {
   display: inline-block;
   width: 40px;
   height: 40px;
-  border: 4px solid rgba(64, 158, 255, 0.2);
   border-radius: 50%;
-  border-top-color: #409eff;
+  border-top-color: var(--color);
   animation: spin 1s ease-in-out infinite;
   margin-bottom: 15px;
 }
