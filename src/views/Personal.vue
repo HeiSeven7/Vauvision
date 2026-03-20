@@ -322,8 +322,9 @@ const fetchReleasesPage = async (page: number) => {
         id: item.ID || item.id,
         name: item.NAME || item.name,
         date: item.DATE_CREATE || item.date,
-        upcCode: item.PROPERTY_ZVONKO_UPC_VALUE,
-        link: item.PROPERTY_ZVONKO_SMART_LINK_URL_VALUE,
+        image: item.PROPERTY_ZVONKO_ALBUM_JSON?.image || item.image,
+        upcCode: item.PROPERTY_ZVONKO_ALBUM_JSON?.upc || item.upc,
+        link: item.PROPERTY_ZVONKO_ALBUM_JSON?.smart_link?.url || item.PROPERTY_ZVONKO_SMART_LINK_URL_VALUE || item.link,
         contractFile: item.CONTRACT_FILE ? getFullUrl(item.CONTRACT_FILE) : null,
         hasPng: item.HAS_PNG,
         previewText: item.PREVIEW_TEXT,
@@ -688,8 +689,9 @@ const fetchReleases = async () => {
         id: item.ID || item.id,
         name: item.NAME || item.name,
         date: item.DATE_CREATE || item.date,
-        upcCode: item.PROPERTY_ZVONKO_UPC_VALUE,
-        link: item.PROPERTY_ZVONKO_SMART_LINK_URL_VALUE,
+        image: item.PROPERTY_ZVONKO_ALBUM_JSON?.image || item.image,
+        upcCode: item.PROPERTY_ZVONKO_ALBUM_JSON?.upc || item.upc,
+        link: item.PROPERTY_ZVONKO_ALBUM_JSON?.smart_link?.url || item.PROPERTY_ZVONKO_SMART_LINK_URL_VALUE || item.link,
         contractFile: item.CONTRACT_FILE ? getFullUrl(item.CONTRACT_FILE) : null,
         hasPng: item.HAS_PNG,
         previewText: item.PREVIEW_TEXT,
@@ -1265,8 +1267,8 @@ onMounted(() => {
                   <div class="personal__releases_information">
                     <div class="personal__releases_image">
                       <img 
-                        v-if="release.hasPng"
-                        :src="getFullUrl(`/upload/releases/${release.id}/cover.png`)"
+                        v-if="release.image"
+                        :src="release.image"
                         @error="handleImageError"
                         alt=""
                       >
@@ -1286,8 +1288,19 @@ onMounted(() => {
                       <p class="personal__releases_album text_very"></p>
                     </div>
                     <div class="personal__releases_codes">
-                      <button v-if="release.upcCode" class="personal__releases_code"><span>UPC код: {{ release.upcCode }}</span></button>
-                      <button v-if="release.link" class="personal__releases_code"><LinkSVG/><span>{{ release.link }}</span></button>
+                      <button v-if="release.upcCode" class="personal__releases_code">
+                        <span>UPC код: {{ release.upcCode }}</span>
+                      </button>
+                      <a 
+                        v-if="release.link" 
+                        :href="release.link" 
+                        class="personal__releases_code"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <LinkSVG/>
+                        <span>{{ release.link }}</span>
+                      </a>
                     </div>
                     <div class="personal__releases_bottom">
                       <p class="personal__releases_date text_very">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
@@ -2706,7 +2719,7 @@ onMounted(() => {
   }
   .personal__balance_item {
     max-width: calc(33.333% - 27px);
-    padding: 0 20px;
+    padding: 40px 20px;
   }
   .personal__partner {
     gap: 84px;

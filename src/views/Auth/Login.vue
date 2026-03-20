@@ -9,14 +9,14 @@ import router from '@/router'
 
 // Реактивные данные формы
 const formData = reactive({
-  email: '',
+  login: '', // Changed from email to login
   password: '',
   rememberMe: false
 })
 
 // Состояния ошибок
 const errors = reactive({
-  email: '',
+  login: '', // Changed from email to login
   password: ''
 })
 
@@ -31,15 +31,12 @@ const validateForm = () => {
   let isValid = true
   
   // Очистка предыдущих ошибок
-  errors.email = ''
+  errors.login = ''
   errors.password = ''
 
-  // Валидация email
-  if (!formData.email.trim()) {
-    errors.email = 'Email обязателен для заполнения'
-    isValid = false
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-    errors.email = 'Введите корректный email адрес'
+  // Валидация логина/email - только проверка на пустоту
+  if (!formData.login.trim()) {
+    errors.login = 'Email или логин обязателен для заполнения'
     isValid = false
   }
 
@@ -68,7 +65,7 @@ const handleSubmit = async () => {
     "post",
     '/ajax_vue/ajax/auth/login.php',
     {
-      LOGIN: formData.email.trim(),
+      LOGIN: formData.login.trim(), // Using login field
       PASSWORD: formData.password
     }
   )
@@ -80,7 +77,7 @@ const handleSubmit = async () => {
     });
     
     // Сброс формы
-    formData.email = ''
+    formData.login = ''
     formData.password = ''
     formData.rememberMe = false
     
@@ -95,20 +92,20 @@ const handleSubmit = async () => {
       const errorData = error.response.data
       
       // Если сервер возвращает ошибки для конкретных полей
-      if (errorData.email) {
-        errors.email = Array.isArray(errorData.email) ? errorData.email[0] : errorData.email
+      if (errorData.login) {
+        errors.login = Array.isArray(errorData.login) ? errorData.login[0] : errorData.login
       }
       if (errorData.password) {
         errors.password = Array.isArray(errorData.password) ? errorData.password[0] : errorData.password
       }
       
       // Общая ошибка, если нет специфичных для полей
-      if (!errorData.email && !errorData.password && errorData.detail) {
+      if (!errorData.login && !errorData.password && errorData.detail) {
         ElMessage({
           message: errorData.detail,
           type: 'error',
         });
-      } else if (!errorData.email && !errorData.password && errorData.non_field_errors) {
+      } else if (!errorData.login && !errorData.password && errorData.non_field_errors) {
         // Для DRF часто используется non_field_errors
         ElMessage({
           message: Array.isArray(errorData.non_field_errors) 
@@ -116,7 +113,7 @@ const handleSubmit = async () => {
             : errorData.non_field_errors,
           type: 'error',
         });
-      } else if (!errorData.email && !errorData.password) {
+      } else if (!errorData.login && !errorData.password) {
         ElMessage({
           message: 'Ошибка авторизации. Проверьте введенные данные.',
           type: 'error',
@@ -203,22 +200,22 @@ onMounted(() => {
             </div>
             <div class="form__flex">
 
-              <!-- Поле email -->
+              <!-- Поле email или логин -->
               <div class="form__group">
-                <label for="email" class="form__label button">E-mail</label>
+                <label for="login" class="form__label button">Email или логин</label>
                 <el-input
-                  id="email"
-                  v-model="formData.email"
-                  type="email"
-                  :class="{ 'error': errors.email }"
-                  placeholder="Введите ваш e-mail"
+                  id="login"
+                  v-model="formData.login"
+                  type="text"
+                  :class="{ 'error': errors.login }"
+                  placeholder="Введите email или логин"
                   :disabled="isLoading"
                   @blur="validateForm"
-                  @input="errors.email = ''"
+                  @input="errors.login = ''"
                   size="large"
                 />
-                <div v-if="errors.email" class="error text_very">
-                  {{ errors.email }}
+                <div v-if="errors.login" class="error text_very">
+                  {{ errors.login }}
                 </div>
               </div>
 
