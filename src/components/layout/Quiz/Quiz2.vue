@@ -211,6 +211,17 @@
         </div>
       </div>
     </div>
+    
+    <!-- Кнопка добавления нового сингла - под списком синглов -->
+    <div class="quiz__add_single_button" v-if="canAddMoreSingles">
+      <button 
+        class="quiz__form_button button__black button" 
+        @click="addSingleTrackWithFile"
+        :disabled="isLoadingTwo"
+      >
+        <span>+ Добавить сингл ({{ singleTracks.length }}/{{ singleCountFromQuiz1 }})</span>
+      </button>
+    </div>
   </div>
   
   <!-- АЛЬБОМЫ - показываем только если есть треки в альбоме -->
@@ -385,17 +396,6 @@
     </div>
   </div>
   
-  <!-- Кнопка для добавления нового сингла -->
-  <div class="quiz__add_single_button" v-if="canAddMoreSingles">
-    <button 
-      class="quiz__form_button button__black button" 
-      @click="addSingleTrackWithFile"
-      :disabled="isLoadingTwo"
-    >
-      <span>+ Добавить сингл ({{ singleTracks.length }}/{{ singleCountFromQuiz1 }})</span>
-    </button>
-  </div>
-  
   <div class="quiz__form_bottom" v-if="dataLoaded && (singleTracks.length > 0 || albums.length > 0) && hasAnySingleTracksWithFiles && hasAnyAlbumTracksWithFiles">
     <div class="quiz__form_buttons">
       <button 
@@ -515,7 +515,7 @@ const isPopupVisible = ref(false);
 const singleCountFromQuiz1 = ref(0);
 const albumCountFromQuiz1 = ref(0);
 
-// Показывать кнопку "Загрузить все синглы" - только если есть пустые синглы и нет ни одного загруженного
+// Показывать кнопку "Загрузить все синглы" - если есть пустые синглы и нет ни одного загруженного
 const showUploadAllSinglesButton = computed(() => {
   if (singleTracks.value.length === 0) return false;
   const hasUnuploaded = singleTracks.value.some(track => !track.hasAudioUploaded);
@@ -1403,7 +1403,7 @@ const removeSingleTrack = async (trackIndex: number) => {
   }
 };
 
-// Массовая загрузка всех синглов (только если нет ни одного загруженного)
+// Массовая загрузка всех синглов
 const uploadAllSingles = async () => {
   const notUploadedIndices: number[] = [];
   singleTracks.value.forEach((track, index) => {
