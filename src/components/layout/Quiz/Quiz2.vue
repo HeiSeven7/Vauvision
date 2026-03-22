@@ -19,7 +19,7 @@
       :disabled="isLoadingTwo || isUploadingAllSingles"
     >
       <span v-if="!isUploadingAllSingles">Загрузить все синглы</span>
-      <span v-else>Загрузка... {{ uploadedSinglesCount }}/{{ singleTracks.length }}</span>
+      <span v-else>Загрузка... {{ uploadedSinglesCount }}/{{ singleCountFromQuiz1 }}</span>
     </button>
     <button 
       v-if="albums.length > 0 && !hasAnyAlbumTracksWithFiles"
@@ -64,7 +64,7 @@
     </Transition>
   </Teleport>
   
-  <div class="quiz__form_two_empty" v-if="showUploadAllSinglesButton">
+  <div class="quiz__form_two_empty" v-if="showUploadAllSinglesButton || (albums.length > 0 && !hasAnyAlbumTracksWithFiles)">
     <div class="quiz__form_two_lists">
       <p class="quiz__form_two_description text_small">Отметить артистов можно 3 способами:</p>
       <ul class="quiz__form_two_list">
@@ -381,7 +381,7 @@
           <!-- Кнопка добавления нового трека -->
           <div class="quiz__album_add_track" v-if="album.tracks.length < 20">
             <button 
-              class="quiz__form_single_button button__red button" 
+              class="quiz__form_single_button button__black button" 
               @click="() => addAlbumTrackWithFile(albumIndex)"
               :disabled="isLoadingTwo"
             >
@@ -512,7 +512,6 @@ const albumCountFromQuiz1 = ref(0);
 
 const showUploadAllSinglesButton = computed(() => {
   const needToUpload = singleCountFromQuiz1.value - singleTracks.value.length;
-  // Показываем кнопку только если нужно загрузить синглы И еще не загружен ни один
   return needToUpload > 0 && singleTracks.value.length === 0;
 });
 
@@ -522,7 +521,8 @@ const canAddMoreSingles = computed(() => {
 
 const hasAnyAlbumTracksWithFiles = computed(() => {
   if (albums.value.length === 0) return false;
-  return albums.value.some(album => album.tracks.some(track => track.audioFile !== null));
+  // Проверяем, есть ли хотя бы один трек в альбоме
+  return albums.value.some(album => album.tracks.length > 0);
 });
 
 const totalTracksToUploadCount = computed(() => {
@@ -756,7 +756,6 @@ const saveStateToDB = async () => {
 };
 
 const loadSinglesFromStorage = async (savedState: any) => {
-  // Загружаем только те синглы, у которых есть файл
   if (savedState && savedState.singleTracks && savedState.singleTracks.length > 0) {
     const loadedTracks = [];
     for (const track of savedState.singleTracks) {
@@ -769,7 +768,6 @@ const loadSinglesFromStorage = async (savedState: any) => {
         }
       }
       
-      // Добавляем только если есть файл
       if (audioFile) {
         loadedTracks.push({
           id: track.id,
@@ -801,6 +799,10 @@ const loadSinglesFromStorage = async (savedState: any) => {
 };
 
 const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => {
+  console.log('loadAlbumsFromStorage called, requiredCount:', requiredCount);
+  console.log('savedState.albums:', savedState?.albums);
+  
+  // Если альбомы есть в сохранении и их количество совпадает с требуемым
   if (savedState && savedState.albums && savedState.albums.length === requiredCount) {
     albums.value = await Promise.all(
       savedState.albums.map(async (album: any, albumIndex: number) => {
@@ -845,8 +847,21 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
         return newAlbum;
       })
     );
+  } else if (requiredCount > 0) {
+    // Если альбом выбран, но в сохранении нет - создаем пустой альбом
+    console.log('Creating new empty album');
+    albums.value = [];
+    for (let i = 0; i < requiredCount; i++) {
+      albums.value.push({
+        id: `album-${Date.now()}-${i}-${Math.random()}`,
+        albumName: '',
+        performerName: '',
+        musicAuthor: '',
+        textAuthor: '',
+        tracks: []
+      });
+    }
   } else {
-    // Не создаем пустые альбомы
     albums.value = [];
   }
   
@@ -873,12 +888,7 @@ const loadStateFromDB = async () => {
       singleCountFromQuiz1.value = counts.singleCount;
       albumCountFromQuiz1.value = counts.albumCount;
       
-      if (counts.singleCount > 0) {
-        await loadSinglesFromStorage(savedState);
-      } else {
-        singleTracks.value = [];
-        singleErrors.value = [];
-      }
+      await loadSinglesFromStorage(savedState);
       
       if (counts.albumCount > 0) {
         await loadAlbumsFromStorage(savedState, counts.albumCount);
@@ -1218,6 +1228,24 @@ const removeSingleTrack = async (trackIndex: number) => {
   }
 };
 
+const removeSingleUploadedAudio = async (trackIndex: number) => {
+  if (trackIndex >= 0 && trackIndex < singleTracks.value.length) {
+    const track = singleTracks.value[trackIndex];
+    
+    if (track.audioFileId) {
+      await removeAudioFromDB(track.audioFileId);
+    }
+    
+    const newTracks = singleTracks.value.filter((_, index) => index !== trackIndex);
+    singleTracks.value = newTracks;
+    singleErrors.value = singleErrors.value.filter((_, index) => index !== trackIndex);
+    
+    await saveStateToDB();
+    
+    ElMessage.success('Сингл удален');
+  }
+};
+
 const uploadAllSingles = async () => {
   const needToUpload = singleCountFromQuiz1.value - singleTracks.value.length;
   
@@ -1524,25 +1552,6 @@ const removeAlbumTrack = async (albumIndex: number, trackIndex: number) => {
   }
 };
 
-const removeSingleUploadedAudio = async (trackIndex: number) => {
-  if (singleTracks.value[trackIndex].audioFileId) {
-    await removeAudioFromDB(singleTracks.value[trackIndex].audioFileId);
-  }
-  
-  singleTracks.value[trackIndex].audioFile = null;
-  singleTracks.value[trackIndex].audioFileName = '';
-  singleTracks.value[trackIndex].audioFileSize = 0;
-  singleTracks.value[trackIndex].audioFileId = null;
-  singleTracks.value[trackIndex].uploaded = false;
-  singleTracks.value[trackIndex].hasAudioUploaded = false;
-  
-  singleErrors.value[trackIndex].audioFile = '';
-  
-  await saveStateToDB();
-  
-  ElMessage.info('Аудио файл удален');
-};
-
 const removeAlbumTrackAudio = async (albumIndex: number, trackIndex: number) => {
   if (albumIndex >= 0 && albumIndex < albums.value.length) {
     const album = albums.value[albumIndex];
@@ -1690,6 +1699,11 @@ onMounted(async () => {
     isLoadingTwo.value = false;
   }
 });
+
+watch(albums, () => {
+  console.log('albums changed:', albums.value);
+  console.log('hasAnyAlbumTracksWithFiles:', hasAnyAlbumTracksWithFiles.value);
+}, { deep: true });
 
 watch([singleTracks, albums], async () => {
   if (dataLoaded.value && !isLoadingTwo.value && dbInitialized.value) {

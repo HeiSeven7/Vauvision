@@ -32,11 +32,12 @@
             </ul>
             <div class="quiz__preview_buttons">
               <button 
+                v-if="hasSavedData"
                 class="quiz__restart_button button__red button" 
                 @click="restartFromBeginning"
                 :disabled="isRestarting"
               >
-                <span>{{ isRestarting ? 'Очистка данных...' : 'Заново' }}</span>
+                <span>{{ isRestarting ? 'Очистка данных...' : 'Сбросить' }}</span>
               </button>
               <button class="quiz__preview_button button__black button" @click="showQuizForm"><span>Продолжить</span></button>
             </div>
@@ -60,13 +61,69 @@
 import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
 import QuizForm from "@/components/layout/QuizForm.vue";
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 
 // Состояния для переключения
 const showForm = ref(false);
 const currentStep = ref(1);
 const isRestarting = ref(false);
-const quizFormRef = ref<InstanceType<typeof QuizForm> | null>(null);
+const hasSavedData = ref(true);
+
+// Проверка наличия сохранений в IndexedDB
+const checkSavedData = async () => {
+  try {
+    // Проверяем существует ли база данных
+    const databases = await indexedDB.databases();
+    const quizDBExists = databases.some(db => db.name === 'quizDB');
+    
+    if (!quizDBExists) {
+      console.log('База данных quizDB не существует');
+      hasSavedData.value = false;
+      return;
+    }
+    
+    // Открываем базу данных
+    const request = indexedDB.open('quizDB', 2);
+    
+    request.onerror = () => {
+      console.log('Ошибка открытия базы данных');
+      hasSavedData.value = false;
+    };
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      
+      // Проверяем существует ли хранилище
+      if (!db.objectStoreNames.contains('quizState')) {
+        console.log('Хранилище quizState не существует');
+        hasSavedData.value = false;
+        db.close();
+        return;
+      }
+      
+      // Проверяем есть ли данные
+      const transaction = db.transaction(['quizState'], 'readonly');
+      const store = transaction.objectStore('quizState');
+      const getAllRequest = store.getAll();
+      
+      getAllRequest.onsuccess = () => {
+        const hasData = getAllRequest.result.length > 0;
+        hasSavedData.value = hasData;
+        console.log('Проверка сохранений:', hasData, 'записей:', getAllRequest.result.length);
+        db.close();
+      };
+      
+      getAllRequest.onerror = () => {
+        hasSavedData.value = false;
+        db.close();
+      };
+    };
+    
+  } catch (error) {
+    console.error('Ошибка проверки сохранений:', error);
+    hasSavedData.value = false;
+  }
+};
 
 // Функция для переключения на форму
 const showQuizForm = () => {
@@ -82,6 +139,8 @@ const goToStep = (step: number) => {
 const handleGoBack = () => {
   showForm.value = false;
   currentStep.value = 1;
+  // При возврате проверяем наличие сохранений
+  checkSavedData();
 };
 
 // Функция для принудительного закрытия всех соединений с IndexedDB
@@ -89,7 +148,6 @@ const forceCloseAllConnections = (dbName: string): Promise<void> => {
   return new Promise((resolve) => {
     console.log(`🔄 Принудительное закрытие соединений с ${dbName}...`);
     
-    // Пробуем открыть и сразу закрыть соединение несколько раз
     let attempts = 0;
     const maxAttempts = 3;
     
@@ -102,14 +160,12 @@ const forceCloseAllConnections = (dbName: string): Promise<void> => {
         request.onsuccess = (event) => {
           const db = (event.target as IDBOpenDBRequest).result;
           
-          // Принудительно закрываем все транзакции
           if (db.close) {
             db.close();
             console.log(`✅ Соединение с ${dbName} закрыто (попытка ${attempts})`);
           }
           
           if (attempts < maxAttempts) {
-            // Делаем несколько попыток для гарантии
             setTimeout(tryClose, 100);
           } else {
             resolve();
@@ -150,7 +206,6 @@ const deleteDatabase = (dbName: string): Promise<boolean> => {
     
     const request = indexedDB.deleteDatabase(dbName);
     
-    // Устанавливаем таймаут на случай зависания
     const timeoutId = window.setTimeout(() => {
       console.log(`⏱️ Таймаут удаления ${dbName}, считаем успешным`);
       resolve(true);
@@ -171,7 +226,6 @@ const deleteDatabase = (dbName: string): Promise<boolean> => {
     request.onblocked = () => {
       window.clearTimeout(timeoutId);
       console.warn(`⚠️ Удаление ${dbName} заблокировано, но продолжаем...`);
-      // Даже при блокировке считаем что удаление прошло
       resolve(true);
     };
   });
@@ -205,68 +259,62 @@ const restartFromBeginning = async () => {
   console.log('🔄 Начало очистки всех данных...');
   
   try {
-    // 1. Скрываем форму
-    showForm.value = false;
-    
-    // 2. Даем время на размонтирование компонента QuizForm
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // 3. Очищаем localStorage
+    // 1. Очищаем localStorage
     const removedCount = clearLocalStorage();
     console.log(`📦 Очищено ${removedCount} записей из localStorage`);
     
-    // 4. Очищаем sessionStorage
+    // 2. Очищаем sessionStorage
     sessionStorage.clear();
     console.log('📦 Очищен sessionStorage');
     
-    // 5. Принудительно закрываем соединения с основными БД
+    // 3. Принудительно закрываем соединения с основными БД
     await forceCloseAllConnections('quizDB');
     await forceCloseAllConnections('quiz-database');
+    await forceCloseAllConnections('audioDB');
+    await forceCloseAllConnections('filesDB');
     
-    // 6. Небольшая пауза после закрытия
+    // 4. Небольшая пауза после закрытия
     await new Promise(resolve => setTimeout(resolve, 200));
     
-    // 7. Удаляем базы данных
+    // 5. Удаляем базы данных
     const databasesToDelete = [
       'quizDB',
       'quiz-database',
       'form-data',
       'quizFormDB',
-      'vauvisionDB'
+      'vauvisionDB',
+      'audioDB',
+      'filesDB'
     ];
     
-    // Запускаем удаление всех БД параллельно
     await Promise.allSettled(
       databasesToDelete.map(dbName => deleteDatabase(dbName))
     );
     
-    // 8. Дополнительная очистка
-    indexedDB.deleteDatabase('quizDB');
-    
-    // 9. Финальная пауза
+    // 6. Финальная пауза
     await new Promise(resolve => setTimeout(resolve, 500));
     
     console.log('✅ Очистка всех данных завершена');
     
-    // 10. Вызываем полный сброс дочерних компонентов через ref
-    if (quizFormRef.value) {
-      await quizFormRef.value.fullReset();
-    }
+    // 7. Обновляем состояние кнопки
+    hasSavedData.value = false;
     
-    // 11. Показываем форму с первого шага
-    currentStep.value = 1;
-    showForm.value = true;
-    isRestarting.value = false;
+    // 8. Перезагружаем страницу для полного обновления
+    window.location.reload();
     
   } catch (error) {
     console.error('❌ Ошибка при очистке:', error);
-    
-    // Даже при ошибке показываем форму
-    currentStep.value = 1;
-    showForm.value = true;
+    // В случае ошибки все равно перезагружаем
+    window.location.reload();
+  } finally {
     isRestarting.value = false;
   }
 };
+
+// При монтировании просто устанавливаем hasSavedData в true
+onMounted(() => {
+  hasSavedData.value = true;
+});
 </script>
 
 <style lang="css" scoped>

@@ -158,9 +158,6 @@ const safeDBOperation = async <T>(
 
 // Сохранение состояния в IndexedDB
 const saveStateToDB = async () => {
-  // Не сохраняем, если обновление идет с сервера
-  if (isUpdatingFromServer.value) return;
-  
   await safeDBOperation(
     async () => {
       const stateToSave = {
@@ -474,7 +471,9 @@ const fullReset = async () => {
 // Экспортируем методы для родителя
 defineExpose({
   resetState,
-  fullReset
+  fullReset,
+  singleCountLocal,
+  albumCountLocal
 });
 
 // При монтировании
@@ -558,6 +557,12 @@ watch([singleCountLocal, albumCountLocal, clipCountLocal, cardCountLocal],
     }
     
     if (newAlbum !== oldAlbum) {
+      // Ограничение для альбома - максимум 1
+      if (newAlbum > 1) {
+        albumCountLocal.value = 1;
+        ElMessage.warning('Можно выбрать не более 1 альбома');
+        return;
+      }
       await handleQuantityChange('29', newAlbum, oldAlbum);
     }
     
@@ -728,7 +733,7 @@ if (typeof window !== 'undefined') {
           <el-input-number 
             v-model="albumCountLocal" 
             :min="0" 
-            :max="99" 
+            :max="1" 
             :controls="true"
             :show-input="false"
             :disabled="isLoading"

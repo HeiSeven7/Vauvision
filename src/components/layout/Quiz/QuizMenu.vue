@@ -10,327 +10,157 @@ const emit = defineEmits<{
   'go-to-step': [step: number];
 }>();
 
-// Константы для IndexedDB
 const DB_NAME = 'quizDB';
-const DB_VERSION = 2; // Должна совпадать с версией в Quiz2
+const DB_VERSION = 2;
 const STORE_NAME = 'quizState';
 
-// Состояние доступности шагов
 const availableSteps = ref<boolean[]>([true, false, false, false, false, false, false, false]);
 const isLoading = ref(false);
 const dbInitialized = ref(false);
 const quizDB = ref<any>(null);
 
-// Инициализация IndexedDB
 const initDB = async (): Promise<void> => {
   try {
     console.log('QuizMenu: Initializing IndexedDB...');
     
     quizDB.value = await openDB(DB_NAME, DB_VERSION, {
-      upgrade(db, oldVersion, newVersion) {
-        console.log(`QuizMenu: Upgrading DB from version ${oldVersion} to ${newVersion}`);
-        
+      upgrade(db) {
         if (!db.objectStoreNames.contains(STORE_NAME)) {
-          const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-          store.createIndex('timestamp', 'timestamp');
+          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
           console.log('QuizMenu: Created quizState store');
         }
       },
     });
     
     dbInitialized.value = true;
-    console.log('QuizMenu: IndexedDB initialized successfully');
-    
+    console.log('QuizMenu: IndexedDB initialized');
   } catch (error) {
     console.error('QuizMenu: Error initializing IndexedDB:', error);
     dbInitialized.value = false;
   }
 };
 
-// Безопасное выполнение операций с БД
-const safeDBOperation = async <T>(
-  operation: () => Promise<T>, 
-  fallback: T
-): Promise<T> => {
-  if (!dbInitialized.value || !quizDB.value) {
-    console.log('QuizMenu: DB not initialized');
-    return fallback;
+const safeGet = async (key: string): Promise<any> => {
+  if (!dbInitialized.value || !quizDB.value) return null;
+  try {
+    if (!quizDB.value.objectStoreNames?.contains(STORE_NAME)) return null;
+    return await quizDB.value.get(STORE_NAME, key);
+  } catch {
+    return null;
   }
+};
+
+const isStepCompleted = async (step: number): Promise<boolean> => {
+  if (!dbInitialized.value) return false;
   
   try {
-    // Проверяем существование хранилища
-    if (!quizDB.value.objectStoreNames || !quizDB.value.objectStoreNames.contains(STORE_NAME)) {
-      console.log(`QuizMenu: Store ${STORE_NAME} not found. Available stores:`, 
-                  quizDB.value.objectStoreNames ? Array.from(quizDB.value.objectStoreNames) : []);
-      return fallback;
-    }
-    
-    return await operation();
-  } catch (error) {
-    console.error('QuizMenu: Error in DB operation:', error);
-    return fallback;
-  }
-};
-
-// Функция для проверки, заполнен ли шаг
-const isStepCompleted = async (step: number): Promise<boolean> => {
-  return safeDBOperation(
-    async () => {
-      console.log(`QuizMenu: Checking step ${step} completion...`);
-      
-      switch (step) {
-        case 1: {
-          // Шаг 1: нужно хотя бы одно поле > 0
-          const quiz1State = await quizDB.value.get(STORE_NAME, 'quiz1_state');
-          if (!quiz1State) return false;
-          const hasSelection = (quiz1State.singleCount || 0) > 0 || (quiz1State.albumCount || 0) > 0;
-          console.log(`QuizMenu: Step 1 completed: ${hasSelection}`);
-          return hasSelection;
-        }
-        
-        case 2: {
-          // Шаг 2: проверяем заполненность синглов и альбомов
-          const quiz2State = await quizDB.value.get(STORE_NAME, 'quiz2_state');
-          if (!quiz2State) return false;
-          
-          // Получаем количество из шага 1 для проверки
-          const quiz1ForCount = await quizDB.value.get(STORE_NAME, 'quiz1_state');
-          
-          // Проверяем синглы
-          let singlesComplete = true;
-          if (quiz1ForCount?.singleCount > 0) {
-            if (!quiz2State.singleTracks || quiz2State.singleTracks.length === 0) {
-              singlesComplete = false;
-            } else {
-              singlesComplete = quiz2State.singleTracks.every((track: any) => 
-                track.trackName?.trim() && 
-                track.performerName?.trim() && 
-                track.musicAuthor?.trim() && 
-                track.textAuthor?.trim() && 
-                (track.uploaded || track.hasAudioUploaded)
-              );
-            }
-          }
-          
-          // Проверяем альбомы
-          let albumsComplete = true;
-          if (quiz1ForCount?.albumCount > 0) {
-            if (!quiz2State.albums || quiz2State.albums.length === 0) {
-              albumsComplete = false;
-            } else {
-              albumsComplete = quiz2State.albums.every((album: any) => {
-                if (!album.albumName?.trim()) return false;
-                if (!album.tracks || album.tracks.length === 0) return false;
-                
-                return album.tracks.every((track: any) => 
-                  track.trackName?.trim() && 
-                  track.performerName?.trim() && 
-                  track.musicAuthor?.trim() && 
-                  track.textAuthor?.trim() && 
-                  track.uploaded
-                );
-              });
-            }
-          }
-          
-          const result = singlesComplete && albumsComplete;
-          console.log(`QuizMenu: Step 2 completed: ${result}`);
-          return result;
-        }
-        
-        case 3: {
-          // Шаг 3: проверяем все обязательные поля
-          const quiz3State = await quizDB.value.get(STORE_NAME, 'quiz3_state');
-          if (!quiz3State) return false;
-          
-          const formData3 = quiz3State.formData || {};
-          const result = !!(
-            formData3.performerName?.trim() &&
-            formData3.releaseName?.trim() &&
-            formData3.email?.trim() &&
-            formData3.platforms?.length > 0 &&
-            formData3.releaseDate &&
-            formData3.hasProfanity !== undefined &&
-            formData3.vkLink?.trim() &&
-            quiz3State.coverFileInfo?.name
-          );
-          
-          console.log(`QuizMenu: Step 3 completed: ${result}`);
-          return result;
-        }
-        
-        case 4: {
-          // Шаг 4: проверяем обязательные поля
-          const quiz4State = await quizDB.value.get(STORE_NAME, 'quiz4_state');
-          if (!quiz4State) return false;
-          
-          const passportData = quiz4State.formData || {};
-          
-          // Общие поля для всех
-          const hasCommonFields = !!(
-            passportData.lastName?.trim() &&
-            passportData.firstName?.trim() &&
-            passportData.middleName?.trim() &&
-            passportData.passportNumber?.trim() &&
-            passportData.passportIssuedBy?.trim() &&
-            passportData.passportIssueDate &&
-            passportData.registrationAddress?.trim() &&
-            passportData.citizenship
-          );
-          
-          // Проверка гражданства
-          const citizenshipValid = passportData.citizenship !== 'other' || 
-                                  (passportData.citizenship === 'other' && passportData.otherCitizenship?.trim());
-          
-          // Если ИП, проверяем дополнительные поля
-          if (passportData.userType === 'entrepreneur') {
-            const result = hasCommonFields && citizenshipValid && !!(
-              passportData.legalAddress?.trim() &&
-              passportData.inn?.trim() &&
-              passportData.ogrn?.trim() &&
-              passportData.accountNumber?.trim() &&
-              passportData.bankName?.trim() &&
-              passportData.bankBik?.trim() &&
-              passportData.correspondentAccount?.trim()
-            );
-            console.log(`QuizMenu: Step 4 (entrepreneur) completed: ${result}`);
-            return result;
-          }
-          
-          const result = hasCommonFields && citizenshipValid;
-          console.log(`QuizMenu: Step 4 completed: ${result}`);
-          return result;
-        }
-        
-        case 5: {
-          // Шаг 5: проверяем обязательные поля
-          const quiz5State = await quizDB.value.get(STORE_NAME, 'quiz5_state');
-          if (!quiz5State) return false;
-          
-          const quiz5FormData = quiz5State.formData || {};
-          
-          // Проверка полей
-          const hasRequired = !!(
-            quiz5FormData.genre?.trim() &&
-            quiz5FormData.hasDrugsMention !== undefined &&
-            quiz5FormData.socialLinks?.trim()
-          );
-          
-          // Если есть упоминание наркотиков, проверяем номера треков
-          if (quiz5FormData.hasDrugsMention === 'yes') {
-            const result = hasRequired && !!quiz5FormData.drugsTracks?.trim();
-            console.log(`QuizMenu: Step 5 (with drugs) completed: ${result}`);
-            return result;
-          }
-          
-          console.log(`QuizMenu: Step 5 completed: ${hasRequired}`);
-          return hasRequired;
-        }
-        
-        case 6: {
-          // Шаг 6: проверяем обязательные поля
-          const quiz6State = await quizDB.value.get(STORE_NAME, 'quiz6_state');
-          if (!quiz6State) return false;
-          
-          const quiz6FormData = quiz6State.formData || {};
-          
-          // Проверка платформ
-          const platformsValid = quiz6FormData.platforms?.length > 0;
-          const otherPlatformValid = !quiz6FormData.platforms?.includes('other') || 
-                                     quiz6FormData.otherPlatform?.trim();
-          
-          // Проверка бонусов
-          const bonusesValid = quiz6FormData.usedBonuses >= 0 && 
-                              (quiz6FormData.usedBonuses || 0) <= (quiz6State.userBonuses || 0);
-          
-          const result = platformsValid && 
-                         otherPlatformValid && 
-                         bonusesValid &&
-                         quiz6FormData.confirmNoRightsViolation === true;
-          
-          console.log(`QuizMenu: Step 6 completed: ${result}`);
-          return result;
-        }
-        
-        case 7: {
-          // Шаг 7: проверяем чекбоксы
-          const quiz7State = await quizDB.value.get(STORE_NAME, 'quiz7_state');
-          if (!quiz7State) return false;
-          
-          const quiz7FormData = quiz7State.formData || {};
-          const result = quiz7FormData.acceptTerms === true && quiz7FormData.acceptPrivacy === true;
-          
-          console.log(`QuizMenu: Step 7 completed: ${result}`);
-          return result;
-        }
-        
-        case 8: {
-          // Шаг 8: просто проверяем наличие состояния
-          const quiz8State = await quizDB.value.get(STORE_NAME, 'quiz8_state');
-          const result = !!quiz8State;
-          console.log(`QuizMenu: Step 8 completed: ${result}`);
-          return result;
-        }
-        
-        default:
-          return false;
+    switch (step) {
+      case 1: {
+        const state = await safeGet('quiz1_state');
+        if (!state) return false;
+        return (state.singleCount || 0) > 0 || (state.albumCount || 0) > 0;
       }
-    },
-    false
-  );
+      
+      case 2: {
+        const state = await safeGet('quiz2_state');
+        const counts = await safeGet('quiz1_state');
+        if (!state) return false;
+        
+        let singlesOk = true;
+        if (counts?.singleCount > 0) {
+          singlesOk = state.singleTracks?.length === counts.singleCount &&
+            state.singleTracks?.every((t: any) => t.trackName && t.performerName && t.musicAuthor && t.textAuthor && (t.uploaded || t.hasAudioUploaded));
+        }
+        
+        let albumsOk = true;
+        if (counts?.albumCount > 0) {
+          albumsOk = state.albums?.length === counts.albumCount &&
+            state.albums?.every((a: any) => a.albumName && a.tracks?.length > 0 &&
+              a.tracks.every((t: any) => t.trackName && t.performerName && t.musicAuthor && t.textAuthor && t.uploaded));
+        }
+        
+        return singlesOk && albumsOk;
+      }
+      
+      case 3: {
+        const state = await safeGet('quiz3_state');
+        if (!state?.formData) return false;
+        const f = state.formData;
+        return !!(f.performerName && f.releaseName && f.email && f.platforms?.length && f.releaseDate && f.hasProfanity && f.vkLink && state.coverFileInfo?.name);
+      }
+      
+      case 4: {
+        const state = await safeGet('quiz4_state');
+        if (!state?.formData) return false;
+        const p = state.formData;
+        
+        const common = !!(p.lastName && p.firstName && p.middleName && p.passportNumber && p.passportIssuedBy && p.passportIssueDate && p.registrationAddress && p.citizenship);
+        const citizenshipOk = p.citizenship !== 'other' || p.otherCitizenship;
+        
+        if (p.userType === 'entrepreneur') {
+          return common && citizenshipOk && !!(p.legalAddress && p.inn && p.ogrn && p.accountNumber && p.bankName && p.bankBik && p.correspondentAccount);
+        }
+        return common && citizenshipOk;
+      }
+      
+      case 5: {
+        const state = await safeGet('quiz5_state');
+        if (!state?.formData) return false;
+        const g = state.formData;
+        const required = !!(g.genre && g.hasDrugsMention && g.socialLinks);
+        if (g.hasDrugsMention === 'yes') return required && !!g.drugsTracks;
+        return required;
+      }
+      
+      case 6: {
+        const state = await safeGet('quiz6_state');
+        if (!state?.formData) return false;
+        const a = state.formData;
+        const platformsOk = a.platforms?.length > 0;
+        const otherOk = !a.platforms?.includes('other') || a.otherPlatform;
+        return platformsOk && otherOk && a.confirmNoRightsViolation === true;
+      }
+      
+      case 7: {
+        const state = await safeGet('quiz7_state');
+        if (!state?.formData) return false;
+        return state.formData.acceptTerms === true && state.formData.acceptPrivacy === true;
+      }
+      
+      case 8: {
+        const state = await safeGet('quiz8_state');
+        return !!state;
+      }
+      
+      default: return false;
+    }
+  } catch (error) {
+    console.error(`QuizMenu: Error checking step ${step}:`, error);
+    return false;
+  }
 };
 
-// Загружаем состояние всех шагов
 const loadStepsAvailability = async () => {
-  if (!dbInitialized.value) {
-    console.log('QuizMenu: DB not initialized yet, skipping availability check');
-    return;
-  }
+  if (!dbInitialized.value) return;
   
   isLoading.value = true;
   try {
-    console.log('QuizMenu: Loading steps availability...');
+    const newSteps = [true, false, false, false, false, false, false, false];
     
-    const newAvailableSteps = [true, false, false, false, false, false, false, false];
-    
-    // Шаг 1 всегда доступен
-    newAvailableSteps[0] = true;
-    
-    // Проверяем шаг 2
-    const step1Completed = await isStepCompleted(1);
-    
-    if (step1Completed) {
-      newAvailableSteps[1] = true;
-      
-      // Проверяем шаг 3
-      const step2Completed = await isStepCompleted(2);
-      if (step2Completed) {
-        newAvailableSteps[2] = true;
-        
-        // Проверяем шаг 4
-        const step3Completed = await isStepCompleted(3);
-        if (step3Completed) {
-          newAvailableSteps[3] = true;
-          
-          // Проверяем шаг 5
-          const step4Completed = await isStepCompleted(4);
-          if (step4Completed) {
-            newAvailableSteps[4] = true;
-            
-            // Проверяем шаг 6
-            const step5Completed = await isStepCompleted(5);
-            if (step5Completed) {
-              newAvailableSteps[5] = true;
-              
-              // Проверяем шаг 7
-              const step6Completed = await isStepCompleted(6);
-              if (step6Completed) {
-                newAvailableSteps[6] = true;
-                
-                // Проверяем шаг 8
-                const step7Completed = await isStepCompleted(7);
-                if (step7Completed) {
-                  newAvailableSteps[7] = true;
+    if (await isStepCompleted(1)) {
+      newSteps[1] = true;
+      if (await isStepCompleted(2)) {
+        newSteps[2] = true;
+        if (await isStepCompleted(3)) {
+          newSteps[3] = true;
+          if (await isStepCompleted(4)) {
+            newSteps[4] = true;
+            if (await isStepCompleted(5)) {
+              newSteps[5] = true;
+              if (await isStepCompleted(6)) {
+                newSteps[6] = true;
+                if (await isStepCompleted(7)) {
+                  newSteps[7] = true;
                 }
               }
             }
@@ -339,20 +169,17 @@ const loadStepsAvailability = async () => {
       }
     }
     
-    availableSteps.value = newAvailableSteps;
-    console.log('QuizMenu: Steps availability updated:', newAvailableSteps);
-    
+    availableSteps.value = newSteps;
   } catch (error) {
-    console.error('QuizMenu: Error loading steps availability:', error);
+    console.error('QuizMenu: Error loading steps:', error);
   } finally {
     isLoading.value = false;
   }
 };
 
-// Проверяем, можно ли перейти к указанному шагу
 const canGoToStep = (step: number): boolean => {
   if (step === props.currentStep) return true;
-  if (step < props.currentStep) return true; // Назад можно всегда
+  if (step < props.currentStep) return true;
   return availableSteps.value[step - 1];
 };
 
@@ -362,7 +189,6 @@ const goToStep = (step: number) => {
   }
 };
 
-// Функция для получения заголовка шага
 const getStepTitle = (step: number): string => {
   const titles = [
     'Шаг 1. Оформление заказа',
@@ -377,37 +203,20 @@ const getStepTitle = (step: number): string => {
   return titles[step - 1];
 };
 
-// Обработчик обновления данных
 const handleDataUpdate = () => {
-  console.log('QuizMenu: Data update event received');
   loadStepsAvailability();
 };
 
-// Загружаем при монтировании
 onMounted(async () => {
-  console.log('QuizMenu: Component mounted');
-  isLoading.value = true;
-  
-  // Сначала инициализируем БД
   await initDB();
-  
-  // Затем загружаем доступность шагов
   await loadStepsAvailability();
-  
-  isLoading.value = false;
-  
-  // Слушаем события обновления данных
   window.addEventListener('quiz-data-updated', handleDataUpdate);
 });
 
-// Следим за изменением currentStep
 watch(() => props.currentStep, () => {
-  console.log(`QuizMenu: Current step changed to ${props.currentStep}`);
-  // При смене шага перепроверяем доступность
   loadStepsAvailability();
 });
 
-// Очищаем слушатель при размонтировании
 onUnmounted(() => {
   window.removeEventListener('quiz-data-updated', handleDataUpdate);
 });
@@ -462,32 +271,24 @@ onUnmounted(() => {
   border: none;
   cursor: pointer;
 }
-
-/* Стили для доступных кнопок (не активных) */
 .quiz__menu_button.available {
   color: var(--text);
   cursor: pointer;
 }
-
 .quiz__menu_button.available:hover {
   color: var(--text);
   background-color: var(--bg-color);
 }
-
-/* Стили для заблокированных кнопок */
 .quiz__menu_button.disabled {
   color: var(--text-gray);
   cursor: not-allowed;
   opacity: 0.5;
   pointer-events: none;
 }
-
-/* Стили для активной кнопки */
 .quiz__menu_button.active {
   color: var(--text);
   background-color: var(--bg-color);
 }
-
 .quiz__menu_button::after {
   content: "";
   width: 3px;
@@ -500,11 +301,9 @@ onUnmounted(() => {
   opacity: 0;
   transition: opacity 0.15s linear;
 }
-
 .quiz__menu_button.active::after {
   opacity: 1;
 }
-
 @media (max-width: 1439px) {
   .quiz__menu {
     padding: 0;
@@ -534,20 +333,16 @@ onUnmounted(() => {
     white-space: nowrap;
     word-break: keep-all;
   }
-  
   .quiz__menu_button.available {
     border-color: var(--border);
   }
-  
   .quiz__menu_button.disabled {
     border-color: var(--border-light);
   }
-  
   .quiz__menu_button.active {
     border-color: var(--yellow);
   }
 }
-
 @media (max-width: 767px) {
   .quiz__menu_button {
     padding: 12px 15px;
