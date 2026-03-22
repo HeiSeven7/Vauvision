@@ -1937,6 +1937,7 @@ onUnmounted(() => {
   display: inline-block;
   width: 40px;
   height: 40px;
+  border: 4px solid rgba(64, 158, 255, 0.2);
   border-radius: 50%;
   border-top-color: var(--color);
   animation: spin 1s ease-in-out infinite;

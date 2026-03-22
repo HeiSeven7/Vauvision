@@ -15,7 +15,7 @@ import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
 import Tr from "@/i18n/translation"
 import SignaturePopup from "@/components/layout/Signature.vue";
 
-const loading = ref<boolean>(true); // Изначально true, пока грузятся все данные
+const loading = ref<boolean>(true);
 const loadingSvg = `
   <path class="path" d="
     M 30 15
@@ -27,13 +27,27 @@ const loadingSvg = `
   " style="stroke-width: 4px; fill: rgba(0, 0, 0, 0)"/>
 `;
 
-// Счетчик загруженных данных и общее количество запросов
 const loadedCount = ref(0);
-
-// Получаем базовый URL из текущего окна
 const API_BASE_URL = window.location.origin;
 
 // Интерфейсы для объектов списков
+interface Track {
+  id: number;
+  title: string;
+  track_number: number;
+  duration: number;
+  isrc: string;
+  upc?: string;
+  artist?: string[];
+  artist_name?: string;
+  composer?: string;
+  lyricist?: string;
+  is_explicit?: boolean;
+  has_file?: boolean;
+  has_lyrics?: boolean;
+  [key: string]: any;
+}
+
 interface Release {
   id: string | number;
   name: string;
@@ -51,6 +65,7 @@ interface Release {
   propertyDogovorPdfValue?: string | null;
   propertyLinkValue?: string | null;
   propertyDogovorStatusValue?: string | null;
+  tracks?: Track[]; // Добавляем массив треков
 }
 
 interface Report {
@@ -118,38 +133,31 @@ const showReportPopup = ref(false);
 const showQuarterPopup = ref(false);
 const showSignaturePopup = ref(false);
 const showPayoutAmountPopup = ref(false);
-const showImagesPopup = ref(false); // Новый попап для отображения изображений
+const showImagesPopup = ref(false);
 const actData = ref<ActResponse | null>(null);
 const userLabel = ref(0);
 const isoldsumm = ref("0");
 
-// Состояние для выплаты
 const payoutAmount = ref<number | null>(null);
 const isRequestingAct = ref(false);
 const actError = ref('');
-
-// Состояние для отправки на API после подписи
 const isSubmittingVyplata = ref(false);
 const vyplataError = ref('');
 
-// Список кварталов из API
 const availableQuarters = ref<Quarter[]>([]);
 
-// Данные для списков
 const releasesData = ref<Release[]>([]);
 const reportsData = ref<Report[]>([]);
 const transactionsData = ref<Transaction[]>([]);
 const articlesData = ref<Article[]>([]);
 const partnersData = ref<Partner[]>([]);
 
-// Состояние загрузки
 const isLoadingReleases = ref(false);
 const isLoadingReports = ref(false);
 const isLoadingTransactions = ref(false);
 const isLoadingQuarters = ref(false);
 const isDownloading = ref(false);
 
-// Общая информация о пагинации из API
 const releasesPagination = ref({
   currentPage: 1,
   perPage: 4,
@@ -168,22 +176,18 @@ const transactionsPagination = ref({
   total: "0"
 });
 
-// Пагинация для релизов
 const releasesPerPage = ref<number>(4);
 const currentReleasesPage = ref<number>(1);
 const totalReleasesItems = computed(() => parseInt(releasesPagination.value.total) || 0);
 
-// Пагинация для отчетов
 const reportsPerPage = ref<number>(4);
 const currentReportsPage = ref<number>(1);
 const totalReportsItems = computed(() => parseInt(reportsPagination.value.total) || 0);
 
-// Пагинация для транзакций
 const transactionsPerPage = ref<number>(4);
 const currentTransactionsPage = ref<number>(1);
 const totalTransactionsItems = computed(() => parseInt(transactionsPagination.value.total) || 0);
 
-// Вычисляемые свойства для релизов
 const totalReleasesPages = computed(() => {
   return Math.ceil(totalReleasesItems.value / releasesPerPage.value);
 });
@@ -196,7 +200,6 @@ const showReleasesPagination = computed(() => {
   return totalReleasesItems.value > releasesPerPage.value;
 });
 
-// Вычисляемые свойства для отчетов
 const totalReportsPages = computed(() => {
   return Math.ceil(totalReportsItems.value / reportsPerPage.value);
 });
@@ -209,7 +212,6 @@ const showReportsPagination = computed(() => {
   return totalReportsItems.value > reportsPerPage.value;
 });
 
-// Вычисляемые свойства для транзакций
 const totalTransactionsPages = computed(() => {
   return Math.ceil(totalTransactionsItems.value / transactionsPerPage.value);
 });
@@ -222,41 +224,34 @@ const showTransactionsPagination = computed(() => {
   return totalTransactionsItems.value > transactionsPerPage.value;
 });
 
-// Последние 3 статьи
 const lastThreeArticles = computed(() => {
   return articlesData.value.slice(0, 3);
 });
 
-// Последние 3 партнера
 const lastThreePartners = computed(() => {
   return partnersData.value.slice(0, 3);
 });
 
-// Состояние для попапа выплаты бонусов
 const showBonusPayoutPopup = ref(false);
 const bonusPayoutAmount = ref<number | null>(null);
 const isSubmittingBonusPayout = ref(false);
 const payoutError = ref('');
 
-// Вспомогательные computed свойства для бонусов
 const maxBonusAmount = computed(() => profileData.value.bonus || 0);
 const isBonusAmountValid = computed(() => {
   if (!bonusPayoutAmount.value) return false;
   return bonusPayoutAmount.value > 0 && bonusPayoutAmount.value <= maxBonusAmount.value;
 });
 
-// Минимальная сумма для выплаты в зависимости от isoldsumm
 const minPayoutAmount = computed(() => {
   return isoldsumm.value === "1" ? 1000 : 5000;
 });
 
-// Валидация суммы выплаты
 const isPayoutAmountValid = computed(() => {
   if (!payoutAmount.value) return false;
   return payoutAmount.value >= minPayoutAmount.value && payoutAmount.value <= profileData.value.balance;
 });
 
-// Методы для пагинации релизов
 const nextReleasesPage = async () => {
   if (currentReleasesPage.value < totalReleasesPages.value) {
     currentReleasesPage.value++;
@@ -271,7 +266,6 @@ const prevReleasesPage = async () => {
   }
 };
 
-// Методы для пагинации отчетов
 const nextReportsPage = async () => {
   if (currentReportsPage.value < totalReportsPages.value) {
     currentReportsPage.value++;
@@ -286,7 +280,6 @@ const prevReportsPage = async () => {
   }
 };
 
-// Методы для пагинации транзакций
 const nextTransactionsPage = async () => {
   if (currentTransactionsPage.value < totalTransactionsPages.value) {
     currentTransactionsPage.value++;
@@ -301,7 +294,6 @@ const prevTransactionsPage = async () => {
   }
 };
 
-// Функция для формирования полного URL
 const getFullUrl = (path: string) => {
   if (!path) return '';
   if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -309,6 +301,43 @@ const getFullUrl = (path: string) => {
   }
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   return `${API_BASE_URL}${cleanPath}`;
+};
+
+// Функция для извлечения данных треков
+const extractTracks = (trackJson: any): Track[] => {
+  if (!trackJson) return [];
+  
+  if (Array.isArray(trackJson)) {
+    return trackJson.map((track: any) => ({
+      id: track.id || track.zvonko_id,
+      title: track.title || track.name,
+      track_number: track.track_number,
+      duration: track.duration,
+      isrc: track.isrc || '',
+      upc: track.upc || track.album_upc,
+      artist: track.artist,
+      artist_name: track.artist_name,
+      composer: track.composer,
+      lyricist: track.lyricist,
+      is_explicit: track.is_explicit,
+      has_file: track.has_file,
+      has_lyrics: track.has_lyrics,
+      ...track
+    }));
+  }
+  
+  if (typeof trackJson === 'object' && trackJson.id) {
+    return [{
+      id: trackJson.id,
+      title: trackJson.title || trackJson.name,
+      track_number: trackJson.track_number,
+      duration: trackJson.duration,
+      isrc: trackJson.isrc || '',
+      ...trackJson
+    }];
+  }
+  
+  return [];
 };
 
 // Функция для загрузки страницы релизов
@@ -334,7 +363,8 @@ const fetchReleasesPage = async (page: number) => {
         propertyDogovorUserValue: item.PROPERTY_DOGOVOR_USER_VALUE,
         propertyDogovorPdfValue: item.PROPERTY_DOGOVOR_PDF_VALUE ? getFullUrl(item.PROPERTY_DOGOVOR_PDF_VALUE) : null,
         propertyLinkValue: item.PROPERTY_LINK_VALUE,
-        propertyDogovorStatusValue: item.PROPERTY_DOGOVOR_STATUS_VALUE
+        propertyDogovorStatusValue: item.PROPERTY_DOGOVOR_STATUS_VALUE,
+        tracks: extractTracks(item.PROPERTY_ZVONKO_TRACK_JSON)
       }));
       
       releasesPagination.value = {
@@ -419,7 +449,6 @@ const fetchTransactionsPage = async (page: number) => {
   }
 };
 
-// Функция для получения класса статуса
 const getStatusClass = (status: string) => {
   switch (status) {
     case 'completed':
@@ -433,7 +462,6 @@ const getStatusClass = (status: string) => {
   }
 };
 
-// Функция для перевода статуса
 const getStatusText = (status: string) => {
   switch (status) {
     case 'completed':
@@ -447,7 +475,6 @@ const getStatusText = (status: string) => {
   }
 };
 
-// Функция для выбора года
 const selectYear = async (year: string) => {
   selectedYear.value = year;
   
@@ -541,7 +568,6 @@ const selectYear = async (year: string) => {
   }
 };
 
-// Функция для скачивания отчета по кварталу
 const downloadReport = async () => {
   if (!selectedQuarter.value) {
     alert('Пожалуйста, выберите квартал');
@@ -608,7 +634,6 @@ const showReportPopupFunc = () => {
   document.documentElement.classList.add('noscroll');
 };
 
-// Закрыть все попапы
 const closeAllPopups = () => {
   showReportPopup.value = false;
   showQuarterPopup.value = false;
@@ -626,7 +651,6 @@ const closeAllPopups = () => {
   document.documentElement.classList.remove('noscroll');
 };
 
-// Вернуться к выбору года
 const backToYearSelection = () => {
   showQuarterPopup.value = false;
   showReportPopup.value = true;
@@ -634,7 +658,6 @@ const backToYearSelection = () => {
   availableQuarters.value = [];
 };
 
-// Метод для обработки ошибок загрузки изображений
 const handleImageError = (event: Event) => {
   const img = event.target as HTMLImageElement;
   img.style.display = 'none';
@@ -646,14 +669,12 @@ const handleImageError = (event: Event) => {
   }
 };
 
-// Функция для загрузки профиля
 const fetchProfileData = async () => {
   try {
     const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
     console.log('Данные из API:', response.data);
     
     if (response.data) {
-      // Сохраняем isoldsumm
       isoldsumm.value = response.data.isoldsumm || "0";
     }
 
@@ -680,7 +701,6 @@ const fetchProfileData = async () => {
   }
 };
 
-// Функция для загрузки релизов
 const fetchReleases = async () => {
   try {
     const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
@@ -701,7 +721,8 @@ const fetchReleases = async () => {
         propertyDogovorUserValue: item.PROPERTY_DOGOVOR_USER_VALUE,
         propertyDogovorPdfValue: item.PROPERTY_DOGOVOR_PDF_VALUE ? getFullUrl(item.PROPERTY_DOGOVOR_PDF_VALUE) : null,
         propertyLinkValue: item.PROPERTY_LINK_VALUE,
-        propertyDogovorStatusValue: item.PROPERTY_DOGOVOR_STATUS_VALUE
+        propertyDogovorStatusValue: item.PROPERTY_DOGOVOR_STATUS_VALUE,
+        tracks: extractTracks(item.PROPERTY_ZVONKO_TRACK_JSON)
       }));
       
       releasesPagination.value = {
@@ -717,7 +738,6 @@ const fetchReleases = async () => {
   }
 };
 
-// Функция для загрузки отчетов
 const fetchReports = async () => {
   try {
     const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
@@ -746,7 +766,6 @@ const fetchReports = async () => {
   }
 };
 
-// Функция для загрузки транзакций
 const fetchTransactions = async () => {
   try {
     const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
@@ -776,7 +795,6 @@ const fetchTransactions = async () => {
   }
 };
 
-// Функция для загрузки статей
 const fetchArticles = async () => {
   try {
     const response = await sendRequest('get', '/ajax_vue/ajax/getData.php?articles', {});
@@ -792,7 +810,6 @@ const fetchArticles = async () => {
   }
 };
 
-// Функция для загрузки партнеров
 const fetchPartners = async () => {
   try {
     const partnerResponse = await sendRequest('get', '/ajax_vue/ajax/getData.php?referral', {});
@@ -815,7 +832,6 @@ const fetchPartners = async () => {
   }
 };
 
-// Форматирование даты для партнеров
 const formatDate = (dateString: string) => {
   if (!dateString) return '';
   const date = new Date(dateString);
@@ -826,7 +842,6 @@ const formatDate = (dateString: string) => {
   });
 };
 
-// Форматирование количества релизов для партнеров
 const formatReleases = (releases: string | number) => {
   const count = Number(releases);
   if (count === 0) return '0 релизов';
@@ -835,7 +850,6 @@ const formatReleases = (releases: string | number) => {
   return `${count} релизов`;
 };
 
-// Функция для открытия попапа ввода суммы выплаты
 const openPayoutAmountPopup = () => {
   if (profileData.value.balance < minPayoutAmount.value) {
     alert(`Минимальная сумма для выплаты: ${minPayoutAmount.value} ₽`);
@@ -848,7 +862,6 @@ const openPayoutAmountPopup = () => {
   document.documentElement.classList.add('noscroll');
 };
 
-// Функция для запроса акта выплаты с указанной суммой
 const requestPayoutAct = async () => {
   if (!isPayoutAmountValid.value) {
     actError.value = `Сумма должна быть от ${minPayoutAmount.value} до ${profileData.value.balance}`;
@@ -871,7 +884,6 @@ const requestPayoutAct = async () => {
     console.log('Ответ при получении акта:', response.data);
 
     if (response.data && response.data.error === 0) {
-      // Сохраняем данные акта
       actData.value = {
         docx_url: response.data.data.docx_url,
         pdf_url: response.data.data.pdf_url,
@@ -880,7 +892,6 @@ const requestPayoutAct = async () => {
         message: response.data.message
       };
       
-      // Закрываем попап ввода суммы и открываем попап с изображениями
       showPayoutAmountPopup.value = false;
       showImagesPopup.value = true;
     } else {
@@ -895,13 +906,11 @@ const requestPayoutAct = async () => {
   }
 };
 
-// Функция для перехода к подписи
 const goToSignature = () => {
   showImagesPopup.value = false;
   showSignaturePopup.value = true;
 };
 
-// Функция для отправки на API выплаты после подписи
 const submitToVyplataApi = async () => {
   if (!actData.value || !payoutAmount.value) return;
   
@@ -911,7 +920,6 @@ const submitToVyplataApi = async () => {
   try {
     const valuta = profileData.value.region === 'Russia' ? 'RUB' : 'USD';
     
-    // Отправляем данные на API выплаты
     const response = await sendRequest('post', '/ajax_vue/ajax/profile/vyplata.php', {
       summ: payoutAmount.value,
       valuta: valuta,
@@ -924,7 +932,7 @@ const submitToVyplataApi = async () => {
     if (response.data && response.data.error === 0) {
       alert('Выплата успешно обработана');
       closeAllPopups();
-      await fetchProfileData(); // Обновляем данные
+      await fetchProfileData();
     } else {
       vyplataError.value = response.data?.message || 'Ошибка при обработке выплаты';
       alert(vyplataError.value);
@@ -947,47 +955,38 @@ const submitToVyplataApi = async () => {
   }
 };
 
-// Функция для отправки подписи
 const submitSignature = async (signatureDataUrl: string) => {
   if (!actData.value) return;
 
   try {
-    // 1. Преобразуем dataURL в Blob и затем в File
     const response = await fetch(signatureDataUrl);
     const blob = await response.blob();
     
-    // Используем имя файла из element_id
     const fileName = `${actData.value.element_id}.png`;
     const signatureFile = new File([blob], fileName, { type: 'image/png' });
 
-    // 2. Создаем FormData и добавляем все необходимые поля
     const formData = new FormData();
     formData.append('name', actData.value.element_id);
     formData.append('signature', signatureFile); 
 
-    // 3. Отправляем FormData с помощью нативного fetch
     const submitResponse = await fetch('/ajax_vue/ajax/newAkt_vyp.php', {
       method: 'POST',
       body: formData,
     });
 
-    // 4. Проверяем статус ответа
     if (!submitResponse.ok) {
         const errorText = await submitResponse.text();
         console.error('Ошибка HTTP:', submitResponse.status, errorText);
         throw new Error(`HTTP error! status: ${submitResponse.status}`);
     }
 
-    // 5. Парсим ответ
     const result = await submitResponse.json();
     console.log('Ответ при отправке подписи:', result);
 
-    // 6. Проверяем, нет ли ошибки в ответе
     if (result && result.error) {
       throw new Error(result.message || 'Ошибка при отправке подписи');
     }
 
-    // 7. После успешной отправки подписи отправляем на API выплаты
     await submitToVyplataApi();
     
   } catch (error: unknown) {
@@ -1007,7 +1006,6 @@ const submitSignature = async (signatureDataUrl: string) => {
   }
 };
 
-// Функция для открытия попапа выплаты бонусов
 const openBonusPayoutPopup = () => {
   bonusPayoutAmount.value = null;
   payoutError.value = '';
@@ -1021,7 +1019,6 @@ const openBonusPayoutPopup = () => {
   document.documentElement.classList.add('noscroll');
 };
 
-// Функция для отправки запроса на выплату бонусов
 const submitBonusPayout = async () => {
   if (!isBonusAmountValid.value) {
     payoutError.value = `Сумма должна быть от 1 до ${maxBonusAmount.value}`;
@@ -1042,9 +1039,7 @@ const submitBonusPayout = async () => {
 
     console.log('Ответ на выплату бонусов:', response.data);
 
-    // Проверяем разные возможные форматы успешного ответа
     if (response.data) {
-      // Если есть поле error и оно равно 0 или false - успех
       if (response.data.error === 0 || response.data.error === false || response.data.error === '0') {
         alert('Запрос на выплату бонусов успешно отправлен');
         closeBonusPayoutPopup();
@@ -1052,7 +1047,6 @@ const submitBonusPayout = async () => {
         return;
       }
       
-      // Если есть поле success и оно true - успех
       if (response.data.success === true || response.data.success === '1' || response.data.success === 1) {
         alert('Запрос на выплату бонусов успешно отправлен');
         closeBonusPayoutPopup();
@@ -1060,7 +1054,6 @@ const submitBonusPayout = async () => {
         return;
       }
       
-      // Если есть поле status и оно 'ok' или 'success' - успех
       if (response.data.status === 'ok' || response.data.status === 'success') {
         alert('Запрос на выплату бонусов успешно отправлен');
         closeBonusPayoutPopup();
@@ -1068,7 +1061,6 @@ const submitBonusPayout = async () => {
         return;
       }
       
-      // Если есть поле message и оно содержит информацию об успехе
       if (response.data.message && (
           response.data.message.toLowerCase().includes('успех') || 
           response.data.message.toLowerCase().includes('success') ||
@@ -1080,7 +1072,6 @@ const submitBonusPayout = async () => {
         return;
       }
       
-      // Если вообще нет ошибки в ответе, но есть какие-то данные - возможно успех
       if (!response.data.error && !response.data.errorCode) {
         alert('Запрос на выплату бонусов успешно отправлен');
         closeBonusPayoutPopup();
@@ -1089,7 +1080,6 @@ const submitBonusPayout = async () => {
       }
     }
     
-    // Если мы дошли до сюда, значит это ошибка
     const errorMessage = response.data?.message || 
                         response.data?.errorMessage || 
                         response.data?.error ||
@@ -1116,7 +1106,6 @@ const submitBonusPayout = async () => {
   }
 };
 
-// Функция для закрытия попапа выплаты бонусов
 const closeBonusPayoutPopup = () => {
   showBonusPayoutPopup.value = false;
   bonusPayoutAmount.value = null;
@@ -1125,13 +1114,11 @@ const closeBonusPayoutPopup = () => {
   document.documentElement.classList.remove('noscroll');
 };
 
-// Функция для загрузки всех данных
 const loadAllData = async () => {
   loading.value = true;
   loadedCount.value = 0;
   
   try {
-    // Запускаем все запросы параллельно
     await Promise.all([
       fetchProfileData().finally(() => loadedCount.value++),
       fetchReleases().finally(() => loadedCount.value++),
@@ -1147,14 +1134,12 @@ const loadAllData = async () => {
   }
 };
 
-// Следим за изменением страницы отчетов
 watch(currentReportsPage, async (newPage) => {
   if (newPage > 0) {
     await fetchReportsPage(newPage);
   }
 });
 
-// Инициализация при монтировании
 onMounted(() => {
   loadAllData();
 });
@@ -1250,10 +1235,6 @@ onMounted(() => {
             <RouterLink class="personal__release_button button__red button" :to="Tr.i18nRoute({ name: 'release' })">
               <span>Выложить релиз</span>
             </RouterLink>
-            <!-- <div class="personal__release_image">
-              <img src="@/assets/img/personal/release/cassette.webp" alt="">
-              <img src="@/assets/img/personal/release/cassette_back.webp" alt="">
-            </div> -->
           </div>
           <div class="personal__releases">
             <div class="personal__releases_block">
@@ -1302,6 +1283,49 @@ onMounted(() => {
                         <span>{{ release.link }}</span>
                       </a>
                     </div>
+                    
+                    <!-- Блок с треками и их кодами -->
+                    <div v-if="release.tracks && release.tracks.length > 0" class="personal__releases_tracks">
+                      <div class="personal__releases_tracks_header">
+                        <span class="personal__releases_tracks_title">Треки:</span>
+                      </div>
+                      <div class="personal__releases_tracks_list">
+                        <div 
+                          v-for="(track, idx) in release.tracks" 
+                          :key="track.id || idx"
+                          class="personal__releases_track"
+                        >
+                          <div class="personal__releases_track_header">
+                            <span class="personal__releases_track_number">{{ track.track_number }}.</span>
+                            <span class="personal__releases_track_title">{{ track.title }}</span>
+                            <span class="personal__releases_track_duration" v-if="track.duration">
+                              {{ Math.floor(track.duration / 60) }}:{{ (track.duration % 60).toString().padStart(2, '0') }}
+                            </span>
+                          </div>
+                          <div class="personal__releases_track_codes">
+                            <button v-if="track.isrc" class="personal__releases_code personal__releases_code_small">
+                              <span>ISRC: {{ track.isrc }}</span>
+                            </button>
+                            <button v-if="track.upc" class="personal__releases_code personal__releases_code_small">
+                              <span>UPC: {{ track.upc }}</span>
+                            </button>
+                            <button v-if="track.composer" class="personal__releases_code personal__releases_code_small">
+                              <span>Композитор: {{ track.composer }}</span>
+                            </button>
+                            <button v-if="track.lyricist" class="personal__releases_code personal__releases_code_small">
+                              <span>Автор текста: {{ track.lyricist }}</span>
+                            </button>
+                            <button v-if="track.artist_name" class="personal__releases_code personal__releases_code_small">
+                              <span>Исполнитель: {{ track.artist_name }}</span>
+                            </button>
+                            <button v-if="track.is_explicit" class="personal__releases_code personal__releases_code_small explicit">
+                              <span>⚠️ Explicit</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
                     <div class="personal__releases_bottom">
                       <p class="personal__releases_date text_very">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
                       <div class="personal__releases_agreements">
@@ -1581,7 +1605,6 @@ onMounted(() => {
   </div>
 </section>
 
-<!-- Попап для выбора года -->
 <Teleport to="body">
   <div class="popup" v-if="showReportPopup" @click.self="closeAllPopups">
     <div class="popup__content">
@@ -1608,7 +1631,6 @@ onMounted(() => {
   </div>
 </Teleport>
 
-<!-- Попап для выбора квартала -->
 <Teleport to="body">
   <div class="popup" v-if="showQuarterPopup" @click.self="closeAllPopups">
     <div class="popup__content">
@@ -1654,7 +1676,6 @@ onMounted(() => {
   </div>
 </Teleport>
 
-<!-- Попап для ввода суммы выплаты -->
 <Teleport to="body">
   <div class="popup" v-if="showPayoutAmountPopup" @click.self="closeAllPopups">
     <div class="popup__content popup__content_small">
@@ -1713,7 +1734,6 @@ onMounted(() => {
   </div>
 </Teleport>
 
-<!-- Новый попап для отображения изображений -->
 <Teleport to="body">
   <div class="popup" v-if="showImagesPopup && actData" @click.self="closeAllPopups">
     <div class="popup__content popup__content_images">
@@ -1761,14 +1781,12 @@ onMounted(() => {
   </div>
 </Teleport>
 
-<!-- Попап для подписи акта -->
 <SignaturePopup
   v-if="showSignaturePopup && actData"
   @close="closeAllPopups"
   @submit="submitSignature"
 />
 
-<!-- Попап для выплаты бонусов -->
 <Teleport to="body">
   <div class="popup" v-if="showBonusPayoutPopup" @click.self="closeBonusPayoutPopup">
     <div class="popup__content popup__content_small">
@@ -1823,8 +1841,6 @@ onMounted(() => {
     </div>
   </div>
 </Teleport>
-
-<!-- <Footer></Footer> -->
 </template>
 
 <style lang="css" scoped>
@@ -2072,6 +2088,7 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  margin-bottom: 16px;
 }
 .personal__releases_code {
   display: flex;
@@ -2082,15 +2099,28 @@ onMounted(() => {
   color: var(--text);
   background-color: var(--bg);
   border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
 }
 .personal__releases_code:hover {
   color: var(--white);
   background-color: var(--color);
+  border-color: var(--color);
 }
 .personal__releases_code svg {
   width: 16px;
   height: 16px;
   object-fit: contain;
+}
+.personal__releases_code_small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.personal__releases_code_small.explicit {
+  background-color: #ff4d4f;
+  color: white;
+  border-color: #ff4d4f;
 }
 .personal__releases_date {
   color: var(--text-gray);
@@ -2117,7 +2147,67 @@ onMounted(() => {
   margin: auto 0 0;
   justify-content: space-between;
   gap: 20px;
+  flex-wrap: wrap;
 }
+
+/* Стили для треков */
+.personal__releases_tracks {
+  margin: 16px 0;
+  padding: 16px;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.personal__releases_tracks_header {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.personal__releases_tracks_title {
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  color: var(--color);
+}
+.personal__releases_tracks_list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.personal__releases_track {
+  padding: 12px;
+  background-color: var(--bg);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.personal__releases_track_header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.personal__releases_track_number {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color);
+}
+.personal__releases_track_title {
+  font-weight: 500;
+  font-size: 15px;
+  flex: 1;
+}
+.personal__releases_track_duration {
+  font-size: 12px;
+  color: var(--text-gray);
+  font-family: monospace;
+}
+.personal__releases_track_codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .personal__partner {
   display: flex;
   min-height: 315px;
@@ -2440,7 +2530,6 @@ onMounted(() => {
   color: var(--text);
 }
 
-/* Стили для disabled кнопки */
 .button__disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -2602,7 +2691,6 @@ onMounted(() => {
   height: 20px;
 }
 
-/* Стили для попапов ввода суммы */
 .popup__content_small {
   max-width: 400px;
 }
@@ -2676,7 +2764,6 @@ onMounted(() => {
   margin-top: 20px;
 }
 
-/* Стили для сетки изображений */
 .popup__images-info {
   margin-bottom: 20px;
   font-size: 16px;
@@ -2709,7 +2796,28 @@ onMounted(() => {
   object-fit: contain;
 }
 
-/* Адаптация для десктопов (1919px и меньше) */
+.pagination__buttons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.pagination__buttons_button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+.pagination__buttons_info {
+  font-size: 14px;
+  color: var(--text-gray);
+}
+
 @media (max-width: 1919px) {
   .personal__flex {
     gap: 20px;
@@ -2737,7 +2845,6 @@ onMounted(() => {
   }
 }
 
-/* Адаптация для планшетов (1439px и меньше) */
 @media (max-width: 1439px) {
   .personal__right {
     display: none;
@@ -2792,7 +2899,6 @@ onMounted(() => {
   }
 }
 
-/* Адаптация для мобильных устройств (1023px и меньше) */
 @media (max-width: 1023px) {
   .personal__reports_header,
   .personal__transactions_header {
@@ -2844,7 +2950,6 @@ onMounted(() => {
   }
 }
 
-/* Адаптация для маленьких мобильных устройств (767px и меньше) */
 @media (max-width: 767px) {
   .personal__container {
     padding: 0;
@@ -2858,7 +2963,6 @@ onMounted(() => {
     padding: 30px 15px 20px;
   }
   
-  /* Адаптация разделителей для мобильных */
   .personal__balance_list {
     padding: 30px 15px;
     gap: 20px;
@@ -2904,6 +3008,15 @@ onMounted(() => {
     width: 100px;
     height: 100px;
   }
+  
+  .personal__releases_track_header {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .personal__releases_track_codes {
+    flex-direction: column;
+  }
 
   .popup__images-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -2911,7 +3024,6 @@ onMounted(() => {
   }
 }
 
-/* Адаптация для очень маленьких устройств (580px и меньше) */
 @media (max-width: 580px) {
   .personal__release_image {
     width: 150px;
@@ -2919,7 +3031,6 @@ onMounted(() => {
   }
 }
 
-/* Адаптация для самых маленьких устройств (480px и меньше) */
 @media (max-width: 480px) {
   .popup__actions {
     flex-direction: column;

@@ -11,7 +11,7 @@
   </div>
   
   <!-- Кнопки для массовой загрузки аудиофайлов -->
-  <div class="quiz__form_two_controls">
+  <div class="quiz__form_two_controls" v-if="showUploadAllSinglesButton || (albums.length > 0 && !hasAnyAlbumTracksWithFiles)">
     <button 
       v-if="showUploadAllSinglesButton"
       class="quiz__form_button button__black button" 
@@ -193,6 +193,50 @@
               {{ singleErrors[trackIndex].trackName }}
             </div>
           </div>
+          
+          <!-- Права на инструментал -->
+          <div class="form__group">
+            <label class="form__label button">Права на инструментал<span>*</span></label>
+            <el-select
+              v-model="track.rightsType"
+              placeholder="Выберите тип прав"
+              :disabled="isLoadingTwo"
+              size="large"
+              @change="() => validateSingleRights(trackIndex)"
+            >
+              <el-option
+                v-for="option in rightsOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+            <div v-if="singleErrors[trackIndex]?.rightsType" class="error text_very quiz__form_single_error">
+              {{ singleErrors[trackIndex].rightsType }}
+            </div>
+            
+            <!-- Поле для ссылки на договор, если нужно -->
+            <div v-if="track.rightsType === 'wav' || track.rightsType === 'mp3'" class="form__group_inner">
+              <label class="form__label button text_small">Ссылка на договор<span>*</span></label>
+              <el-input
+                v-model="track.rightsContractLink"
+                type="text"
+                placeholder="https://..."
+                :disabled="isLoadingTwo"
+                size="large"
+                @input="() => validateSingleRightsLink(trackIndex)"
+                @blur="validateSingleRightsLink(trackIndex)"
+              />
+              <div v-if="singleErrors[trackIndex]?.rightsContractLink" class="error text_very quiz__form_single_error">
+                {{ singleErrors[trackIndex].rightsContractLink }}
+              </div>
+            </div>
+            
+            <!-- Предупреждение для risky вариантов -->
+            <div v-if="track.rightsType === 'free' || track.rightsType === 'gifted'" class="warning text_very quiz__form_single_error">
+              ⚠️ Внимание! Такие треки могут не пройти модерацию. Вы действуете на свой страх и риск.
+            </div>
+          </div>
         </div>
         
         <!-- Кнопка удаления сингла -->
@@ -359,6 +403,50 @@
                     {{ albumErrors[albumIndex].tracks[trackIndex].trackName }}
                   </div>
                 </div>
+                
+                <!-- Права на инструментал -->
+                <div class="form__group">
+                  <label class="form__label button">Права на инструментал<span>*</span></label>
+                  <el-select
+                    v-model="track.rightsType"
+                    placeholder="Выберите тип прав"
+                    :disabled="isLoadingTwo"
+                    size="large"
+                    @change="() => validateAlbumTrackRights(albumIndex, trackIndex)"
+                  >
+                    <el-option
+                      v-for="option in rightsOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                  <div v-if="albumErrors[albumIndex]?.tracks[trackIndex]?.rightsType" class="error text_very quiz__form_single_error">
+                    {{ albumErrors[albumIndex].tracks[trackIndex].rightsType }}
+                  </div>
+                  
+                  <!-- Поле для ссылки на договор, если нужно -->
+                  <div v-if="track.rightsType === 'wav' || track.rightsType === 'mp3'" class="form__group_inner">
+                    <label class="form__label button text_small">Ссылка на договор<span>*</span></label>
+                    <el-input
+                      v-model="track.rightsContractLink"
+                      type="text"
+                      placeholder="https://..."
+                      :disabled="isLoadingTwo"
+                      size="large"
+                      @input="() => validateAlbumTrackRightsLink(albumIndex, trackIndex)"
+                      @blur="validateAlbumTrackRightsLink(albumIndex, trackIndex)"
+                    />
+                    <div v-if="albumErrors[albumIndex]?.tracks[trackIndex]?.rightsContractLink" class="error text_very quiz__form_single_error">
+                      {{ albumErrors[albumIndex].tracks[trackIndex].rightsContractLink }}
+                    </div>
+                  </div>
+                  
+                  <!-- Предупреждение для risky вариантов -->
+                  <div v-if="track.rightsType === 'free' || track.rightsType === 'gifted'" class="warning text_very quiz__form_single_error">
+                    ⚠️ Внимание! Такие треки могут не пройти модерацию. Вы действуете на свой страх и риск.
+                  </div>
+                </div>
               </div>
               
               <!-- Кнопка удаления трека -->
@@ -475,7 +563,7 @@
 
 <script lang="ts" setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { ElInput, ElMessage } from 'element-plus';
+import { ElInput, ElSelect, ElOption, ElMessage } from 'element-plus';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
 import CloseSVG from "@/uikit/icon/CloseSVG.vue";
 import { openDB } from 'idb';
@@ -491,6 +579,16 @@ const AUDIO_DB_NAME = 'audioDB';
 const DB_VERSION = 2;
 const STORE_NAME = 'quizState';
 const AUDIO_STORE_NAME = 'audio';
+
+// Опции для прав
+const rightsOptions = [
+  { value: 'author', label: 'Я 100% автор музыки' },
+  { value: 'exclusive', label: 'Исключительная лицензия/полная передача права' },
+  { value: 'wav', label: 'Wav лицензия / Аренда' },
+  { value: 'mp3', label: 'mp3 лицензия / Аренда' },
+  { value: 'free', label: 'free for profit / бит с ютуба' },
+  { value: 'gifted', label: 'подарен/отдан бесплатно / сделан по дружбе' }
+];
 
 const isLoadingTwo = ref(false);
 const showImportantBlock = ref(false);
@@ -521,7 +619,6 @@ const canAddMoreSingles = computed(() => {
 
 const hasAnyAlbumTracksWithFiles = computed(() => {
   if (albums.value.length === 0) return false;
-  // Проверяем, есть ли хотя бы один трек в альбоме
   return albums.value.some(album => album.tracks.length > 0);
 });
 
@@ -549,28 +646,11 @@ interface AlbumTrack {
   audioFileSize: number;
   audioFileId: string | null;
   uploaded: boolean;
+  rightsType: string;
+  rightsContractLink: string;
 }
 
-const singleErrors = ref<Array<{
-  performerName: string;
-  musicAuthor: string;
-  textAuthor: string;
-  trackName: string;
-  audioFile: string;
-}>>([]);
-
-const albumErrors = ref<Array<{
-  albumName: string;
-  tracks: Array<{
-    performerName: string;
-    musicAuthor: string;
-    textAuthor: string;
-    trackName: string;
-    audioFile: string;
-  }>;
-}>>([]);
-
-const singleTracks = ref<Array<{
+interface SingleTrack {
   id: string;
   performerName: string;
   musicAuthor: string;
@@ -582,7 +662,34 @@ const singleTracks = ref<Array<{
   audioFileId: string | null;
   uploaded: boolean;
   hasAudioUploaded: boolean;
+  rightsType: string;
+  rightsContractLink: string;
+}
+
+const singleErrors = ref<Array<{
+  performerName: string;
+  musicAuthor: string;
+  textAuthor: string;
+  trackName: string;
+  audioFile: string;
+  rightsType: string;
+  rightsContractLink: string;
 }>>([]);
+
+const albumErrors = ref<Array<{
+  albumName: string;
+  tracks: Array<{
+    performerName: string;
+    musicAuthor: string;
+    textAuthor: string;
+    trackName: string;
+    audioFile: string;
+    rightsType: string;
+    rightsContractLink: string;
+  }>;
+}>>([]);
+
+const singleTracks = ref<SingleTrack[]>([]);
 
 const albums = ref<Array<{
   id: string;
@@ -592,6 +699,82 @@ const albums = ref<Array<{
   textAuthor: string;
   tracks: AlbumTrack[];
 }>>([]);
+
+// Валидация прав для сингла
+const validateSingleRights = (trackIndex: number) => {
+  const track = singleTracks.value[trackIndex];
+  let error = '';
+  
+  if (!track.rightsType) {
+    error = 'Выберите тип прав на инструментал';
+  } else if (track.rightsType === 'wav' || track.rightsType === 'mp3') {
+    if (!track.rightsContractLink?.trim()) {
+      error = 'Для выбранного типа прав необходима ссылка на договор';
+    } else if (!isValidUrl(track.rightsContractLink)) {
+      error = 'Введите корректную ссылку (начинается с https://)';
+    }
+  }
+  
+  singleErrors.value[trackIndex].rightsType = error;
+  return !error;
+};
+
+const validateSingleRightsLink = (trackIndex: number) => {
+  const track = singleTracks.value[trackIndex];
+  let error = '';
+  
+  if ((track.rightsType === 'wav' || track.rightsType === 'mp3') && !track.rightsContractLink?.trim()) {
+    error = 'Ссылка на договор обязательна';
+  } else if (track.rightsContractLink?.trim() && !isValidUrl(track.rightsContractLink)) {
+    error = 'Введите корректную ссылку (начинается с https://)';
+  }
+  
+  singleErrors.value[trackIndex].rightsContractLink = error;
+  return !error;
+};
+
+// Валидация прав для трека альбома
+const validateAlbumTrackRights = (albumIndex: number, trackIndex: number) => {
+  const track = albums.value[albumIndex].tracks[trackIndex];
+  let error = '';
+  
+  if (!track.rightsType) {
+    error = 'Выберите тип прав на инструментал';
+  } else if (track.rightsType === 'wav' || track.rightsType === 'mp3') {
+    if (!track.rightsContractLink?.trim()) {
+      error = 'Для выбранного типа прав необходима ссылка на договор';
+    } else if (!isValidUrl(track.rightsContractLink)) {
+      error = 'Введите корректную ссылку (начинается с https://)';
+    }
+  }
+  
+  albumErrors.value[albumIndex].tracks[trackIndex].rightsType = error;
+  return !error;
+};
+
+const validateAlbumTrackRightsLink = (albumIndex: number, trackIndex: number) => {
+  const track = albums.value[albumIndex].tracks[trackIndex];
+  let error = '';
+  
+  if ((track.rightsType === 'wav' || track.rightsType === 'mp3') && !track.rightsContractLink?.trim()) {
+    error = 'Ссылка на договор обязательна';
+  } else if (track.rightsContractLink?.trim() && !isValidUrl(track.rightsContractLink)) {
+    error = 'Введите корректную ссылку (начинается с https://)';
+  }
+  
+  albumErrors.value[albumIndex].tracks[trackIndex].rightsContractLink = error;
+  return !error;
+};
+
+const isValidUrl = (url: string): boolean => {
+  if (!url.trim()) return false;
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 const initDB = async () => {
   try {
@@ -724,7 +907,9 @@ const saveStateToDB = async () => {
           audioFileSize: track.audioFileSize || 0,
           uploaded: track.uploaded || false,
           hasAudioUploaded: track.hasAudioUploaded || false,
-          audioFileId: track.audioFileId || null
+          audioFileId: track.audioFileId || null,
+          rightsType: track.rightsType || '',
+          rightsContractLink: track.rightsContractLink || ''
         })),
         albums: albums.value.map(album => ({
           id: album.id,
@@ -742,7 +927,9 @@ const saveStateToDB = async () => {
             audioFileName: track.audioFileName || '',
             audioFileSize: track.audioFileSize || 0,
             uploaded: track.uploaded || false,
-            audioFileId: track.audioFileId || null
+            audioFileId: track.audioFileId || null,
+            rightsType: track.rightsType || '',
+            rightsContractLink: track.rightsContractLink || ''
           }))
         })),
         timestamp: Date.now()
@@ -780,7 +967,9 @@ const loadSinglesFromStorage = async (savedState: any) => {
           audioFileSize: track.audioFileSize || 0,
           audioFileId: track.audioFileId || null,
           uploaded: true,
-          hasAudioUploaded: true
+          hasAudioUploaded: true,
+          rightsType: track.rightsType || '',
+          rightsContractLink: track.rightsContractLink || ''
         });
       }
     }
@@ -794,15 +983,13 @@ const loadSinglesFromStorage = async (savedState: any) => {
     musicAuthor: '',
     textAuthor: '',
     trackName: '',
-    audioFile: ''
+    audioFile: '',
+    rightsType: '',
+    rightsContractLink: ''
   }));
 };
 
 const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => {
-  console.log('loadAlbumsFromStorage called, requiredCount:', requiredCount);
-  console.log('savedState.albums:', savedState?.albums);
-  
-  // Если альбомы есть в сохранении и их количество совпадает с требуемым
   if (savedState && savedState.albums && savedState.albums.length === requiredCount) {
     albums.value = await Promise.all(
       savedState.albums.map(async (album: any, albumIndex: number) => {
@@ -838,7 +1025,9 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
                 audioFileName: track.audioFileName || '',
                 audioFileSize: track.audioFileSize || 0,
                 audioFileId: track.audioFileId || null,
-                uploaded: track.uploaded || false
+                uploaded: track.uploaded || false,
+                rightsType: track.rightsType || '',
+                rightsContractLink: track.rightsContractLink || ''
               };
             })
           );
@@ -848,8 +1037,6 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
       })
     );
   } else if (requiredCount > 0) {
-    // Если альбом выбран, но в сохранении нет - создаем пустой альбом
-    console.log('Creating new empty album');
     albums.value = [];
     for (let i = 0; i < requiredCount; i++) {
       albums.value.push({
@@ -872,7 +1059,9 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
       musicAuthor: '',
       textAuthor: '',
       trackName: '',
-      audioFile: ''
+      audioFile: '',
+      rightsType: '',
+      rightsContractLink: ''
     }))
   }));
 };
@@ -911,7 +1100,10 @@ const isReadyForNextStep = computed(() => {
     track.musicAuthor.trim().split(/\s+/).length >= 3 &&
     !singleErrors.value[index]?.musicAuthor &&
     track.textAuthor.trim().split(/\s+/).length >= 3 &&
-    !singleErrors.value[index]?.textAuthor
+    !singleErrors.value[index]?.textAuthor &&
+    track.rightsType &&
+    !singleErrors.value[index]?.rightsType &&
+    (track.rightsType !== 'wav' && track.rightsType !== 'mp3' || (track.rightsContractLink && !singleErrors.value[index]?.rightsContractLink))
   );
 
   const allAlbumsComplete = albums.value.every((album, albumIndex) =>
@@ -926,7 +1118,10 @@ const isReadyForNextStep = computed(() => {
       track.musicAuthor.trim().split(/\s+/).length >= 3 &&
       !albumErrors.value[albumIndex]?.tracks[trackIndex]?.musicAuthor &&
       track.textAuthor.trim().split(/\s+/).length >= 3 &&
-      !albumErrors.value[albumIndex]?.tracks[trackIndex]?.textAuthor
+      !albumErrors.value[albumIndex]?.tracks[trackIndex]?.textAuthor &&
+      track.rightsType &&
+      !albumErrors.value[albumIndex]?.tracks[trackIndex]?.rightsType &&
+      (track.rightsType !== 'wav' && track.rightsType !== 'mp3' || (track.rightsContractLink && !albumErrors.value[albumIndex]?.tracks[trackIndex]?.rightsContractLink))
     )
   );
 
@@ -1024,6 +1219,7 @@ const validateSingleForm = async (trackIndex: number) => {
   if (!validateSingleMusicAuthor(trackIndex)) isValid = false;
   if (!validateSingleTextAuthor(trackIndex)) isValid = false;
   if (!validateSingleTrackName(trackIndex)) isValid = false;
+  if (!validateSingleRights(trackIndex)) isValid = false;
   
   if (!singleTracks.value[trackIndex].audioFile) {
     singleErrors.value[trackIndex].audioFile = 'Аудио файл обязателен для загрузки';
@@ -1120,6 +1316,7 @@ const validateAlbumTrackForm = async (albumIndex: number, trackIndex: number) =>
   if (!validateAlbumTrackMusicAuthor(albumIndex, trackIndex)) isValid = false;
   if (!validateAlbumTrackTextAuthor(albumIndex, trackIndex)) isValid = false;
   if (!validateAlbumTrackTrackName(albumIndex, trackIndex)) isValid = false;
+  if (!validateAlbumTrackRights(albumIndex, trackIndex)) isValid = false;
   
   if (!albums.value[albumIndex].tracks[trackIndex].audioFile) {
     albumErrors.value[albumIndex].tracks[trackIndex].audioFile = 'Аудио файл обязателен для загрузки';
@@ -1171,7 +1368,7 @@ const addSingleTrackWithFile = async () => {
       const fileId = generateAudioId('single', singleTracks.value.length);
       await saveAudioToDB(file, fileId);
       
-      const newTrack = {
+      const newTrack: SingleTrack = {
         id: `single-${Date.now()}-${singleTracks.value.length}-${Math.random()}`,
         performerName: '',
         musicAuthor: '',
@@ -1182,7 +1379,9 @@ const addSingleTrackWithFile = async () => {
         audioFileSize: file.size,
         audioFileId: fileId,
         uploaded: true,
-        hasAudioUploaded: true
+        hasAudioUploaded: true,
+        rightsType: '',
+        rightsContractLink: ''
       };
       
       singleTracks.value.push(newTrack);
@@ -1191,7 +1390,9 @@ const addSingleTrackWithFile = async () => {
         musicAuthor: '',
         textAuthor: '',
         trackName: '',
-        audioFile: ''
+        audioFile: '',
+        rightsType: '',
+        rightsContractLink: ''
       });
       
       singleTracks.value = [...singleTracks.value];
@@ -1295,7 +1496,7 @@ const uploadAllSingles = async () => {
         const fileId = generateAudioId('single', singleTracks.value.length);
         await saveAudioToDB(file, fileId);
         
-        const newTrack = {
+        const newTrack: SingleTrack = {
           id: `single-${Date.now()}-${singleTracks.value.length}-${Math.random()}`,
           performerName: '',
           musicAuthor: '',
@@ -1306,7 +1507,9 @@ const uploadAllSingles = async () => {
           audioFileSize: file.size,
           audioFileId: fileId,
           uploaded: true,
-          hasAudioUploaded: true
+          hasAudioUploaded: true,
+          rightsType: '',
+          rightsContractLink: ''
         };
         
         singleTracks.value.push(newTrack);
@@ -1315,7 +1518,9 @@ const uploadAllSingles = async () => {
           musicAuthor: '',
           textAuthor: '',
           trackName: '',
-          audioFile: ''
+          audioFile: '',
+          rightsType: '',
+          rightsContractLink: ''
         });
         
         successCount++;
@@ -1397,7 +1602,9 @@ const uploadAllAlbumTracks = async () => {
           audioFileName: file.name,
           audioFileSize: file.size,
           audioFileId: fileId,
-          uploaded: true
+          uploaded: true,
+          rightsType: '',
+          rightsContractLink: ''
         };
         
         album.tracks.push(newTrack);
@@ -1411,7 +1618,9 @@ const uploadAllAlbumTracks = async () => {
           musicAuthor: '',
           textAuthor: '',
           trackName: '',
-          audioFile: ''
+          audioFile: '',
+          rightsType: '',
+          rightsContractLink: ''
         });
         
         albums.value = [...albums.value];
@@ -1489,7 +1698,9 @@ const addAlbumTrackWithFile = async (albumIndex: number) => {
           audioFileName: file.name,
           audioFileSize: file.size,
           audioFileId: fileId,
-          uploaded: true
+          uploaded: true,
+          rightsType: '',
+          rightsContractLink: ''
         };
         
         album.tracks.push(newTrack);
@@ -1503,7 +1714,9 @@ const addAlbumTrackWithFile = async (albumIndex: number) => {
           musicAuthor: '',
           textAuthor: '',
           trackName: '',
-          audioFile: ''
+          audioFile: '',
+          rightsType: '',
+          rightsContractLink: ''
         });
         
         albums.value = [...albums.value];
@@ -1561,25 +1774,22 @@ const removeAlbumTrackAudio = async (albumIndex: number, trackIndex: number) => 
         await removeAudioFromDB(album.tracks[trackIndex].audioFileId);
       }
       
-      const updatedTrack = {
-        ...album.tracks[trackIndex],
-        audioFile: null,
-        audioFileName: '',
-        audioFileSize: 0,
-        audioFileId: null,
-        uploaded: false
-      };
+      const newTracks = album.tracks.filter((_, index) => index !== trackIndex);
       
-      album.tracks[trackIndex] = updatedTrack;
+      newTracks.forEach((track, index) => {
+        track.trackNumber = index + 1;
+      });
       
-      if (albumErrors.value[albumIndex]?.tracks[trackIndex]) {
-        albumErrors.value[albumIndex].tracks[trackIndex].audioFile = '';
+      album.tracks = newTracks;
+      
+      if (albumErrors.value[albumIndex]?.tracks) {
+        albumErrors.value[albumIndex].tracks = albumErrors.value[albumIndex].tracks.filter((_, index) => index !== trackIndex);
       }
       
       albums.value = [...albums.value];
       await saveStateToDB();
       
-      ElMessage.info('Аудио файл трека удален');
+      ElMessage.success('Трек удален из альбома');
     }
   }
 };
