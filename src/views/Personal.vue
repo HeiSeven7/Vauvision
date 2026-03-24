@@ -1,5 +1,759 @@
+<template>
+<Header></Header>
+<section class="personal">
+  <div class="container personal__container">
+    <Menu />
+    <div v-if="loading" class="personal__block">
+      <div class="loading__container">
+        <div 
+          v-loading="loading" 
+          :element-loading-svg="loadingSvg" 
+          class="loading__svg" 
+          element-loading-svg-view-box="-10, -10, 50, 50"
+        ></div>
+      </div>
+    </div>
+    <div v-else class="personal__block">
+      <div class="personal__balance">
+        <div class="personal__balance_info">
+          <h3 class="personal__balance_head">ЛИЧНЫЙ КАБИНЕТ {{ userName }}</h3>
+        </div>
+        <div class="personal__divider"></div>
+        <ul class="personal__balance_list">
+          <li class="personal__balance_item">
+            <div class="personal__balance_top">
+              <div class="personal__balance_svg"><WalletSVG/></div>
+              <div class="personal__balance_top_info">
+                <h4 class="personal__balance_heading">
+                  <span class="personal__balance_description text_one">Баланс</span>
+                  {{ profileData.balance.toLocaleString() }} ₽
+                </h4>
+                <p class="personal__balance_desc">Баланс обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится</p>
+              </div>
+            </div>
+            <button 
+              class="personal__balance_button button__primary"
+              @click="openPayoutAmountPopup"
+              :disabled="profileData.balance < minPayoutAmount"
+              :class="{ 'button__disabled': profileData.balance < minPayoutAmount }"
+            >
+              <span>Запросить выплаты</span>
+            </button>
+          </li>
+          <li class="personal__balance_item">
+            <div class="personal__balance_top">
+              <div class="personal__balance_svg"><WalletSVG/></div>
+              <div class="personal__balance_top_info">
+                <h4 class="personal__balance_heading text_one">Отчет</h4>
+              </div>
+            </div>
+            <button 
+              class="personal__balance_button button__black" 
+              :class="{ 'button__disabled': !showReportButton }"
+              :disabled="!showReportButton"
+              @click="showReportPopupFunc"
+            >
+              <span><DownloadSVG/>Скачать отчет</span>
+            </button>
+          </li>
+          <li class="personal__balance_item">
+            <div class="personal__balance_top">
+              <div class="personal__balance_svg"><PaySVG/></div>
+              <div class="personal__balance_top_info">
+                <h4 class="personal__balance_heading">
+                  <span class="personal__balance_description text_one">Бонусы партнера</span>
+                  {{ profileData.bonus.toLocaleString() }}
+                </h4>
+              </div>
+            </div>
+            <button 
+              class="personal__balance_button button__primary"
+              @click="openBonusPayoutPopup"
+              :disabled="profileData.bonus <= 0"
+              :class="{ 'button__disabled': profileData.bonus <= 0 }"
+              style="display: none;"
+            >
+              <span>Запросить выплаты бонусов</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+      <div class="personal__flex">
+        <div class="personal__content">
+          <div class="personal__release">
+            <div class="personal__release_flex">
+              <h5 class="personal__release_head">ОТПРАВИТЬ РЕЛИЗ НА ПЛОЩАДКИ</h5>
+              <p class="personal__release_desc">Нажмите на кнопку ниже, чтобы заполнить форму и отправить свой релиз на все платформы!</p>
+            </div>
+            <RouterLink class="personal__release_button button__red button" :to="Tr.i18nRoute({ name: 'release' })">
+              <span>Выложить релиз</span>
+            </RouterLink>
+          </div>
+          <div class="personal__releases">
+            <div class="personal__releases_block">
+              <h5 class="personal__releases_title">ВАШИ РЕЛИЗЫ</h5>
+              <ul class="personal__releases_list">
+                <li 
+                  class="personal__releases_item" 
+                  v-for="release in paginatedReleases" 
+                  :key="release.id"
+                >
+                  <div class="personal__releases_information">
+                    <div class="personal__releases_image">
+                      <img 
+                        v-if="release.image"
+                        :src="release.image"
+                        @error="handleImageError"
+                        alt=""
+                      >
+                      <div v-else class="personal__releases_image_placeholder"></div>
+                    </div>
+                    <div class="personal__releases_flex">
+                      <div class="personal__releases_top">
+                        <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Сингл' : 'Релиз' }}</span> {{ release.name }}</h5>
+                        <p class="personal__releases_album text_very"></p>
+                      </div>
+                      <p class="personal__releases_date text_very">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
+                    </div>
+                  </div>
+                  <div class="personal__releases_info">
+                    <div class="personal__releases_top">
+                      <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Сингл' : 'Релиз' }}</span> {{ release.name }}</h5>
+                      <p class="personal__releases_album text_very"></p>
+                    </div>
+                    <div class="personal__releases_codes">
+                      <button 
+                        v-if="release.upcCode" 
+                        class="personal__releases_code"
+                        @click="copyToClipboard(release.upcCode, 'UPC код')"
+                      >
+                        <span>UPC код: {{ release.upcCode }}</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1ZM19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM19 21H8V7H19V21Z" fill="currentColor"/>
+                        </svg>
+                      </button>
+                      <div 
+                        v-if="release.link" 
+                        class="personal__releases_code"
+                        @click="copyToClipboard(release.link, 'Ссылка')"
+                        style="cursor: pointer;"
+                      >
+                        <LinkSVG/>
+                        <span>{{ release.link }}</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1ZM19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM19 21H8V7H19V21Z" fill="currentColor"/>
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    <!-- Блок с треками релиза -->
+                    <div class="personal__releases_tracks" v-if="release.tracks && release.tracks.length > 0">
+                      <h6 class="personal__tracks_title">Треки:</h6>
+                      <ul class="personal__tracks_list">
+                        <li 
+                          v-for="(track, trackIndex) in release.tracks" 
+                          :key="track.id || trackIndex"
+                          class="personal__tracks_item"
+                        >
+                          <div class="personal__tracks_number">{{ trackIndex + 1 }}</div>
+                          <div class="personal__tracks_info">
+                            <div class="personal__tracks_name">{{ track.title }}</div>
+                            <div v-if="track.isrc" class="personal__tracks_isrc">ISRC: {{ track.isrc }}</div>
+                          </div>
+                          <button 
+                            v-if="track.lyrics" 
+                            class="personal__tracks_lyrics_button"
+                            @click="showLyrics(track)"
+                          >
+                            Текст
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+                    
+                    <div class="personal__releases_bottom">
+                      <p class="personal__releases_date text_very">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
+                      <div class="personal__releases_agreements">
+                        <a 
+                          v-if="release.contractFile" 
+                          :href="release.contractFile" 
+                          class="personal__releases_agreement button" 
+                          download=""
+                        >
+                          <DownloadSVG/><span>Скачать договор</span>
+                        </a>
+                        <a 
+                          v-if="release.contractFile" 
+                          :href="release.contractFile" 
+                          class="personal__releases_agreement button" 
+                          target="_blank"
+                        >
+                          <EyeSVG/><span>Открыть договор</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+              <div class="pagination__buttons" v-if="showReleasesPagination">
+                <button 
+                  class="pagination__buttons_button button button__pagination button__pagination_prev"
+                  @click="prevReleasesPage"
+                  :disabled="currentReleasesPage === 1 || isLoadingReleases"
+                >
+                  <span><ButtonSVG /></span>
+                  <span>{{$t('button.prev')}}</span>
+                </button>
+                
+                <div class="pagination__buttons_info">
+                  {{ currentReleasesPage }}/{{ totalReleasesPages }}
+                </div>
+                
+                <button 
+                  class="pagination__buttons_button button button__pagination button__pagination_next"
+                  @click="nextReleasesPage"
+                  :disabled="currentReleasesPage === totalReleasesPages || isLoadingReleases"
+                >
+                  <span>{{$t('button.next')}}</span>
+                  <span><ButtonSVG /></span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="personal__reports">
+            <div class="personal__reports_top">
+              <h5 class="personal__reports_head">Ранее полученные отчеты</h5>
+              <p class="personal__reports_desc">Новый отчёт нужно скачать через кнопку «Скачать отчёт» вверху страницы</p>
+            </div>
+            <ul class="personal__reports_list">
+              <li class="personal__reports_item personal__reports_header">
+                <div class="personal__reports_cell personal__reports_info text_very">Отчет</div>
+                <div class="personal__reports_cell personal__reports_date text_very">Дата</div>
+                <div class="personal__reports_cell personal__reports_actions text_very"></div>
+              </li>
+              <li 
+                class="personal__reports_item" 
+                v-for="report in paginatedReports" 
+                :key="report.id"
+              >
+                <div class="personal__reports_cell personal__reports_info">
+                  <div class="personal__reports_image"><ReportsSVG /></div>
+                  <div class="personal__reports_file">
+                    <span class="personal__reports_filename">{{ report.filename }}</span>
+                    <span class="personal__reports_filesize">{{ report.filesize }}</span>
+                  </div>
+                </div>
+                <div class="personal__reports_cell personal__reports_date">
+                  <span class="personal__reports_datevalue">{{ report.date }}</span>
+                </div>
+                <div class="personal__reports_cell personal__reports_actions">
+                  <div class="personal__reports_buttons">
+                    <a 
+                      v-if="report.xlsxUrl"
+                      :href="getFullUrl(report.xlsxUrl)" 
+                      class="personal__reports_button button__text" 
+                      download=""
+                    >
+                      <DownloadSVG/>
+                      <span>Скачать XLSX</span>
+                    </a>
+                    
+                    <a 
+                      v-if="report.pdfUrl"
+                      :href="getFullUrl(report.pdfUrl)" 
+                      class="personal__reports_button button__text" 
+                      download=""
+                    >
+                      <DownloadSVG/>
+                      <span>Скачать PDF</span>
+                    </a>
+                    
+                    <a 
+                      :href="getFullUrl(`/acts/${report.id}`)" 
+                      class="personal__reports_button button__text"
+                      v-if="report.hasAct"
+                      download=""
+                    >
+                      <DownloadSVG/>
+                      <span>Скачать акт</span>
+                    </a>
+                  </div>
+                </div>
+              </li>
+            </ul>
+            <div v-if="paginatedReports.length === 0 && !isLoadingReports" class="personal__reports_empty">
+              <p class="personal__reports_empty_text">Нет доступных отчетов</p>
+            </div>
+            <div class="pagination__buttons" v-if="showReportsPagination">
+              <button 
+                class="pagination__buttons_button button button__pagination button__pagination_prev"
+                @click="prevReportsPage"
+                :disabled="currentReportsPage === 1 || isLoadingReports"
+              >
+                <span><ButtonSVG /></span>
+                <span>{{$t('button.prev')}}</span>
+              </button>
+              
+              <div class="pagination__buttons_info">
+                {{ currentReportsPage }}/{{ totalReportsPages }}
+              </div>
+              
+              <button 
+                class="pagination__buttons_button button button__pagination button__pagination_next"
+                @click="nextReportsPage"
+                :disabled="currentReportsPage === totalReportsPages || isLoadingReports"
+              >
+                <span>{{$t('button.next')}}</span>
+                <span><ButtonSVG /></span>
+              </button>
+            </div>
+          </div>
+          <div class="personal__transactions">
+            <h5 class="personal__transactions_head">Финансовые транзакции</h5>
+            <ul class="personal__transactions_list">
+              <li class="personal__transactions_item personal__transactions_header">
+                <div class="personal__transactions_cell personal__transactions_type text_very">Тип транзакции</div>
+                <div class="personal__transactions_cell personal__transactions_date text_very">Дата</div>
+                <div class="personal__transactions_cell personal__transactions_period text_very">Период</div>
+                <div class="personal__transactions_cell personal__transactions_status text_very">Статус</div>
+                <div class="personal__transactions_cell personal__transactions_amount text_very">Сумма</div>
+              </li>
+              <li 
+                class="personal__transactions_item" 
+                v-for="transaction in paginatedTransactions" 
+                :key="transaction.id"
+              >
+                <div class="personal__transactions_cell personal__transactions_type">
+                  <div class="personal__transactions_image"><TransactionSVG /></div>
+                  <span class="personal__transactions_typevalue button">{{ transaction.type }}</span>
+                </div>
+                <div class="personal__transactions_cell personal__transactions_date">
+                  <span class="personal__transactions_datevalue text_small">{{ transaction.date }}</span>
+                </div>
+                <div class="personal__transactions_cell personal__transactions_period">
+                  <span class="personal__transactions_periodvalue text_small">{{ transaction.period }}</span>
+                </div>
+                <div class="personal__transactions_cell personal__transactions_status">
+                  <span 
+                    class="personal__transactions_statusvalue text_small"
+                    :class="getStatusClass(transaction.status)"
+                  >
+                    {{ getStatusText(transaction.status) }}
+                  </span>
+                </div>
+                <div class="personal__transactions_cell personal__transactions_amount">
+                  <span class="personal__transactions_amountvalue text_small">{{ transaction.amount }}</span>
+                </div>
+              </li>
+            </ul>
+            <div class="pagination__buttons" v-if="showTransactionsPagination">
+              <button 
+                class="pagination__buttons_button button button__pagination button__pagination_prev"
+                @click="prevTransactionsPage"
+                :disabled="currentTransactionsPage === 1 || isLoadingTransactions"
+              >
+                <span><ButtonSVG /></span>
+                <span>{{$t('button.prev')}}</span>
+              </button>
+              
+              <div class="pagination__buttons_info">
+                {{ currentTransactionsPage }}/{{ totalTransactionsPages }}
+              </div>
+              
+              <button 
+                class="pagination__buttons_button button button__pagination button__pagination_next"
+                @click="nextTransactionsPage"
+                :disabled="currentTransactionsPage === totalTransactionsPages || isLoadingTransactions"
+              >
+                <span>{{$t('button.next')}}</span>
+                <span><ButtonSVG /></span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="personal__right">
+          <div class="personal__partner">
+            <div class="personal__partner_image">
+              <img src="@/assets/img/personal/partner/partner.webp" alt="">
+            </div>
+            <div class="personal__partner_info">
+              <h5 class="personal__articles_head">Стать партнёром VAUVISION</h5>
+              <p class="personal__articles_desc">Зарабатывайте деньги за рекомендации!</p>
+            </div>
+            <RouterLink class="personal__partner_button button__primary" :to="Tr.i18nRoute({ name: 'partner' })">
+              <span>Присоединиться</span>
+            </RouterLink>
+          </div>
+          <div class="personal__articles">
+            <div class="personal__articles_top">
+              <h5 class="personal__articles_head">Cтатьи</h5>
+              <RouterLink class="personal__articles_all button" :to="Tr.i18nRoute({ name: 'articles' })">
+                Смотреть больше
+              </RouterLink>
+            </div>
+            <ul class="personal__articles_list">
+              <li 
+                class="personal__articles_item" 
+                v-for="article in lastThreeArticles" 
+                :key="article.url"
+              >
+                <a :href="article.url" class="personal__articles_link">
+                  <div class="personal__articles_image">
+                    <img 
+                      :src="getFullUrl(article.img)" 
+                      :alt="article.name"
+                      @error="handleImageError"
+                    >
+                  </div>
+                  <div class="personal__articles_info">
+                    <p class="personal__articles_head text_small">{{ article.name }}</p>
+                    <p class="personal__articles_date text_very">Читать статью</p>
+                  </div>
+                </a>
+              </li>
+              <li v-if="lastThreeArticles.length === 0" class="personal__articles_item">
+                <div class="personal__articles_link">
+                  <div class="personal__articles_image">
+                    <div class="articles__image_placeholder"></div>
+                  </div>
+                  <div class="personal__articles_info">
+                    <p class="personal__articles_head text_small">Статьи временно недоступны</p>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div class="personal__partners">
+            <div class="personal__partners_top">
+              <h5 class="personal__partners_head">Партнеры</h5>
+              <RouterLink class="personal__partners_all button" :to="Tr.i18nRoute({ name: 'partner' })">Смотреть больше</RouterLink>
+            </div>
+            <ul class="personal__partners_list">
+              <li 
+                class="personal__partners_item" 
+                v-for="partner in lastThreePartners" 
+                :key="partner.id"
+              >
+                <a href="#" target="_blank" class="personal__partners_link">
+                  <p class="personal__partners_heading button">{{ partner.name }}</p>
+                  <p class="personal__partners_desc text_very">{{ partner.email }} • {{ partner.date }}</p>
+                </a>
+              </li>
+              <li v-if="lastThreePartners.length === 0" class="personal__partners_item">
+                <div class="personal__partners_link">
+                  <p class="personal__partners_heading button">Нет партнеров</p>
+                  <p class="personal__partners_desc text_very">Пригласите друзей</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Попап для выбора года -->
+<Teleport to="body">
+  <div class="popup" v-if="showReportPopup" @click.self="closeAllPopups">
+    <div class="popup__content">
+      <div class="popup__header">
+        <h3 class="popup__title">Выберите год отчета</h3>
+        <button class="popup__close" @click="closeAllPopups">×</button>
+      </div>
+      <div class="popup__body">
+        <div class="popup__years" v-if="reportYears.length > 0">
+          <button 
+            v-for="year in reportYears" 
+            :key="year"
+            class="popup__year-button button button__primary"
+            @click="selectYear(year)"
+          >
+            {{ year }}
+          </button>
+        </div>
+        <div v-else class="popup__empty">
+          <p>Нет доступных отчетов</p>
+          <p class="popup__empty_hint">Попробуйте позже или обратитесь в поддержку</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
+<!-- Попап для сообщения "Нет доступных отчетов" -->
+<Teleport to="body">
+  <div class="popup" v-if="showNoReportsPopup" @click.self="closeAllPopups">
+    <div class="popup__content popup__content_small">
+      <div class="popup__header">
+        <h3 class="popup__title">Нет доступных отчетов</h3>
+        <button class="popup__close" @click="closeAllPopups">×</button>
+      </div>
+      <div class="popup__body">
+        <div class="popup__empty">
+          <p>На данный момент нет доступных отчетов</p>
+          <p class="popup__empty_hint">Попробуйте позже или обратитесь в поддержку</p>
+        </div>
+        <div class="popup__actions">
+          <button 
+            class="popup__button button button__black"
+            @click="closeAllPopups"
+          >
+            <span>Закрыть</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
+<!-- Попап для выбора квартала -->
+<Teleport to="body">
+  <div class="popup" v-if="showQuarterPopup" @click.self="closeAllPopups">
+    <div class="popup__content">
+      <div class="popup__header">
+        <button class="popup__back" @click="backToYearSelection">← Назад</button>
+        <h3 class="popup__title">Выберите квартал</h3>
+        <button class="popup__close" @click="closeAllPopups">×</button>
+      </div>
+      <div class="popup__body">
+        <p class="popup__year-selected">Год: {{ selectedYear }}</p>
+        
+        <div v-if="isLoadingQuarters" class="popup__loading">
+          Загрузка кварталов...
+        </div>
+        
+        <div v-else-if="availableQuarters.length > 0" class="popup__quarters">
+          <button 
+            v-for="quarter in availableQuarters" 
+            :key="quarter.id"
+            class="popup__quarter-button"
+            :class="{ 'selected': selectedQuarter === quarter.id }"
+            @click="selectedQuarter = quarter.id"
+          >
+            <span class="quarter__name">{{ quarter.name }}</span>
+            <span class="quarter__months">{{ quarter.months }}</span>
+          </button>
+        </div>
+        
+        <div v-else class="popup__empty">
+          <p>Нет доступных кварталов</p>
+          <p class="popup__empty_hint">Для выбранного года нет отчетов</p>
+        </div>
+        
+        <button 
+          class="popup__download-button button button__primary"
+          :disabled="!selectedQuarter || isLoadingQuarters || isDownloading"
+          @click="downloadReport"
+        >
+          <DownloadSVG/>
+          <span>{{ isDownloading ? 'Загрузка...' : 'Скачать отчет' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
+<!-- Попап для ввода суммы выплаты -->
+<Teleport to="body">
+  <div class="popup" v-if="showPayoutAmountPopup" @click.self="closeAllPopups">
+    <div class="popup__content popup__content_small">
+      <div class="popup__header">
+        <h3 class="popup__title">Запрос выплаты</h3>
+        <button class="popup__close" @click="closeAllPopups">×</button>
+      </div>
+      <div class="popup__body">
+        <div class="popup__info">
+          <p class="popup__balance-info">
+            Доступно средств: <strong>{{ profileData.balance.toLocaleString() }} ₽</strong>
+          </p>
+          <p class="popup__min-amount">
+            Минимальная сумма: <strong>{{ minPayoutAmount }} ₽</strong>
+          </p>
+        </div>
+        
+        <div class="popup__form-group">
+          <label for="payout-amount" class="popup__label">
+            Введите сумму для выплаты:
+          </label>
+          <input
+            id="payout-amount"
+            type="number"
+            class="popup__input"
+            :class="{ 'popup__input_error': actError }"
+            v-model.number="payoutAmount"
+            :min="minPayoutAmount"
+            :max="profileData.balance"
+            :placeholder="`От ${minPayoutAmount} до ${profileData.balance}`"
+            :disabled="isRequestingAct"
+            @keyup.enter="requestPayoutAct"
+          />
+          <p v-if="actError" class="popup__error-message">{{ actError }}</p>
+        </div>
+        
+        <div class="popup__actions">
+          <button 
+            class="popup__button button button__primary"
+            @click="requestPayoutAct"
+            :disabled="!isPayoutAmountValid || isRequestingAct"
+          >
+            <span v-if="!isRequestingAct">Получить акт</span>
+            <span v-else>Запрос...</span>
+          </button>
+          <button 
+            class="popup__button button button__black"
+            @click="closeAllPopups"
+            :disabled="isRequestingAct"
+          >
+            <span>Отмена</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
+<!-- Попап для отображения изображений -->
+<Teleport to="body">
+  <div class="popup" v-if="showImagesPopup && actData" @click.self="closeAllPopups">
+    <div class="popup__content popup__content_images">
+      <div class="popup__header">
+        <h3 class="popup__title">Изображения акта</h3>
+        <button class="popup__close" @click="closeAllPopups">×</button>
+      </div>
+      <div class="popup__body">
+        <p class="popup__images-info">Акт успешно создан. Просмотрите изображения:</p>
+        
+        <div class="popup__images-grid" v-if="actData.images && actData.images.length > 0">
+          <div 
+            v-for="(image, index) in actData.images" 
+            :key="index"
+            class="popup__image-item"
+          >
+            <img 
+              :src="getFullUrl(image)" 
+              :alt="`Изображение ${index + 1}`"
+              class="popup__image"
+            >
+          </div>
+        </div>
+        
+        <div v-else class="popup__empty">
+          Нет изображений для отображения
+        </div>
+        
+        <div class="popup__actions">
+          <button 
+            class="popup__button button button__primary"
+            @click="goToSignature"
+          >
+            <span>Перейти к подписи</span>
+          </button>
+          <button 
+            class="popup__button button button__black"
+            @click="closeAllPopups"
+          >
+            <span>Отмена</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
+<!-- Попап для отображения текста песни -->
+<Teleport to="body">
+  <div class="popup" v-if="showLyricsPopup" @click.self="closeLyricsPopup">
+    <div class="popup__content popup__content_lyrics">
+      <div class="popup__header">
+        <h3 class="popup__title">{{ currentTrackTitle }}</h3>
+        <button class="popup__close" @click="closeLyricsPopup">×</button>
+      </div>
+      <div class="popup__body">
+        <div class="popup__lyrics">
+          <pre class="popup__lyrics_text">{{ currentLyrics }}</pre>
+        </div>
+        <div class="popup__actions">
+          <button 
+            class="popup__button button button__black"
+            @click="closeLyricsPopup"
+          >
+            <span>Закрыть</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
+<!-- Попап для подписи акта -->
+<SignaturePopup
+  v-if="showSignaturePopup && actData"
+  @close="closeAllPopups"
+  @submit="submitSignature"
+/>
+
+<!-- Попап для выплаты бонусов -->
+<Teleport to="body">
+  <div class="popup" v-if="showBonusPayoutPopup" @click.self="closeBonusPayoutPopup">
+    <div class="popup__content popup__content_small">
+      <div class="popup__header">
+        <h3 class="popup__title">Запрос выплаты бонусов</h3>
+        <button class="popup__close" @click="closeBonusPayoutPopup">×</button>
+      </div>
+      <div class="popup__body">
+        <div class="popup__info">
+          <p class="popup__balance-info">
+            Доступно бонусов: <strong>{{ profileData.bonus.toLocaleString() }}</strong>
+          </p>
+        </div>
+        
+        <div class="popup__form-group">
+          <label for="bonus-amount" class="popup__label">
+            Введите сумму для выплаты:
+          </label>
+          <input
+            id="bonus-amount"
+            type="number"
+            class="popup__input"
+            :class="{ 'popup__input_error': payoutError }"
+            v-model.number="bonusPayoutAmount"
+            :min="1"
+            :max="maxBonusAmount"
+            :placeholder="`От 1 до ${maxBonusAmount}`"
+            :disabled="isSubmittingBonusPayout"
+            @keyup.enter="submitBonusPayout"
+          />
+          <p v-if="payoutError" class="popup__error-message">{{ payoutError }}</p>
+        </div>
+        
+        <div class="popup__actions">
+          <button 
+            class="popup__button button button__primary"
+            @click="submitBonusPayout"
+            :disabled="!isBonusAmountValid || isSubmittingBonusPayout"
+          >
+            <span v-if="!isSubmittingBonusPayout">Отправить запрос</span>
+            <span v-else>Отправка...</span>
+          </button>
+          <button 
+            class="popup__button button button__black"
+            @click="closeBonusPayoutPopup"
+            :disabled="isSubmittingBonusPayout"
+          >
+            <span>Отмена</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</Teleport>
+
+</template>
+
 <script lang="ts" setup>
 import { ref, computed, onMounted, watch } from "vue";
+import { ElMessage } from 'element-plus';
 import { sendRequest } from '@/utils/api';
 import Header from "@/components/layout/Header.vue";
 // import Footer from "@/components/layout/Footer.vue";
@@ -30,22 +784,18 @@ const loadingSvg = `
 const loadedCount = ref(0);
 const API_BASE_URL = window.location.origin;
 
-// Интерфейсы для объектов списков
+// Интерфейсы
 interface Track {
   id: number;
   title: string;
-  track_number: number;
   duration: number;
-  isrc: string;
-  upc?: string;
+  track_number: number;
+  isrc?: string;
+  lyrics?: string;
   artist?: string[];
-  artist_name?: string;
   composer?: string;
   lyricist?: string;
   is_explicit?: boolean;
-  has_file?: boolean;
-  has_lyrics?: boolean;
-  [key: string]: any;
 }
 
 interface Release {
@@ -65,7 +815,7 @@ interface Release {
   propertyDogovorPdfValue?: string | null;
   propertyLinkValue?: string | null;
   propertyDogovorStatusValue?: string | null;
-  tracks?: Track[]; // Добавляем массив треков
+  tracks?: Track[];
 }
 
 interface Report {
@@ -134,6 +884,10 @@ const showQuarterPopup = ref(false);
 const showSignaturePopup = ref(false);
 const showPayoutAmountPopup = ref(false);
 const showImagesPopup = ref(false);
+const showLyricsPopup = ref(false);
+const showNoReportsPopup = ref(false);
+const currentLyrics = ref<string>('');
+const currentTrackTitle = ref<string>('');
 const actData = ref<ActResponse | null>(null);
 const userLabel = ref(0);
 const isoldsumm = ref("0");
@@ -141,6 +895,7 @@ const isoldsumm = ref("0");
 const payoutAmount = ref<number | null>(null);
 const isRequestingAct = ref(false);
 const actError = ref('');
+
 const isSubmittingVyplata = ref(false);
 const vyplataError = ref('');
 
@@ -303,44 +1058,63 @@ const getFullUrl = (path: string) => {
   return `${API_BASE_URL}${cleanPath}`;
 };
 
-// Функция для извлечения данных треков
-const extractTracks = (trackJson: any): Track[] => {
-  if (!trackJson) return [];
+// Функция для извлечения треков из данных API
+const extractTracks = (item: any): Track[] => {
+  let tracks: Track[] = [];
   
-  if (Array.isArray(trackJson)) {
-    return trackJson.map((track: any) => ({
-      id: track.id || track.zvonko_id,
-      title: track.title || track.name,
-      track_number: track.track_number,
-      duration: track.duration,
-      isrc: track.isrc || '',
-      upc: track.upc || track.album_upc,
-      artist: track.artist,
-      artist_name: track.artist_name,
-      composer: track.composer,
-      lyricist: track.lyricist,
-      is_explicit: track.is_explicit,
-      has_file: track.has_file,
-      has_lyrics: track.has_lyrics,
-      ...track
-    }));
+  if (item.PROPERTY_ZVONKO_TRACK_JSON) {
+    try {
+      let trackData = item.PROPERTY_ZVONKO_TRACK_JSON;
+      
+      // Если это строка JSON, парсим
+      if (typeof trackData === 'string') {
+        trackData = JSON.parse(trackData);
+      }
+      
+      // Если это массив
+      if (Array.isArray(trackData)) {
+        tracks = trackData.map((track: any) => ({
+          id: track.id,
+          title: track.title,
+          duration: track.duration,
+          track_number: track.track_number,
+          isrc: track.isrc,
+          lyrics: track.lyrics,
+          artist: track.artist,
+          composer: track.composer,
+          lyricist: track.lyricist,
+          is_explicit: track.is_explicit
+        }));
+      }
+    } catch (e) {
+      console.error('Ошибка парсинга треков:', e);
+    }
   }
   
-  if (typeof trackJson === 'object' && trackJson.id) {
-    return [{
-      id: trackJson.id,
-      title: trackJson.title || trackJson.name,
-      track_number: trackJson.track_number,
-      duration: trackJson.duration,
-      isrc: trackJson.isrc || '',
-      ...trackJson
-    }];
-  }
+  // Сортировка треков по номеру
+  tracks.sort((a, b) => a.track_number - b.track_number);
   
-  return [];
+  return tracks;
 };
 
-// Функция для загрузки страницы релизов
+// Показать текст песни
+const showLyrics = (track: Track) => {
+  if (track.lyrics) {
+    currentTrackTitle.value = track.title;
+    currentLyrics.value = track.lyrics;
+    showLyricsPopup.value = true;
+    document.documentElement.classList.add('noscroll');
+  }
+};
+
+// Закрыть попап с текстом
+const closeLyricsPopup = () => {
+  showLyricsPopup.value = false;
+  currentLyrics.value = '';
+  currentTrackTitle.value = '';
+  document.documentElement.classList.remove('noscroll');
+};
+
 const fetchReleasesPage = async (page: number) => {
   isLoadingReleases.value = true;
   try {
@@ -364,7 +1138,7 @@ const fetchReleasesPage = async (page: number) => {
         propertyDogovorPdfValue: item.PROPERTY_DOGOVOR_PDF_VALUE ? getFullUrl(item.PROPERTY_DOGOVOR_PDF_VALUE) : null,
         propertyLinkValue: item.PROPERTY_LINK_VALUE,
         propertyDogovorStatusValue: item.PROPERTY_DOGOVOR_STATUS_VALUE,
-        tracks: extractTracks(item.PROPERTY_ZVONKO_TRACK_JSON)
+        tracks: extractTracks(item)
       }));
       
       releasesPagination.value = {
@@ -382,7 +1156,6 @@ const fetchReleasesPage = async (page: number) => {
   }
 };
 
-// Функция для загрузки страницы отчетов
 const fetchReportsPage = async (page: number) => {
   isLoadingReports.value = true;
   try {
@@ -415,7 +1188,6 @@ const fetchReportsPage = async (page: number) => {
   }
 };
 
-// Функция для загрузки страницы транзакций
 const fetchTransactionsPage = async (page: number) => {
   isLoadingTransactions.value = true;
   try {
@@ -626,7 +1398,8 @@ const showReportPopupFunc = () => {
   }
   
   if (reportYears.value.length === 0) {
-    alert('Нет доступных отчетов');
+    showNoReportsPopup.value = true;
+    document.documentElement.classList.add('noscroll');
     return;
   }
   
@@ -641,6 +1414,7 @@ const closeAllPopups = () => {
   showBonusPayoutPopup.value = false;
   showPayoutAmountPopup.value = false;
   showImagesPopup.value = false;
+  showNoReportsPopup.value = false;
   selectedYear.value = '';
   selectedQuarter.value = '';
   availableQuarters.value = [];
@@ -722,7 +1496,7 @@ const fetchReleases = async () => {
         propertyDogovorPdfValue: item.PROPERTY_DOGOVOR_PDF_VALUE ? getFullUrl(item.PROPERTY_DOGOVOR_PDF_VALUE) : null,
         propertyLinkValue: item.PROPERTY_LINK_VALUE,
         propertyDogovorStatusValue: item.PROPERTY_DOGOVOR_STATUS_VALUE,
-        tracks: extractTracks(item.PROPERTY_ZVONKO_TRACK_JSON)
+        tracks: extractTracks(item)
       }));
       
       releasesPagination.value = {
@@ -1006,6 +1780,34 @@ const submitSignature = async (signatureDataUrl: string) => {
   }
 };
 
+// Функция для копирования текста в буфер обмена
+const copyToClipboard = async (text: string, type: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    ElMessage({
+      message: `${type} скопирован!`,
+      type: 'success',
+      duration: 2000,
+      showClose: true
+    });
+  } catch (err) {
+    console.error('Ошибка при копировании:', err);
+    // Fallback для старых браузеров
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    ElMessage({
+      message: `${type} скопирован!`,
+      type: 'success',
+      duration: 2000,
+      showClose: true
+    });
+  }
+};
+
 const openBonusPayoutPopup = () => {
   bonusPayoutAmount.value = null;
   payoutError.value = '';
@@ -1144,704 +1946,6 @@ onMounted(() => {
   loadAllData();
 });
 </script>
-
-<template>
-<Header></Header>
-<section class="personal">
-  <div class="container personal__container">
-    <Menu />
-    <div v-if="loading" class="personal__block">
-      <div class="loading__container">
-        <div 
-          v-loading="loading" 
-          :element-loading-svg="loadingSvg" 
-          class="loading__svg" 
-          element-loading-svg-view-box="-10, -10, 50, 50"
-        ></div>
-      </div>
-    </div>
-    <div v-else class="personal__block">
-      <div class="personal__balance">
-        <div class="personal__balance_info">
-          <h3 class="personal__balance_head">ЛИЧНЫЙ КАБИНЕТ {{ userName }}</h3>
-        </div>
-        <div class="personal__divider"></div>
-        <ul class="personal__balance_list">
-          <li class="personal__balance_item">
-            <div class="personal__balance_top">
-              <div class="personal__balance_svg"><WalletSVG/></div>
-              <div class="personal__balance_top_info">
-                <h4 class="personal__balance_heading text_one">Отчет</h4>
-                <p class="personal__balance_desc">Баланс обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится</p>
-              </div>
-            </div>
-            <button 
-              class="personal__balance_button button__primary"
-              @click="openPayoutAmountPopup"
-              :disabled="profileData.balance < minPayoutAmount"
-              :class="{ 'button__disabled': profileData.balance < minPayoutAmount }"
-            >
-              <span>Запросить выплаты</span>
-            </button>
-          </li>
-          <li class="personal__balance_item">
-            <div class="personal__balance_top">
-              <div class="personal__balance_svg"><WalletSVG/></div>
-              <div class="personal__balance_top_info">
-                <h4 class="personal__balance_heading">
-                  <span class="personal__balance_description text_one">Баланс</span>
-                  {{ profileData.balance.toLocaleString() }} ₽
-                </h4>
-              </div>
-            </div>
-            <button 
-              class="personal__balance_button button__black" 
-              :class="{ 'button__disabled': !showReportButton }"
-              :disabled="!showReportButton"
-              @click="showReportPopupFunc"
-            >
-              <span><DownloadSVG/>Скачать отчет</span>
-            </button>
-          </li>
-          <li class="personal__balance_item">
-            <div class="personal__balance_top">
-              <div class="personal__balance_svg"><PaySVG/></div>
-              <div class="personal__balance_top_info">
-                <h4 class="personal__balance_heading">
-                  <span class="personal__balance_description text_one">Бонусы партнера</span>
-                  {{ profileData.bonus.toLocaleString() }}
-                </h4>
-              </div>
-            </div>
-            <button 
-              class="personal__balance_button button__primary"
-              @click="openBonusPayoutPopup"
-              :disabled="profileData.bonus <= 0"
-              :class="{ 'button__disabled': profileData.bonus <= 0 }"
-              style="display: none;"
-            >
-              <span>Запросить выплаты бонусов</span>
-            </button>
-          </li>
-        </ul>
-      </div>
-      <div class="personal__flex">
-        <div class="personal__content">
-          <div class="personal__release">
-            <div class="personal__release_flex">
-              <h5 class="personal__release_head">ОТПРАВИТЬ РЕЛИЗ НА ПЛОЩАДКИ</h5>
-              <p class="personal__release_desc">Нажмите на кнопку ниже, чтобы заполнить форму и отправить свой релиз на все платформы!</p>
-            </div>
-            <RouterLink class="personal__release_button button__red button" :to="Tr.i18nRoute({ name: 'release' })">
-              <span>Выложить релиз</span>
-            </RouterLink>
-          </div>
-          <div class="personal__releases">
-            <div class="personal__releases_block">
-              <h5 class="personal__releases_title">ВАШИ РЕЛИЗЫ</h5>
-              <ul class="personal__releases_list">
-                <li 
-                  class="personal__releases_item" 
-                  v-for="release in paginatedReleases" 
-                  :key="release.id"
-                >
-                  <div class="personal__releases_information">
-                    <div class="personal__releases_image">
-                      <img 
-                        v-if="release.image"
-                        :src="release.image"
-                        @error="handleImageError"
-                        alt=""
-                      >
-                      <div v-else class="personal__releases_image_placeholder"></div>
-                    </div>
-                    <div class="personal__releases_flex">
-                      <div class="personal__releases_top">
-                        <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Сингл' : 'Релиз' }}</span> {{ release.name }}</h5>
-                        <p class="personal__releases_album text_very"></p>
-                      </div>
-                      <p class="personal__releases_date text_very">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
-                    </div>
-                  </div>
-                  <div class="personal__releases_info">
-                    <div class="personal__releases_top">
-                      <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Сингл' : 'Релиз' }}</span> {{ release.name }}</h5>
-                      <p class="personal__releases_album text_very"></p>
-                    </div>
-                    <div class="personal__releases_codes">
-                      <button v-if="release.upcCode" class="personal__releases_code">
-                        <span>UPC код: {{ release.upcCode }}</span>
-                      </button>
-                      <a 
-                        v-if="release.link" 
-                        :href="release.link" 
-                        class="personal__releases_code"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <LinkSVG/>
-                        <span>{{ release.link }}</span>
-                      </a>
-                    </div>
-                    
-                    <!-- Блок с треками и их кодами -->
-                    <div v-if="release.tracks && release.tracks.length > 0" class="personal__releases_tracks">
-                      <div class="personal__releases_tracks_header">
-                        <span class="personal__releases_tracks_title">Треки:</span>
-                      </div>
-                      <div class="personal__releases_tracks_list">
-                        <div 
-                          v-for="(track, idx) in release.tracks" 
-                          :key="track.id || idx"
-                          class="personal__releases_track"
-                        >
-                          <div class="personal__releases_track_header">
-                            <span class="personal__releases_track_number">{{ track.track_number }}.</span>
-                            <span class="personal__releases_track_title">{{ track.title }}</span>
-                            <span class="personal__releases_track_duration" v-if="track.duration">
-                              {{ Math.floor(track.duration / 60) }}:{{ (track.duration % 60).toString().padStart(2, '0') }}
-                            </span>
-                          </div>
-                          <div class="personal__releases_track_codes">
-                            <button v-if="track.isrc" class="personal__releases_code personal__releases_code_small">
-                              <span>ISRC: {{ track.isrc }}</span>
-                            </button>
-                            <button v-if="track.upc" class="personal__releases_code personal__releases_code_small">
-                              <span>UPC: {{ track.upc }}</span>
-                            </button>
-                            <button v-if="track.composer" class="personal__releases_code personal__releases_code_small">
-                              <span>Композитор: {{ track.composer }}</span>
-                            </button>
-                            <button v-if="track.lyricist" class="personal__releases_code personal__releases_code_small">
-                              <span>Автор текста: {{ track.lyricist }}</span>
-                            </button>
-                            <button v-if="track.artist_name" class="personal__releases_code personal__releases_code_small">
-                              <span>Исполнитель: {{ track.artist_name }}</span>
-                            </button>
-                            <button v-if="track.is_explicit" class="personal__releases_code personal__releases_code_small explicit">
-                              <span>⚠️ Explicit</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div class="personal__releases_bottom">
-                      <p class="personal__releases_date text_very">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
-                      <div class="personal__releases_agreements">
-                        <a 
-                          v-if="release.contractFile" 
-                          :href="release.contractFile" 
-                          class="personal__releases_agreement button" 
-                          download=""
-                        >
-                          <DownloadSVG/><span>Скачать договор</span>
-                        </a>
-                        <a 
-                          v-if="release.contractFile" 
-                          :href="release.contractFile" 
-                          class="personal__releases_agreement button" 
-                          target="_blank"
-                        >
-                          <EyeSVG/><span>Открыть договор</span>
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-              </ul>
-              <div class="pagination__buttons" v-if="showReleasesPagination">
-                <button 
-                  class="pagination__buttons_button button button__pagination button__pagination_prev"
-                  @click="prevReleasesPage"
-                  :disabled="currentReleasesPage === 1 || isLoadingReleases"
-                >
-                  <span><ButtonSVG /></span>
-                  <span>{{$t('button.prev')}}</span>
-                </button>
-                
-                <div class="pagination__buttons_info">
-                  {{ currentReleasesPage }}/{{ totalReleasesPages }}
-                </div>
-                
-                <button 
-                  class="pagination__buttons_button button button__pagination button__pagination_next"
-                  @click="nextReleasesPage"
-                  :disabled="currentReleasesPage === totalReleasesPages || isLoadingReleases"
-                >
-                  <span>{{$t('button.next')}}</span>
-                  <span><ButtonSVG /></span>
-                </button>
-              </div>
-            </div>
-          </div>
-          <div class="personal__reports">
-            <div class="personal__reports_top">
-              <h5 class="personal__reports_head">Ранее полученные отчеты</h5>
-              <p class="personal__reports_desc">Новый отчёт нужно скачать через кнопку «Скачать отчёт» вверху страницы</p>
-            </div>
-            <ul class="personal__reports_list">
-              <li class="personal__reports_item personal__reports_header">
-                <div class="personal__reports_cell personal__reports_info text_very">Отчет</div>
-                <div class="personal__reports_cell personal__reports_date text_very">Дата</div>
-                <div class="personal__reports_cell personal__reports_actions text_very"></div>
-              </li>
-              <li 
-                class="personal__reports_item" 
-                v-for="report in paginatedReports" 
-                :key="report.id"
-              >
-                <div class="personal__reports_cell personal__reports_info">
-                  <div class="personal__reports_image"><ReportsSVG /></div>
-                  <div class="personal__reports_file">
-                    <span class="personal__reports_filename">{{ report.filename }}</span>
-                    <span class="personal__reports_filesize">{{ report.filesize }}</span>
-                  </div>
-                </div>
-                <div class="personal__reports_cell personal__reports_date">
-                  <span class="personal__reports_datevalue">{{ report.date }}</span>
-                </div>
-                <div class="personal__reports_cell personal__reports_actions">
-                  <div class="personal__reports_buttons">
-                    <a 
-                      v-if="report.xlsxUrl"
-                      :href="getFullUrl(report.xlsxUrl)" 
-                      class="personal__reports_button button__text" 
-                      download=""
-                    >
-                      <DownloadSVG/>
-                      <span>Скачать XLSX</span>
-                    </a>
-                    
-                    <a 
-                      v-if="report.pdfUrl"
-                      :href="getFullUrl(report.pdfUrl)" 
-                      class="personal__reports_button button__text" 
-                      download=""
-                    >
-                      <DownloadSVG/>
-                      <span>Скачать PDF</span>
-                    </a>
-                    
-                    <a 
-                      :href="getFullUrl(`/acts/${report.id}`)" 
-                      class="personal__reports_button button__text"
-                      v-if="report.hasAct"
-                      download=""
-                    >
-                      <DownloadSVG/>
-                      <span>Скачать акт</span>
-                    </a>
-                  </div>
-                </div>
-              </li>
-            </ul>
-            <div class="pagination__buttons" v-if="showReportsPagination">
-              <button 
-                class="pagination__buttons_button button button__pagination button__pagination_prev"
-                @click="prevReportsPage"
-                :disabled="currentReportsPage === 1 || isLoadingReports"
-              >
-                <span><ButtonSVG /></span>
-                <span>{{$t('button.prev')}}</span>
-              </button>
-              
-              <div class="pagination__buttons_info">
-                {{ currentReportsPage }}/{{ totalReportsPages }}
-              </div>
-              
-              <button 
-                class="pagination__buttons_button button button__pagination button__pagination_next"
-                @click="nextReportsPage"
-                :disabled="currentReportsPage === totalReportsPages || isLoadingReports"
-              >
-                <span>{{$t('button.next')}}</span>
-                <span><ButtonSVG /></span>
-              </button>
-            </div>
-          </div>
-          <div class="personal__transactions">
-            <h5 class="personal__transactions_head">Финансовые транзакции</h5>
-            <ul class="personal__transactions_list">
-              <li class="personal__transactions_item personal__transactions_header">
-                <div class="personal__transactions_cell personal__transactions_type text_very">Тип транзакции</div>
-                <div class="personal__transactions_cell personal__transactions_date text_very">Дата</div>
-                <div class="personal__transactions_cell personal__transactions_period text_very">Период</div>
-                <div class="personal__transactions_cell personal__transactions_status text_very">Статус</div>
-                <div class="personal__transactions_cell personal__transactions_amount text_very">Сумма</div>
-              </li>
-              <li 
-                class="personal__transactions_item" 
-                v-for="transaction in paginatedTransactions" 
-                :key="transaction.id"
-              >
-                <div class="personal__transactions_cell personal__transactions_type">
-                  <div class="personal__transactions_image"><TransactionSVG /></div>
-                  <span class="personal__transactions_typevalue button">{{ transaction.type }}</span>
-                </div>
-                <div class="personal__transactions_cell personal__transactions_date">
-                  <span class="personal__transactions_datevalue text_small">{{ transaction.date }}</span>
-                </div>
-                <div class="personal__transactions_cell personal__transactions_period">
-                  <span class="personal__transactions_periodvalue text_small">{{ transaction.period }}</span>
-                </div>
-                <div class="personal__transactions_cell personal__transactions_status">
-                  <span 
-                    class="personal__transactions_statusvalue text_small"
-                    :class="getStatusClass(transaction.status)"
-                  >
-                    {{ getStatusText(transaction.status) }}
-                  </span>
-                </div>
-                <div class="personal__transactions_cell personal__transactions_amount">
-                  <span class="personal__transactions_amountvalue text_small">{{ transaction.amount }}</span>
-                </div>
-              </li>
-            </ul>
-            <div class="pagination__buttons" v-if="showTransactionsPagination">
-              <button 
-                class="pagination__buttons_button button button__pagination button__pagination_prev"
-                @click="prevTransactionsPage"
-                :disabled="currentTransactionsPage === 1 || isLoadingTransactions"
-              >
-                <span><ButtonSVG /></span>
-                <span>{{$t('button.prev')}}</span>
-              </button>
-              
-              <div class="pagination__buttons_info">
-                {{ currentTransactionsPage }}/{{ totalTransactionsPages }}
-              </div>
-              
-              <button 
-                class="pagination__buttons_button button button__pagination button__pagination_next"
-                @click="nextTransactionsPage"
-                :disabled="currentTransactionsPage === totalTransactionsPages || isLoadingTransactions"
-              >
-                <span>{{$t('button.next')}}</span>
-                <span><ButtonSVG /></span>
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="personal__right">
-          <div class="personal__partner">
-            <div class="personal__partner_image">
-              <img src="@/assets/img/personal/partner/partner.webp" alt="">
-            </div>
-            <div class="personal__partner_info">
-              <h5 class="personal__articles_head">Стать партнёром VAUVISION</h5>
-              <p class="personal__articles_desc">Зарабатывайте деньги за рекомендации!</p>
-            </div>
-            <RouterLink class="personal__partner_button button__primary" :to="Tr.i18nRoute({ name: 'partner' })">
-              <span>Присоединиться</span>
-            </RouterLink>
-          </div>
-          <div class="personal__articles">
-            <div class="personal__articles_top">
-              <h5 class="personal__articles_head">Cтатьи</h5>
-              <RouterLink class="personal__articles_all button" :to="Tr.i18nRoute({ name: 'articles' })">
-                Смотреть больше
-              </RouterLink>
-            </div>
-            <ul class="personal__articles_list">
-              <li 
-                class="personal__articles_item" 
-                v-for="article in lastThreeArticles" 
-                :key="article.url"
-              >
-                <a :href="article.url" class="personal__articles_link">
-                  <div class="personal__articles_image">
-                    <img 
-                      :src="getFullUrl(article.img)" 
-                      :alt="article.name"
-                      @error="handleImageError"
-                    >
-                  </div>
-                  <div class="personal__articles_info">
-                    <p class="personal__articles_head text_small">{{ article.name }}</p>
-                    <p class="personal__articles_date text_very">Читать статью</p>
-                  </div>
-                </a>
-              </li>
-              <li v-if="lastThreeArticles.length === 0" class="personal__articles_item">
-                <div class="personal__articles_link">
-                  <div class="personal__articles_image">
-                    <div class="articles__image_placeholder"></div>
-                  </div>
-                  <div class="personal__articles_info">
-                    <p class="personal__articles_head text_small">Статьи временно недоступны</p>
-                  </div>
-                </div>
-              </li>
-            </ul>
-          </div>
-          <div class="personal__partners">
-            <div class="personal__partners_top">
-              <h5 class="personal__partners_head">Партнеры</h5>
-              <RouterLink class="personal__partners_all button" :to="Tr.i18nRoute({ name: 'partner' })">Смотреть больше</RouterLink>
-            </div>
-            <ul class="personal__partners_list">
-              <li 
-                class="personal__partners_item" 
-                v-for="partner in lastThreePartners" 
-                :key="partner.id"
-              >
-                <a href="#" target="_blank" class="personal__partners_link">
-                  <p class="personal__partners_heading button">{{ partner.name }}</p>
-                  <p class="personal__partners_desc text_very">{{ partner.email }} • {{ partner.date }}</p>
-                </a>
-              </li>
-              <li v-if="lastThreePartners.length === 0" class="personal__partners_item">
-                <div class="personal__partners_link">
-                  <p class="personal__partners_heading button">Нет партнеров</p>
-                  <p class="personal__partners_desc text_very">Пригласите друзей</p>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<Teleport to="body">
-  <div class="popup" v-if="showReportPopup" @click.self="closeAllPopups">
-    <div class="popup__content">
-      <div class="popup__header">
-        <h3 class="popup__title">Выберите год отчета</h3>
-        <button class="popup__close" @click="closeAllPopups">×</button>
-      </div>
-      <div class="popup__body">
-        <div class="popup__years" v-if="reportYears.length > 0">
-          <button 
-            v-for="year in reportYears" 
-            :key="year"
-            class="popup__year-button button button__primary"
-            @click="selectYear(year)"
-          >
-            {{ year }}
-          </button>
-        </div>
-        <div v-else class="popup__empty">
-          Нет доступных годов
-        </div>
-      </div>
-    </div>
-  </div>
-</Teleport>
-
-<Teleport to="body">
-  <div class="popup" v-if="showQuarterPopup" @click.self="closeAllPopups">
-    <div class="popup__content">
-      <div class="popup__header">
-        <button class="popup__back" @click="backToYearSelection">← Назад</button>
-        <h3 class="popup__title">Выберите квартал</h3>
-        <button class="popup__close" @click="closeAllPopups">×</button>
-      </div>
-      <div class="popup__body">
-        <p class="popup__year-selected">Год: {{ selectedYear }}</p>
-        
-        <div v-if="isLoadingQuarters" class="popup__loading">
-          Загрузка кварталов...
-        </div>
-        
-        <div v-else-if="availableQuarters.length > 0" class="popup__quarters">
-          <button 
-            v-for="quarter in availableQuarters" 
-            :key="quarter.id"
-            class="popup__quarter-button"
-            :class="{ 'selected': selectedQuarter === quarter.id }"
-            @click="selectedQuarter = quarter.id"
-          >
-            <span class="quarter__name">{{ quarter.name }}</span>
-            <span class="quarter__months">{{ quarter.months }}</span>
-          </button>
-        </div>
-        
-        <div v-else class="popup__empty">
-          Нет доступных кварталов
-        </div>
-        
-        <button 
-          class="popup__download-button button button__primary"
-          :disabled="!selectedQuarter || isLoadingQuarters || isDownloading"
-          @click="downloadReport"
-        >
-          <DownloadSVG/>
-          <span>{{ isDownloading ? 'Загрузка...' : 'Скачать отчет' }}</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</Teleport>
-
-<Teleport to="body">
-  <div class="popup" v-if="showPayoutAmountPopup" @click.self="closeAllPopups">
-    <div class="popup__content popup__content_small">
-      <div class="popup__header">
-        <h3 class="popup__title">Запрос выплаты</h3>
-        <button class="popup__close" @click="closeAllPopups">×</button>
-      </div>
-      <div class="popup__body">
-        <div class="popup__info">
-          <p class="popup__balance-info">
-            Доступно средств: <strong>{{ profileData.balance.toLocaleString() }} ₽</strong>
-          </p>
-          <p class="popup__min-amount">
-            Минимальная сумма: <strong>{{ minPayoutAmount }} ₽</strong>
-          </p>
-        </div>
-        
-        <div class="popup__form-group">
-          <label for="payout-amount" class="popup__label">
-            Введите сумму для выплаты:
-          </label>
-          <input
-            id="payout-amount"
-            type="number"
-            class="popup__input"
-            :class="{ 'popup__input_error': actError }"
-            v-model.number="payoutAmount"
-            :min="minPayoutAmount"
-            :max="profileData.balance"
-            :placeholder="`От ${minPayoutAmount} до ${profileData.balance}`"
-            :disabled="isRequestingAct"
-            @keyup.enter="requestPayoutAct"
-          />
-          <p v-if="actError" class="popup__error-message">{{ actError }}</p>
-        </div>
-        
-        <div class="popup__actions">
-          <button 
-            class="popup__button button button__primary"
-            @click="requestPayoutAct"
-            :disabled="!isPayoutAmountValid || isRequestingAct"
-          >
-            <span v-if="!isRequestingAct">Получить акт</span>
-            <span v-else>Запрос...</span>
-          </button>
-          <button 
-            class="popup__button button button__black"
-            @click="closeAllPopups"
-            :disabled="isRequestingAct"
-          >
-            <span>Отмена</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</Teleport>
-
-<Teleport to="body">
-  <div class="popup" v-if="showImagesPopup && actData" @click.self="closeAllPopups">
-    <div class="popup__content popup__content_images">
-      <div class="popup__header">
-        <h3 class="popup__title">Изображения акта</h3>
-        <button class="popup__close" @click="closeAllPopups">×</button>
-      </div>
-      <div class="popup__body">
-        <p class="popup__images-info">Акт успешно создан. Просмотрите изображения:</p>
-        
-        <div class="popup__images-grid" v-if="actData.images && actData.images.length > 0">
-          <div 
-            v-for="(image, index) in actData.images" 
-            :key="index"
-            class="popup__image-item"
-          >
-            <img 
-              :src="getFullUrl(image)" 
-              :alt="`Изображение ${index + 1}`"
-              class="popup__image"
-            >
-          </div>
-        </div>
-        
-        <div v-else class="popup__empty">
-          Нет изображений для отображения
-        </div>
-        
-        <div class="popup__actions">
-          <button 
-            class="popup__button button button__primary"
-            @click="goToSignature"
-          >
-            <span>Перейти к подписи</span>
-          </button>
-          <button 
-            class="popup__button button button__black"
-            @click="closeAllPopups"
-          >
-            <span>Отмена</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</Teleport>
-
-<SignaturePopup
-  v-if="showSignaturePopup && actData"
-  @close="closeAllPopups"
-  @submit="submitSignature"
-/>
-
-<Teleport to="body">
-  <div class="popup" v-if="showBonusPayoutPopup" @click.self="closeBonusPayoutPopup">
-    <div class="popup__content popup__content_small">
-      <div class="popup__header">
-        <h3 class="popup__title">Запрос выплаты бонусов</h3>
-        <button class="popup__close" @click="closeBonusPayoutPopup">×</button>
-      </div>
-      <div class="popup__body">
-        <div class="popup__info">
-          <p class="popup__balance-info">
-            Доступно бонусов: <strong>{{ profileData.bonus.toLocaleString() }}</strong>
-          </p>
-        </div>
-        
-        <div class="popup__form-group">
-          <label for="bonus-amount" class="popup__label">
-            Введите сумму для выплаты:
-          </label>
-          <input
-            id="bonus-amount"
-            type="number"
-            class="popup__input"
-            :class="{ 'popup__input_error': payoutError }"
-            v-model.number="bonusPayoutAmount"
-            :min="1"
-            :max="maxBonusAmount"
-            :placeholder="`От 1 до ${maxBonusAmount}`"
-            :disabled="isSubmittingBonusPayout"
-            @keyup.enter="submitBonusPayout"
-          />
-          <p v-if="payoutError" class="popup__error-message">{{ payoutError }}</p>
-        </div>
-        
-        <div class="popup__actions">
-          <button 
-            class="popup__button button button__primary"
-            @click="submitBonusPayout"
-            :disabled="!isBonusAmountValid || isSubmittingBonusPayout"
-          >
-            <span v-if="!isSubmittingBonusPayout">Отправить запрос</span>
-            <span v-else>Отправка...</span>
-          </button>
-          <button 
-            class="popup__button button button__black"
-            @click="closeBonusPayoutPopup"
-            :disabled="isSubmittingBonusPayout"
-          >
-            <span>Отмена</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</Teleport>
-</template>
 
 <style lang="css" scoped>
 .loading__container {
@@ -2088,7 +2192,6 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 16px;
 }
 .personal__releases_code {
   display: flex;
@@ -2099,28 +2202,15 @@ onMounted(() => {
   color: var(--text);
   background-color: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
 }
 .personal__releases_code:hover {
   color: var(--white);
   background-color: var(--color);
-  border-color: var(--color);
 }
 .personal__releases_code svg {
   width: 16px;
   height: 16px;
   object-fit: contain;
-}
-.personal__releases_code_small {
-  padding: 6px 12px;
-  font-size: 12px;
-}
-.personal__releases_code_small.explicit {
-  background-color: #ff4d4f;
-  color: white;
-  border-color: #ff4d4f;
 }
 .personal__releases_date {
   color: var(--text-gray);
@@ -2147,65 +2237,102 @@ onMounted(() => {
   margin: auto 0 0;
   justify-content: space-between;
   gap: 20px;
-  flex-wrap: wrap;
 }
 
-/* Стили для треков */
+/* Стили для блока треков */
 .personal__releases_tracks {
-  margin: 16px 0;
-  padding: 16px;
-  background-color: rgba(0, 0, 0, 0.03);
+  margin: 15px 0;
+  padding: 15px;
+  background-color: var(--bg-secondary, #f5f5f5);
   border-radius: 8px;
   border: 1px solid var(--border);
 }
-.personal__releases_tracks_header {
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-.personal__releases_tracks_title {
-  font-weight: 600;
+
+.personal__tracks_title {
   font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text);
   text-transform: uppercase;
-  color: var(--color);
+  letter-spacing: 0.5px;
 }
-.personal__releases_tracks_list {
+
+.personal__tracks_list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
-.personal__releases_track {
-  padding: 12px;
+
+.personal__tracks_item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
   background-color: var(--bg);
   border-radius: 6px;
-  border: 1px solid var(--border);
+  transition: background-color 0.2s;
 }
-.personal__releases_track_header {
+
+.personal__tracks_item:hover {
+  background-color: var(--border);
+}
+
+.personal__tracks_number {
+  width: 32px;
+  height: 32px;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-.personal__releases_track_number {
-  font-weight: 600;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color);
+  color: var(--white);
+  border-radius: 50%;
   font-size: 14px;
-  color: var(--color);
+  font-weight: 600;
+  flex-shrink: 0;
 }
-.personal__releases_track_title {
-  font-weight: 500;
-  font-size: 15px;
+
+.personal__tracks_info {
   flex: 1;
+  min-width: 0;
 }
-.personal__releases_track_duration {
+
+.personal__tracks_name {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.personal__tracks_duration {
   font-size: 12px;
   color: var(--text-gray);
+  display: inline-block;
+}
+
+.personal__tracks_isrc {
+  font-size: 11px;
+  color: var(--text-gray);
+  margin-top: 2px;
   font-family: monospace;
 }
-.personal__releases_track_codes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+
+.personal__tracks_lyrics_button {
+  padding: 6px 12px;
+  font-size: 12px;
+  background-color: var(--color);
+  color: var(--white);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.personal__tracks_lyrics_button:hover {
+  opacity: 0.8;
 }
 
 .personal__partner {
@@ -2429,6 +2556,21 @@ onMounted(() => {
   object-fit: contain;
 }
 
+.personal__reports_empty {
+  text-align: center;
+  padding: 40px 20px;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.personal__reports_empty_text {
+  font-size: 16px;
+  color: var(--text-gray);
+  margin: 0;
+}
+
 .personal__transactions {
   display: flex;
   padding: 40px;
@@ -2530,12 +2672,14 @@ onMounted(() => {
   color: var(--text);
 }
 
+/* Стили для disabled кнопки */
 .button__disabled {
   opacity: 0.5;
   cursor: not-allowed;
   pointer-events: none;
 }
 
+/* Стили для попапов */
 .popup {
   position: fixed;
   top: 0;
@@ -2560,6 +2704,11 @@ onMounted(() => {
 
 .popup__content_images {
   max-width: 800px;
+}
+
+.popup__content_lyrics {
+  max-width: 600px;
+  max-height: 80vh;
 }
 
 .popup__header {
@@ -2605,6 +2754,27 @@ onMounted(() => {
 
 .popup__body {
   padding: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.popup__lyrics {
+  margin-bottom: 20px;
+}
+
+.popup__lyrics_text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  background-color: var(--bg-secondary, #f5f5f5);
+  padding: 15px;
+  border-radius: 8px;
+  margin: 0;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 .popup__loading {
@@ -2615,8 +2785,19 @@ onMounted(() => {
 
 .popup__empty {
   text-align: center;
-  padding: 30px;
+  padding: 40px 20px;
+}
+
+.popup__empty p {
+  margin: 0;
+  font-size: 16px;
   color: var(--text-gray);
+}
+
+.popup__empty_hint {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-gray-light);
 }
 
 .popup__years,
@@ -2796,28 +2977,7 @@ onMounted(() => {
   object-fit: contain;
 }
 
-.pagination__buttons {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-}
-
-.pagination__buttons_button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-}
-
-.pagination__buttons_info {
-  font-size: 14px;
-  color: var(--text-gray);
-}
-
+/* Адаптация для десктопов (1919px и меньше) */
 @media (max-width: 1919px) {
   .personal__flex {
     gap: 20px;
@@ -2845,6 +3005,7 @@ onMounted(() => {
   }
 }
 
+/* Адаптация для планшетов (1439px и меньше) */
 @media (max-width: 1439px) {
   .personal__right {
     display: none;
@@ -2899,6 +3060,7 @@ onMounted(() => {
   }
 }
 
+/* Адаптация для мобильных устройств (1023px и меньше) */
 @media (max-width: 1023px) {
   .personal__reports_header,
   .personal__transactions_header {
@@ -2950,6 +3112,7 @@ onMounted(() => {
   }
 }
 
+/* Адаптация для маленьких мобильных устройств (767px и меньше) */
 @media (max-width: 767px) {
   .personal__container {
     padding: 0;
@@ -3008,22 +3171,33 @@ onMounted(() => {
     width: 100px;
     height: 100px;
   }
-  
-  .personal__releases_track_header {
-    flex-direction: column;
-    gap: 4px;
-  }
-  
-  .personal__releases_track_codes {
-    flex-direction: column;
-  }
 
   .popup__images-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     max-height: 300px;
   }
+  
+  .personal__tracks_item {
+    flex-wrap: wrap;
+  }
+  
+  .personal__tracks_number {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .personal__tracks_name {
+    font-size: 13px;
+  }
+  
+  .personal__tracks_lyrics_button {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
 }
 
+/* Адаптация для очень маленьких устройств (580px и меньше) */
 @media (max-width: 580px) {
   .personal__release_image {
     width: 150px;
@@ -3031,6 +3205,7 @@ onMounted(() => {
   }
 }
 
+/* Адаптация для самых маленьких устройств (480px и меньше) */
 @media (max-width: 480px) {
   .popup__actions {
     flex-direction: column;
@@ -3038,6 +3213,15 @@ onMounted(() => {
   
   .popup__images-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .personal__tracks_info {
+    width: 100%;
+  }
+  
+  .personal__tracks_name {
+    white-space: normal;
+    word-break: break-word;
   }
 }
 </style>
