@@ -80,6 +80,8 @@ interface SingleTrack {
   audioFileName?: string;
   audioFileId?: string;
   product_id?: string;
+  rightsType?: string;
+  rightsContractLink?: string;
 }
 
 interface AlbumTrack {
@@ -91,6 +93,8 @@ interface AlbumTrack {
   audioFileName?: string;
   audioFileId?: string;
   product_id?: string;
+  rightsType?: string;
+  rightsContractLink?: string;
 }
 
 interface Album {
@@ -515,6 +519,42 @@ const loadAllData = async () => {
     console.log('Quiz8: Loaded text data');
     console.log('Quiz8: Has singles:', hasSingles.value, 'Has albums:', hasAlbums.value);
     
+    // Проверка полей прав для синглов
+    if (hasSingles.value && quiz2Data.value?.singleTracks) {
+      const singlesWithRights = quiz2Data.value.singleTracks.filter(track => track.rightsType).length;
+      const singlesWithLinks = quiz2Data.value.singleTracks.filter(track => track.rightsContractLink).length;
+      console.log(`Quiz8: Singles with rights: ${singlesWithRights}, with links: ${singlesWithLinks}`);
+      
+      // Детальная информация по каждому синглу
+      quiz2Data.value.singleTracks.forEach((track, index) => {
+        if (track.rightsType) {
+          console.log(`  Сингл ${index + 1}: rightsType = ${track.rightsType}`);
+          if (track.rightsContractLink) {
+            console.log(`    rightsContractLink = ${track.rightsContractLink}`);
+          }
+        }
+      });
+    }
+    
+    // Проверка полей прав для треков альбомов
+    if (hasAlbums.value && quiz2Data.value?.albums) {
+      let rightsCount = 0;
+      let linksCount = 0;
+      quiz2Data.value.albums.forEach((album, albumIndex) => {
+        album.tracks?.forEach((track, trackIndex) => {
+          if (track.rightsType) {
+            rightsCount++;
+            console.log(`  Альбом ${albumIndex + 1}, трек ${trackIndex + 1}: rightsType = ${track.rightsType}`);
+          }
+          if (track.rightsContractLink) {
+            linksCount++;
+            console.log(`    rightsContractLink = ${track.rightsContractLink}`);
+          }
+        });
+      });
+      console.log(`Quiz8: Album tracks with rights: ${rightsCount}, with links: ${linksCount}`);
+    }
+    
     coverFile.value = await loadCoverFile();
     audioFilesList.value = await loadAllAudioFiles();
     appleMusicFile.value = await loadAppleMusicFile();
@@ -686,7 +726,7 @@ const findProductIdByFileName = (fileName: string): string | undefined => {
   if (!fileName) return undefined;
   
   if (hasSingles.value && quiz2Data.value?.singleTracks) {
-    const singleTrack = quiz2Data.value.singleTracks.find(t => t.audioFileName === fileName);
+    const singleTrack = quiz2Data.value.singleTracks.find(track => track.audioFileName === fileName);
     if (singleTrack?.product_id) {
       console.log(`✅ Найден product_id ${singleTrack.product_id} для файла ${fileName} в синглах`);
       return singleTrack.product_id;
@@ -696,7 +736,7 @@ const findProductIdByFileName = (fileName: string): string | undefined => {
   if (hasAlbums.value && quiz2Data.value?.albums) {
     for (const album of quiz2Data.value.albums) {
       if (album.tracks) {
-        const albumTrack = album.tracks.find(t => t.audioFileName === fileName);
+        const albumTrack = album.tracks.find(track => track.audioFileName === fileName);
         if (albumTrack?.product_id) {
           console.log(`✅ Найден product_id ${albumTrack.product_id} для файла ${fileName} в альбомах`);
           return albumTrack.product_id;
@@ -705,6 +745,7 @@ const findProductIdByFileName = (fileName: string): string | undefined => {
     }
   }
   
+  console.warn(`⚠️ Не найден product_id для файла: ${fileName}`);
   return undefined;
 };
 
@@ -763,6 +804,17 @@ const prepareOrderData = async (): Promise<FormData> => {
         formData.append(`autor-music[${track.product_id}]`, cleanField(track.musicAuthor || ''));
         formData.append(`autor-words[${track.product_id}]`, cleanField(track.textAuthor || ''));
         formData.append(`autor-files[${track.product_id}]`, cleanField(track.performerName || ''));
+        
+        // Добавляем поля для прав на инструментал
+        if (track.rightsType) {
+          formData.append(`instrument_rights[${track.product_id}]`, track.rightsType);
+          console.log(`  instrument_rights[${track.product_id}]: ${track.rightsType}`);
+        }
+        
+        if (track.rightsContractLink) {
+          formData.append(`url_rights_doc[${track.product_id}]`, track.rightsContractLink);
+          console.log(`  url_rights_doc[${track.product_id}]: ${track.rightsContractLink}`);
+        }
       } else {
         console.warn(`Сингл ${index + 1} не имеет product_id!`);
       }
@@ -789,6 +841,17 @@ const prepareOrderData = async (): Promise<FormData> => {
             formData.append(`autor-words-album[${track.product_id}]`, cleanField(track.textAuthor || ''));
             
             formData.append(`autor-files-album[${track.product_id}]`, cleanField(album.albumName || ''));
+            
+            // Добавляем поля для прав на инструментал
+            if (track.rightsType) {
+              formData.append(`instrument_rights[${track.product_id}]`, track.rightsType);
+              console.log(`  instrument_rights[${track.product_id}]: ${track.rightsType}`);
+            }
+            
+            if (track.rightsContractLink) {
+              formData.append(`url_rights_doc[${track.product_id}]`, track.rightsContractLink);
+              console.log(`  url_rights_doc[${track.product_id}]: ${track.rightsContractLink}`);
+            }
           } else {
             console.warn(`Альбом ${albumIndex + 1}, трек ${trackIndex + 1} не имеет product_id!`);
           }
@@ -1038,12 +1101,28 @@ const prepareOrderData = async (): Promise<FormData> => {
   if (hasSingles.value) {
     console.log('trackID[]:', formData.getAll('trackID[]'));
     console.log('Количество trackID[]:', formData.getAll('trackID[]').length);
+    
+    // Логируем отправленные права для синглов
+    const singlesRightsCount = quiz2Data.value?.singleTracks?.filter(t => t.rightsType).length || 0;
+    console.log(`📊 Синглы с instrument_rights: ${singlesRightsCount}`);
   }
   
   if (hasAlbums.value) {
     console.log('albumID[]:', formData.getAll('albumID[]'));
     console.log('Количество albumID[]:', formData.getAll('albumID[]').length);
     console.log('name-relize-album:', formData.get('name-relize-album'));
+    
+    // Логируем отправленные права для треков альбомов
+    let albumRightsCount = 0;
+    let albumLinksCount = 0;
+    quiz2Data.value?.albums?.forEach(album => {
+      album.tracks?.forEach(track => {
+        if (track.rightsType) albumRightsCount++;
+        if (track.rightsContractLink) albumLinksCount++;
+      });
+    });
+    console.log(`📊 Треки альбомов с instrument_rights: ${albumRightsCount}`);
+    console.log(`📊 Треки альбомов с url_rights_doc: ${albumLinksCount}`);
   }
   
   console.log('quiz-policy-one:', formData.get('quiz-policy-one'));

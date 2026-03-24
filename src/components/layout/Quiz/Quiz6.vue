@@ -43,37 +43,6 @@
         </div>
       </div>
 
-      <!-- Права на инструменты -->
-      <div class="form__group">
-        <label for="rightsInfo" class="form__label button">Права на инструментал</label>
-        <p class="form__hint text_small">В поле ниже, пожалуйста, укажите в столбик «Название трека – тип прав». Эта информация поможет загрузить релиз на площадки и соблюсти сроки. Если у вас только один трек, то напишите для одного трека. Если у вас несколько треков, то напишите для каждого трека. По желанию, вы можете прикрепить ссылку на сам договор на Яндекс Диске – это не обязательно.</p>
-        <el-input
-          v-model="formData.rightsInfo"
-          type="textarea"
-          :rows="6"
-          placeholder="1. Название первого трека - исключительная лицензия
-2. Название второго трека - wav лицензия"
-          @input="errors.rightsInfo = ''"
-          size="large"
-          :disabled="uploadingFiles || isGeneratingContract"
-        />
-        <div class="form__group_inner">
-          <label for="rightsContractLink" class="form__label button text_small">Ссылка на договор в Яндекс Диске (не обязательно)</label>
-          <el-input
-            v-model="formData.rightsContractLink"
-            type="text"
-            placeholder="https://disk.yandex.ru/..."
-            @blur="validateUrlField('rightsContractLink')"
-            @input="errors.rightsContractLink = ''"
-            size="large"
-            :disabled="uploadingFiles || isGeneratingContract"
-          />
-          <div v-if="errors.rightsContractLink" class="error text_very">
-            {{ errors.rightsContractLink }}
-          </div>
-        </div>
-      </div>
-
       <!-- Дополнительные комментарии -->
       <div class="form__group">
         <label for="additionalComments" class="form__label button">дополнительные комментарии</label>
@@ -332,8 +301,6 @@ let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 const formData = reactive({
   platforms: [] as string[],
   otherPlatform: '',
-  rightsInfo: '',
-  rightsContractLink: '',
   additionalComments: '',
   promoPlan: '',
   bandlinkUrl: '',
@@ -347,8 +314,6 @@ const formData = reactive({
 const errors = reactive({
   platforms: '',
   otherPlatform: '',
-  rightsInfo: '',
-  rightsContractLink: '',
   additionalComments: '',
   promoPlan: '',
   bandlinkUrl: '',
@@ -484,8 +449,6 @@ const createSafeStateCopy = () => {
   const safeFormData = {
     platforms: Array.isArray(formData.platforms) ? [...formData.platforms] : [],
     otherPlatform: String(formData.otherPlatform || ''),
-    rightsInfo: String(formData.rightsInfo || ''),
-    rightsContractLink: String(formData.rightsContractLink || ''),
     additionalComments: String(formData.additionalComments || ''),
     promoPlan: String(formData.promoPlan || ''),
     bandlinkUrl: String(formData.bandlinkUrl || ''),
@@ -547,8 +510,6 @@ const loadStateFromDB = async () => {
         if (savedState.formData) {
           formData.platforms = savedState.formData.platforms || [];
           formData.otherPlatform = savedState.formData.otherPlatform || '';
-          formData.rightsInfo = savedState.formData.rightsInfo || '';
-          formData.rightsContractLink = savedState.formData.rightsContractLink || '';
           formData.additionalComments = savedState.formData.additionalComments || '';
           formData.promoPlan = savedState.formData.promoPlan || '';
           formData.bandlinkUrl = savedState.formData.bandlinkUrl || '';
@@ -800,12 +761,6 @@ const validateField = (fieldName: keyof typeof errors): boolean => {
       }
       break;
       
-    case 'rightsContractLink':
-      if (formData.rightsContractLink.trim() && !isValidUrl(formData.rightsContractLink)) {
-        errorMessage = 'Введите корректную ссылку (начинается с https://)';
-      }
-      break;
-      
     case 'bandlinkUrl':
       if (formData.bandlinkUrl.trim() && !isValidUrl(formData.bandlinkUrl)) {
         errorMessage = 'Введите корректную ссылку (начинается с https://)';
@@ -841,20 +796,7 @@ const validateField = (fieldName: keyof typeof errors): boolean => {
 const validateUrlField = (fieldName: keyof typeof errors): boolean => {
   let isValid = true;
   
-  if (fieldName === 'rightsContractLink') {
-    if (formData.rightsContractLink.trim()) {
-      if (!isValidUrl(formData.rightsContractLink)) {
-        errors.rightsContractLink = 'Введите корректную ссылку (начинается с https://)';
-        isValid = false;
-      } else {
-        errors.rightsContractLink = '';
-        isValid = true;
-      }
-    } else {
-      errors.rightsContractLink = '';
-      isValid = true;
-    }
-  } else if (fieldName === 'bandlinkUrl') {
+  if (fieldName === 'bandlinkUrl') {
     if (formData.bandlinkUrl.trim()) {
       if (!isValidUrl(formData.bandlinkUrl)) {
         errors.bandlinkUrl = 'Введите корректную ссылку (начинается с https://)';
@@ -900,13 +842,6 @@ const validateForm = (): boolean => {
     }
   }
   
-  if (formData.rightsContractLink.trim()) {
-    const rightsContractValid = validateUrlField('rightsContractLink');
-    if (!rightsContractValid) {
-      isValid = false;
-    }
-  }
-  
   if (formData.bandlinkUrl.trim()) {
     const bandlinkValid = validateUrlField('bandlinkUrl');
     if (!bandlinkValid) {
@@ -933,11 +868,6 @@ const isReadyForNextStep = computed(() => {
     otherPlatformValid = formData.otherPlatform.trim().length >= 2;
   }
   
-  let rightsContractUrlValid = true;
-  if (formData.rightsContractLink.trim()) {
-    rightsContractUrlValid = isValidUrl(formData.rightsContractLink);
-  }
-  
   let bandlinkUrlValid = true;
   if (formData.bandlinkUrl.trim()) {
     bandlinkUrlValid = isValidUrl(formData.bandlinkUrl) && formData.bandlinkUrl.includes('band.link');
@@ -945,7 +875,6 @@ const isReadyForNextStep = computed(() => {
   
   return requiredFieldsValid && 
          otherPlatformValid && 
-         rightsContractUrlValid && 
          bandlinkUrlValid;
 });
 
@@ -1589,7 +1518,6 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
   formDataToSend.append('otkuda-uznali1', formData.platforms[0] || '');
   formDataToSend.append('otkuda-uznali', formData.platforms[0] || '');
   formDataToSend.append('others-otkuda', formData.otherPlatform || '');
-  formDataToSend.append('instrumentals', formData.rightsInfo || '');
   formDataToSend.append('comments', formData.additionalComments || '');
   formDataToSend.append('plan', formData.promoPlan || '');
   formDataToSend.append('link-bandlink', formData.bandlinkUrl || '');
@@ -1725,8 +1653,6 @@ const debouncedSave = () => {
 
 watch(() => formData.platforms, () => { if (dataLoaded.value) debouncedSave(); }, { deep: true });
 watch(() => formData.otherPlatform, () => { if (dataLoaded.value) debouncedSave(); });
-watch(() => formData.rightsInfo, () => { if (dataLoaded.value) debouncedSave(); });
-watch(() => formData.rightsContractLink, () => { if (dataLoaded.value) debouncedSave(); });
 watch(() => formData.additionalComments, () => { if (dataLoaded.value) debouncedSave(); });
 watch(() => formData.promoPlan, () => { if (dataLoaded.value) debouncedSave(); });
 watch(() => formData.bandlinkUrl, () => { if (dataLoaded.value) debouncedSave(); });

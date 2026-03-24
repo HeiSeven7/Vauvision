@@ -1091,47 +1091,60 @@ const loadStateFromDB = async () => {
 };
 
 const isReadyForNextStep = computed(() => {
-  const allSinglesComplete = singleTracks.value.every((track, index) => 
-    track.trackName.trim().length >= 1 &&
-    track.audioFile !== null &&
-    track.uploaded &&
-    track.performerName.trim().split(/\s+/).length >= 3 &&
-    !singleErrors.value[index]?.performerName &&
-    track.musicAuthor.trim().split(/\s+/).length >= 3 &&
-    !singleErrors.value[index]?.musicAuthor &&
-    track.textAuthor.trim().split(/\s+/).length >= 3 &&
-    !singleErrors.value[index]?.textAuthor &&
-    track.rightsType &&
-    !singleErrors.value[index]?.rightsType &&
-    (track.rightsType !== 'wav' && track.rightsType !== 'mp3' || (track.rightsContractLink && !singleErrors.value[index]?.rightsContractLink))
-  );
-
-  const allAlbumsComplete = albums.value.every((album, albumIndex) =>
-    album.albumName.trim().length >= 1 &&
-    album.tracks.length > 0 &&
-    album.tracks.every((track, trackIndex) =>
-      track.trackName.trim().length >= 1 &&
-      track.audioFile !== null &&
-      track.uploaded &&
+  // Валидация синглов (без изменений)
+  const allSinglesComplete = singleTracks.value.length === 0 || singleTracks.value.every((track, index) => {
+    // Если сингл загружен, проверяем все поля
+    if (!track.audioFile || !track.uploaded) return false;
+    
+    return track.trackName.trim().length >= 1 &&
       track.performerName.trim().split(/\s+/).length >= 3 &&
-      !albumErrors.value[albumIndex]?.tracks[trackIndex]?.performerName &&
+      !singleErrors.value[index]?.performerName &&
       track.musicAuthor.trim().split(/\s+/).length >= 3 &&
-      !albumErrors.value[albumIndex]?.tracks[trackIndex]?.musicAuthor &&
+      !singleErrors.value[index]?.musicAuthor &&
       track.textAuthor.trim().split(/\s+/).length >= 3 &&
-      !albumErrors.value[albumIndex]?.tracks[trackIndex]?.textAuthor &&
+      !singleErrors.value[index]?.textAuthor &&
       track.rightsType &&
-      !albumErrors.value[albumIndex]?.tracks[trackIndex]?.rightsType &&
-      (track.rightsType !== 'wav' && track.rightsType !== 'mp3' || (track.rightsContractLink && !albumErrors.value[albumIndex]?.tracks[trackIndex]?.rightsContractLink))
-    )
-  );
+      !singleErrors.value[index]?.rightsType &&
+      (track.rightsType !== 'wav' && track.rightsType !== 'mp3' || (track.rightsContractLink && !singleErrors.value[index]?.rightsContractLink));
+  });
 
-  const counts = {
-    singleCount: singleTracks.value.length,
-    albumCount: albums.value.length
-  };
-  
-  return (counts.singleCount === 0 || allSinglesComplete) && 
-         (counts.albumCount === 0 || allAlbumsComplete);
+  // НОВАЯ ЛОГИКА ДЛЯ АЛЬБОМОВ
+  const allAlbumsComplete = albums.value.length === 0 || albums.value.every((album, albumIndex) => {
+    // Проверяем название альбома
+    if (!album.albumName.trim()) return false;
+    
+    // Если у альбома нет треков - не готов
+    if (album.tracks.length === 0) return false;
+    
+    // Проверяем каждый трек
+    return album.tracks.every((track, trackIndex) => {
+      // Если трек не загружен (нет аудиофайла) - считаем его незаполненным и не пропускаем
+      // Т.е. если у трека нет файла, альбом не готов
+      if (!track.audioFile || !track.uploaded) return false;
+      
+      // Для загруженных треков проверяем все поля
+      const isPerformerValid = track.performerName.trim().split(/\s+/).length >= 3 &&
+        !albumErrors.value[albumIndex]?.tracks[trackIndex]?.performerName;
+      
+      const isMusicAuthorValid = track.musicAuthor.trim().split(/\s+/).length >= 3 &&
+        !albumErrors.value[albumIndex]?.tracks[trackIndex]?.musicAuthor;
+      
+      const isTextAuthorValid = track.textAuthor.trim().split(/\s+/).length >= 3 &&
+        !albumErrors.value[albumIndex]?.tracks[trackIndex]?.textAuthor;
+      
+      const isTrackNameValid = track.trackName.trim().length >= 1;
+      
+      const isRightsValid = track.rightsType &&
+        !albumErrors.value[albumIndex]?.tracks[trackIndex]?.rightsType &&
+        (track.rightsType !== 'wav' && track.rightsType !== 'mp3' || 
+         (track.rightsContractLink && !albumErrors.value[albumIndex]?.tracks[trackIndex]?.rightsContractLink));
+      
+      return isTrackNameValid && isPerformerValid && isMusicAuthorValid && 
+             isTextAuthorValid && isRightsValid;
+    });
+  });
+
+  return allSinglesComplete && allAlbumsComplete;
 });
 
 const checkForbiddenWords = (value: string): boolean => {
