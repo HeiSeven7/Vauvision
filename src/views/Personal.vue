@@ -118,7 +118,7 @@
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Сингл' : 'Релиз' }}</span> {{ release.name }}</h5>
+                      <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Сингл' : 'Альбом' }}</span> {{ release.name }}</h5>
                       <p class="personal__releases_album text_very"></p>
                     </div>
                     <div class="personal__releases_codes">
@@ -136,7 +136,6 @@
                         v-if="release.link" 
                         class="personal__releases_code"
                         @click="copyToClipboard(release.link, 'Ссылка')"
-                        style="cursor: pointer;"
                       >
                         <LinkSVG/>
                         <span>{{ release.link }}</span>
@@ -160,13 +159,6 @@
                             <div class="personal__tracks_name">{{ track.title }}</div>
                             <div v-if="track.isrc" class="personal__tracks_isrc">ISRC: {{ track.isrc }}</div>
                           </div>
-                          <button 
-                            v-if="track.lyrics" 
-                            class="personal__tracks_lyrics_button"
-                            @click="showLyrics(track)"
-                          >
-                            Текст
-                          </button>
                         </li>
                       </ul>
                     </div>
@@ -458,7 +450,7 @@
   <div class="popup" v-if="showReportPopup" @click.self="closeAllPopups">
     <div class="popup__content">
       <div class="popup__header">
-        <h3 class="popup__title">Выберите год отчета</h3>
+        <h4 class="popup__title">Выберите год отчета</h4>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
@@ -486,7 +478,7 @@
   <div class="popup" v-if="showNoReportsPopup" @click.self="closeAllPopups">
     <div class="popup__content popup__content_small">
       <div class="popup__header">
-        <h3 class="popup__title">Нет доступных отчетов</h3>
+        <h4 class="popup__title">Нет доступных отчетов</h4>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
@@ -513,7 +505,7 @@
     <div class="popup__content">
       <div class="popup__header">
         <button class="popup__back" @click="backToYearSelection">← Назад</button>
-        <h3 class="popup__title">Выберите квартал</h3>
+        <h4 class="popup__title">Выберите квартал</h4>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
@@ -559,7 +551,7 @@
   <div class="popup" v-if="showPayoutAmountPopup" @click.self="closeAllPopups">
     <div class="popup__content popup__content_small">
       <div class="popup__header">
-        <h3 class="popup__title">Запрос выплаты</h3>
+        <h4 class="popup__title">Запрос выплаты</h4>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
@@ -618,7 +610,7 @@
   <div class="popup" v-if="showImagesPopup && actData" @click.self="closeAllPopups">
     <div class="popup__content popup__content_images">
       <div class="popup__header">
-        <h3 class="popup__title">Изображения акта</h3>
+        <h4 class="popup__title">Изображения акта</h4>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
@@ -661,31 +653,6 @@
   </div>
 </Teleport>
 
-<!-- Попап для отображения текста песни -->
-<Teleport to="body">
-  <div class="popup" v-if="showLyricsPopup" @click.self="closeLyricsPopup">
-    <div class="popup__content popup__content_lyrics">
-      <div class="popup__header">
-        <h3 class="popup__title">{{ currentTrackTitle }}</h3>
-        <button class="popup__close" @click="closeLyricsPopup">×</button>
-      </div>
-      <div class="popup__body">
-        <div class="popup__lyrics">
-          <pre class="popup__lyrics_text">{{ currentLyrics }}</pre>
-        </div>
-        <div class="popup__actions">
-          <button 
-            class="popup__button button button__black"
-            @click="closeLyricsPopup"
-          >
-            <span>Закрыть</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</Teleport>
-
 <!-- Попап для подписи акта -->
 <SignaturePopup
   v-if="showSignaturePopup && actData"
@@ -698,7 +665,7 @@
   <div class="popup" v-if="showBonusPayoutPopup" @click.self="closeBonusPayoutPopup">
     <div class="popup__content popup__content_small">
       <div class="popup__header">
-        <h3 class="popup__title">Запрос выплаты бонусов</h3>
+        <h4 class="popup__title">Запрос выплаты бонусов</h4>
         <button class="popup__close" @click="closeBonusPayoutPopup">×</button>
       </div>
       <div class="popup__body">
@@ -884,10 +851,7 @@ const showQuarterPopup = ref(false);
 const showSignaturePopup = ref(false);
 const showPayoutAmountPopup = ref(false);
 const showImagesPopup = ref(false);
-const showLyricsPopup = ref(false);
 const showNoReportsPopup = ref(false);
-const currentLyrics = ref<string>('');
-const currentTrackTitle = ref<string>('');
 const actData = ref<ActResponse | null>(null);
 const userLabel = ref(0);
 const isoldsumm = ref("0");
@@ -1095,24 +1059,6 @@ const extractTracks = (item: any): Track[] => {
   tracks.sort((a, b) => a.track_number - b.track_number);
   
   return tracks;
-};
-
-// Показать текст песни
-const showLyrics = (track: Track) => {
-  if (track.lyrics) {
-    currentTrackTitle.value = track.title;
-    currentLyrics.value = track.lyrics;
-    showLyricsPopup.value = true;
-    document.documentElement.classList.add('noscroll');
-  }
-};
-
-// Закрыть попап с текстом
-const closeLyricsPopup = () => {
-  showLyricsPopup.value = false;
-  currentLyrics.value = '';
-  currentTrackTitle.value = '';
-  document.documentElement.classList.remove('noscroll');
 };
 
 const fetchReleasesPage = async (page: number) => {
@@ -2199,6 +2145,7 @@ onMounted(() => {
   flex-wrap: nowrap;
   align-items: center;
   gap: 10px;
+  font-size: 12px;
   color: var(--text);
   background-color: var(--bg);
   border: 1px solid var(--border);
@@ -2249,7 +2196,6 @@ onMounted(() => {
 }
 
 .personal__tracks_title {
-  font-size: 14px;
   font-weight: 600;
   margin-bottom: 12px;
   color: var(--text);
@@ -2278,17 +2224,11 @@ onMounted(() => {
 }
 
 .personal__tracks_number {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--color);
-  color: var(--white);
-  border-radius: 50%;
-  font-size: 14px;
-  font-weight: 600;
+  width: 24px;
+  font-weight: 500;
+  color: var(--text);
   flex-shrink: 0;
+  text-align: center;
 }
 
 .personal__tracks_info {
@@ -2297,8 +2237,6 @@ onMounted(() => {
 }
 
 .personal__tracks_name {
-  font-weight: 500;
-  font-size: 14px;
   color: var(--text);
   margin-bottom: 4px;
   white-space: nowrap;
@@ -2307,32 +2245,14 @@ onMounted(() => {
 }
 
 .personal__tracks_duration {
-  font-size: 12px;
   color: var(--text-gray);
   display: inline-block;
 }
 
 .personal__tracks_isrc {
-  font-size: 11px;
   color: var(--text-gray);
   margin-top: 2px;
   font-family: monospace;
-}
-
-.personal__tracks_lyrics_button {
-  padding: 6px 12px;
-  font-size: 12px;
-  background-color: var(--color);
-  color: var(--white);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-  flex-shrink: 0;
-}
-
-.personal__tracks_lyrics_button:hover {
-  opacity: 0.8;
 }
 
 .personal__partner {
@@ -2528,7 +2448,6 @@ onMounted(() => {
   font-weight: 500;
 }
 .personal__reports_filesize {
-  font-size: 14px;
   color: var(--text-gray);
 }
 .personal__reports_datevalue {
@@ -2566,7 +2485,6 @@ onMounted(() => {
 }
 
 .personal__reports_empty_text {
-  font-size: 16px;
   color: var(--text-gray);
   margin: 0;
 }
@@ -2723,7 +2641,6 @@ onMounted(() => {
 .popup__back {
   background: none;
   border: none;
-  font-size: 16px;
   cursor: pointer;
   color: var(--color);
   padding: 0;
@@ -2738,7 +2655,6 @@ onMounted(() => {
 
 .popup__title {
   margin: 0;
-  font-size: 18px;
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -2747,7 +2663,6 @@ onMounted(() => {
 .popup__close {
   background: none;
   border: none;
-  font-size: 24px;
   cursor: pointer;
   color: var(--text-gray);
 }
@@ -2755,25 +2670,6 @@ onMounted(() => {
 .popup__body {
   padding: 20px;
   max-height: 60vh;
-  overflow-y: auto;
-}
-
-.popup__lyrics {
-  margin-bottom: 20px;
-}
-
-.popup__lyrics_text {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text);
-  background-color: var(--bg-secondary, #f5f5f5);
-  padding: 15px;
-  border-radius: 8px;
-  margin: 0;
-  max-height: 400px;
   overflow-y: auto;
 }
 
@@ -2790,13 +2686,11 @@ onMounted(() => {
 
 .popup__empty p {
   margin: 0;
-  font-size: 16px;
   color: var(--text-gray);
 }
 
 .popup__empty_hint {
   margin-top: 8px;
-  font-size: 14px;
   color: var(--text-gray-light);
 }
 
@@ -2838,11 +2732,9 @@ onMounted(() => {
 
 .quarter__name {
   font-weight: 500;
-  font-size: 16px;
 }
 
 .quarter__months {
-  font-size: 14px;
   opacity: 0.8;
 }
 
@@ -2885,20 +2777,17 @@ onMounted(() => {
 }
 
 .popup__balance-info {
-  font-size: 16px;
   color: var(--text);
   margin-bottom: 5px;
 }
 
 .popup__min-amount {
-  font-size: 14px;
   color: var(--text-gray);
   margin-top: 5px;
 }
 
 .popup__balance-info strong,
 .popup__min-amount strong {
-  font-size: 16px;
   color: var(--color);
 }
 
@@ -2909,14 +2798,12 @@ onMounted(() => {
 .popup__label {
   display: block;
   margin-bottom: 8px;
-  font-size: 14px;
   color: var(--text-gray);
 }
 
 .popup__input {
   width: 100%;
   padding: 12px 15px;
-  font-size: 16px;
   border: 1px solid var(--border);
   background-color: var(--bg);
   color: var(--text);
@@ -2935,19 +2822,19 @@ onMounted(() => {
 
 .popup__error-message {
   margin-top: 5px;
-  font-size: 14px;
   color: #ff4d4f;
 }
 
 .popup__actions {
   display: flex;
-  gap: 10px;
   margin-top: 20px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 .popup__images-info {
   margin-bottom: 20px;
-  font-size: 16px;
   color: var(--text);
 }
 
@@ -3182,18 +3069,8 @@ onMounted(() => {
   }
   
   .personal__tracks_number {
-    width: 28px;
-    height: 28px;
-    font-size: 12px;
-  }
-  
-  .personal__tracks_name {
-    font-size: 13px;
-  }
-  
-  .personal__tracks_lyrics_button {
-    padding: 4px 10px;
-    font-size: 11px;
+    width: 24px;
+    text-align: center;
   }
 }
 

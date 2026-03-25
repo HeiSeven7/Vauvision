@@ -632,23 +632,23 @@ if (typeof window !== 'undefined') {
               </div>
               
               <div class="quiz-popup__links">
-                <p>Для редактирования размера обложек используйте сайт 
-                  <a href="https://pixlr.com" target="_blank" rel="noopener noreferrer">pixlr.com</a>
+                <p>Для редактирования размера обложек (формат JPEG, от 1500x1500 пикселей) 
+                  <a href="https://pixlr.com" target="_blank" rel="noopener noreferrer">используйте сайт</a>
                 </p>
                 
-                <p>Для редактирования формата треков используйте конвертер 
-                  <a href="https://online-audio-converter.com" target="_blank" rel="noopener noreferrer">online-audio-converter.com</a>
+                <p>Для редактирования формата треков (.wav, 16 bit, 44.1 Khz) 
+                  <a href="https://online-audio-converter.com" target="_blank" rel="noopener noreferrer">используйте конвертер</a>
                 </p>
               </div>
               
               <div class="quiz-popup__message">
                 <p>После заполнения этой формы, пожалуйста, напишите сообщение в формате <strong>"Ваш псевдоним - Название релиза - ДИСТРИБУЦИЯ"</strong> в сообщения паблика 
-                  <a href="https://vk.com/vauvisionlabel" target="_blank" rel="noopener noreferrer">vk.com/vauvisionlabel</a>, либо телеграмм.
+                  <a href="https://vk.com/vauvisionlabel" target="_blank" rel="noopener noreferrer">vk.com/vauvisionlabel</a>, либо .
                 </p>
               </div>
               
               <div class="quiz-popup__instruction">
-                <p>Перед загрузкой клипа прочтите 
+                <p>Перед загрузкой клипа прочтите инструкцию 
                   <RouterLink :to="Tr.i18nRoute({ name: 'faq' })">
                     <span>инструкцию</span>
                   </RouterLink>.

@@ -1,34 +1,12 @@
 <template>
 <div class="quiz__form quiz__form_two" v-if="!showImportantBlock">
   <div class="quiz__form_top">
-    <h4 class="quiz__form_head">Загрузка синглов и альбомов</h4>
+    <h4 class="quiz__form_head">{{ getPageTitle() }}</h4>
     <button 
       class="quiz__additional button__second button" 
       @click="openPopup"
     >
       <span>Дополнительная информация</span>
-    </button>
-  </div>
-  
-  <!-- Кнопки для массовой загрузки аудиофайлов -->
-  <div class="quiz__form_two_controls" v-if="showUploadAllSinglesButton || (albums.length > 0 && !hasAnyAlbumTracksWithFiles)">
-    <button 
-      v-if="showUploadAllSinglesButton"
-      class="quiz__form_button button__black button" 
-      @click="uploadAllSingles"
-      :disabled="isLoadingTwo || isUploadingAllSingles"
-    >
-      <span v-if="!isUploadingAllSingles">Загрузить все синглы</span>
-      <span v-else>Загрузка... {{ uploadedSinglesCount }}/{{ singleCountFromQuiz1 }}</span>
-    </button>
-    <button 
-      v-if="albums.length > 0 && !hasAnyAlbumTracksWithFiles"
-      class="quiz__form_button button__black button" 
-      @click="uploadAllAlbumTracks"
-      :disabled="isLoadingTwo || isUploadingAllAlbums"
-    >
-      <span v-if="!isUploadingAllAlbums">Загрузить все треки в альбом</span>
-      <span v-else>Загрузка... {{ uploadedAlbumsCount }}/{{ totalTracksToUploadCount }}</span>
     </button>
   </div>
   
@@ -83,6 +61,28 @@
     </div>
   </div>
   
+  <!-- Кнопки для массовой загрузки аудиофайлов -->
+  <div class="quiz__form_two_controls" v-if="showUploadAllSinglesButton || (albums.length > 0 && !hasAnyAlbumTracksWithFiles)">
+    <button 
+      v-if="showUploadAllSinglesButton"
+      class="quiz__form_button button__black button" 
+      @click="uploadAllSingles"
+      :disabled="isLoadingTwo || isUploadingAllSingles"
+    >
+      <span v-if="!isUploadingAllSingles">Загрузить синглы</span>
+      <span v-else>Загрузка... {{ uploadedSinglesCount }}/{{ singleCountFromQuiz1 }}</span>
+    </button>
+    <button 
+      v-if="albums.length > 0 && !hasAnyAlbumTracksWithFiles"
+      class="quiz__form_button button__black button" 
+      @click="uploadAllAlbumTracks"
+      :disabled="isLoadingTwo || isUploadingAllAlbums"
+    >
+      <span v-if="!isUploadingAllAlbums">Загрузить треки в альбом</span>
+      <span v-else>Загрузка... {{ uploadedAlbumsCount }}/{{ totalTracksToUploadCount }}</span>
+    </button>
+  </div>
+  
   <!-- СИНГЛЫ -->
   <div class="quiz__section" v-if="singleTracks.length > 0 && dataLoaded">
     <h4 class="quiz__section_title">Синглы</h4>
@@ -119,6 +119,7 @@
               :disabled="isLoadingTwo"
               size="large"
               @input="() => validateSingleOnChange(trackIndex, 'performerName')"
+              @change="() => validateSingleOnChange(trackIndex, 'performerName')"
               @blur="validateSinglePerformerName(trackIndex)"
             />
             <div v-if="singleErrors[trackIndex]?.performerName" class="error text_very quiz__form_single_error">
@@ -135,6 +136,7 @@
               :disabled="isLoadingTwo"
               size="large"
               @input="() => validateSingleOnChange(trackIndex, 'musicAuthor')"
+              @change="() => validateSingleOnChange(trackIndex, 'musicAuthor')"
               @blur="validateSingleMusicAuthor(trackIndex)"
             />
             <div v-if="singleErrors[trackIndex]?.musicAuthor" class="error text_very quiz__form_single_error">
@@ -151,6 +153,7 @@
               :disabled="isLoadingTwo"
               size="large"
               @input="() => validateSingleOnChange(trackIndex, 'textAuthor')"
+              @change="() => validateSingleOnChange(trackIndex, 'textAuthor')"
               @blur="validateSingleTextAuthor(trackIndex)"
             />
             <div v-if="singleErrors[trackIndex]?.textAuthor" class="error text_very quiz__form_single_error">
@@ -163,12 +166,6 @@
             <ul class="form__hint_list">
               <li class="form__hint_item">
                 <p class="form__hint text_small">Укажите полное название трека, включая псевдонимы и версии. Если загружаете альбом, то напишите номер каждого трека.</p>
-              </li>
-              <li class="form__hint_item">
-                <p class="form__hint text_small">Например: «1. Artist 1, Artist 2 – Best Song (Prod. by Beatmaker)»</p>
-              </li>
-              <li class="form__hint_item">
-                <p class="form__hint text_small">Не должно быть изображений/фотографий популярных людей или персонажей, если на это нет документального подтверждения правообладателя.</p>
               </li>
               <li class="form__hint_item">
                 <p class="form__hint text_small">Если название на русском языке, не допускается писать «Каждое Слово С Большой Буквы». (название может быть написано «полностью маленькими буквами»).</p>
@@ -187,6 +184,7 @@
               :disabled="isLoadingTwo"
               size="large"
               @input="() => validateSingleOnChange(trackIndex, 'trackName')"
+              @change="() => validateSingleOnChange(trackIndex, 'trackName')"
               @blur="validateSingleTrackName(trackIndex)"
             />
             <div v-if="singleErrors[trackIndex]?.trackName" class="error text_very quiz__form_single_error">
@@ -202,7 +200,10 @@
               placeholder="Выберите тип прав"
               :disabled="isLoadingTwo"
               size="large"
-              @change="() => validateSingleRights(trackIndex)"
+              @change="() => {
+                validateSingleRights(trackIndex);
+                validateSingleForm(trackIndex);
+              }"
             >
               <el-option
                 v-for="option in rightsOptions"
@@ -224,17 +225,47 @@
                 placeholder="https://..."
                 :disabled="isLoadingTwo"
                 size="large"
-                @input="() => validateSingleRightsLink(trackIndex)"
-                @blur="validateSingleRightsLink(trackIndex)"
+                @input="() => {
+                  validateSingleRightsLink(trackIndex);
+                  validateSingleRights(trackIndex);
+                  validateSingleForm(trackIndex);
+                }"
+                @change="() => {
+                  validateSingleRightsLink(trackIndex);
+                  validateSingleRights(trackIndex);
+                  validateSingleForm(trackIndex);
+                }"
+                @blur="() => {
+                  validateSingleRightsLink(trackIndex);
+                  validateSingleRights(trackIndex);
+                  validateSingleForm(trackIndex);
+                }"
               />
               <div v-if="singleErrors[trackIndex]?.rightsContractLink" class="error text_very quiz__form_single_error">
                 {{ singleErrors[trackIndex].rightsContractLink }}
               </div>
             </div>
             
+            <!-- Дополнительное необязательное поле для gifted/free вариантов -->
+            <div v-if="track.rightsType === 'free' || track.rightsType === 'gifted'" class="form__group_inner">
+              <label class="form__label button text_small">Дополнительная информация (необязательно)</label>
+              <el-input
+                v-model="track.additionalInfo"
+                type="text"
+                placeholder="Укажите любую дополнительную информацию"
+                :disabled="isLoadingTwo"
+                size="large"
+                @input="saveStateToDB"
+                @change="saveStateToDB"
+              />
+            </div>
+            
             <!-- Предупреждение для risky вариантов -->
-            <div v-if="track.rightsType === 'free' || track.rightsType === 'gifted'" class="warning text_very quiz__form_single_error">
-              ⚠️ Внимание! Такие треки могут не пройти модерацию. Вы действуете на свой страх и риск.
+            <div v-if="track.rightsType === 'free'" class="warning text_very quiz__form_single_error">
+              ⚠️ Внимание! Такие треки могут не пройти модерацию. Если у вас нет договора на инструментал, то вы действуете на свой страх и риск – если релиз будет отклонён, оплата не возвращается. Рекомендуем купить инструментал и подписать договор с автором.
+            </div>
+            <div v-if="track.rightsType === 'gifted'" class="warning text_very quiz__form_single_error">
+              ⚠️ Рекомендуем убедиться, что инструментал полностью авторский, и в нём не использованы вставки/сэмплы, нарушающие чужие права. Иначе релиз может не пройти модерацию. По возможности прикрепите договор.
             </div>
           </div>
         </div>
@@ -289,6 +320,7 @@
               :disabled="isLoadingTwo"
               size="large"
               @input="() => validateAlbumNameOnChange(albumIndex)"
+              @change="() => validateAlbumNameOnChange(albumIndex)"
               @blur="validateAlbumName(albumIndex)"
             />
             <div v-if="albumErrors[albumIndex]?.albumName" class="error text_very quiz__form_single_error">
@@ -329,6 +361,7 @@
                     :disabled="isLoadingTwo"
                     size="large"
                     @input="() => validateAlbumTrackOnChange(albumIndex, trackIndex, 'performerName')"
+                    @change="() => validateAlbumTrackOnChange(albumIndex, trackIndex, 'performerName')"
                     @blur="validateAlbumTrackPerformerName(albumIndex, trackIndex)"
                   />
                   <div v-if="albumErrors[albumIndex]?.tracks[trackIndex]?.performerName" class="error text_very quiz__form_single_error">
@@ -345,6 +378,7 @@
                     :disabled="isLoadingTwo"
                     size="large"
                     @input="() => validateAlbumTrackOnChange(albumIndex, trackIndex, 'musicAuthor')"
+                    @change="() => validateAlbumTrackOnChange(albumIndex, trackIndex, 'musicAuthor')"
                     @blur="validateAlbumTrackMusicAuthor(albumIndex, trackIndex)"
                   />
                   <div v-if="albumErrors[albumIndex]?.tracks[trackIndex]?.musicAuthor" class="error text_very quiz__form_single_error">
@@ -361,6 +395,7 @@
                     :disabled="isLoadingTwo"
                     size="large"
                     @input="() => validateAlbumTrackOnChange(albumIndex, trackIndex, 'textAuthor')"
+                    @change="() => validateAlbumTrackOnChange(albumIndex, trackIndex, 'textAuthor')"
                     @blur="validateAlbumTrackTextAuthor(albumIndex, trackIndex)"
                   />
                   <div v-if="albumErrors[albumIndex]?.tracks[trackIndex]?.textAuthor" class="error text_very quiz__form_single_error">
@@ -376,9 +411,6 @@
                     </li>
                     <li class="form__hint_item">
                       <p class="form__hint text_small">Например: «1. Artist 1, Artist 2 – Best Song (Prod. by Beatmaker)»</p>
-                    </li>
-                    <li class="form__hint_item">
-                      <p class="form__hint text_small">Не должно быть изображений/фотографий популярных людей или персонажей, если на это нет документального подтверждения правообладателя.</p>
                     </li>
                     <li class="form__hint_item">
                       <p class="form__hint text_small">Если название на русском языке, не допускается писать «Каждое Слово С Большой Буквы». (название может быть написано «полностью маленькими буквами»).</p>
@@ -397,6 +429,7 @@
                     :disabled="isLoadingTwo"
                     size="large"
                     @input="() => validateAlbumTrackOnChange(albumIndex, trackIndex, 'trackName')"
+                    @change="() => validateAlbumTrackOnChange(albumIndex, trackIndex, 'trackName')"
                     @blur="validateAlbumTrackTrackName(albumIndex, trackIndex)"
                   />
                   <div v-if="albumErrors[albumIndex]?.tracks[trackIndex]?.trackName" class="error text_very quiz__form_single_error">
@@ -412,7 +445,10 @@
                     placeholder="Выберите тип прав"
                     :disabled="isLoadingTwo"
                     size="large"
-                    @change="() => validateAlbumTrackRights(albumIndex, trackIndex)"
+                    @change="() => {
+                      validateAlbumTrackRights(albumIndex, trackIndex);
+                      validateAlbumTrackForm(albumIndex, trackIndex);
+                    }"
                   >
                     <el-option
                       v-for="option in rightsOptions"
@@ -434,17 +470,47 @@
                       placeholder="https://..."
                       :disabled="isLoadingTwo"
                       size="large"
-                      @input="() => validateAlbumTrackRightsLink(albumIndex, trackIndex)"
-                      @blur="validateAlbumTrackRightsLink(albumIndex, trackIndex)"
+                      @input="() => {
+                        validateAlbumTrackRightsLink(albumIndex, trackIndex);
+                        validateAlbumTrackRights(albumIndex, trackIndex);
+                        validateAlbumTrackForm(albumIndex, trackIndex);
+                      }"
+                      @change="() => {
+                        validateAlbumTrackRightsLink(albumIndex, trackIndex);
+                        validateAlbumTrackRights(albumIndex, trackIndex);
+                        validateAlbumTrackForm(albumIndex, trackIndex);
+                      }"
+                      @blur="() => {
+                        validateAlbumTrackRightsLink(albumIndex, trackIndex);
+                        validateAlbumTrackRights(albumIndex, trackIndex);
+                        validateAlbumTrackForm(albumIndex, trackIndex);
+                      }"
                     />
                     <div v-if="albumErrors[albumIndex]?.tracks[trackIndex]?.rightsContractLink" class="error text_very quiz__form_single_error">
                       {{ albumErrors[albumIndex].tracks[trackIndex].rightsContractLink }}
                     </div>
                   </div>
                   
+                  <!-- Дополнительное необязательное поле для gifted/free вариантов -->
+                  <div v-if="track.rightsType === 'free' || track.rightsType === 'gifted'" class="form__group_inner">
+                    <label class="form__label button text_small">Дополнительная информация (необязательно)</label>
+                    <el-input
+                      v-model="track.additionalInfo"
+                      type="text"
+                      placeholder="Укажите любую дополнительную информацию"
+                      :disabled="isLoadingTwo"
+                      size="large"
+                      @input="saveStateToDB"
+                      @change="saveStateToDB"
+                    />
+                  </div>
+                  
                   <!-- Предупреждение для risky вариантов -->
-                  <div v-if="track.rightsType === 'free' || track.rightsType === 'gifted'" class="warning text_very quiz__form_single_error">
-                    ⚠️ Внимание! Такие треки могут не пройти модерацию. Вы действуете на свой страх и риск.
+                  <div v-if="track.rightsType === 'free'" class="warning text_very quiz__form_single_error">
+                    ⚠️ Внимание! Такие треки могут не пройти модерацию. Если у вас нет договора на инструментал, то вы действуете на свой страх и риск – если релиз будет отклонён, оплата не возвращается. Рекомендуем купить инструментал и подписать договор с автором.
+                  </div>
+                  <div v-if="track.rightsType === 'gifted'" class="warning text_very quiz__form_single_error">
+                    ⚠️ Рекомендуем убедиться, что инструментал полностью авторский, и в нём не использованы вставки/сэмплы, нарушающие чужие права. Иначе релиз может не пройти модерацию. По возможности прикрепите договор.
                   </div>
                 </div>
               </div>
@@ -535,7 +601,7 @@
       <p class="quiz__important_description">Если в ваших треках использованы элементы чужих авторов без их разрешения, то нужно либо убрать эти элементы, либо не загружать такой трек. Приписка «Кавер»,«Cover» или любая другая не даёт права использовать материалы чужих авторов без их письменного согласия.</p>
     </li>
     <li class="quiz__important_item">
-      <p class="quiz__important_description">Если вы грузите подобный контент, то соглашаетесь с тем, что делаете это на свой страх и риск. В случае не выхода трека по причине использования пиратского контента, оплата за загрузку НЕ ВОЗВРАЩАЕТСЯ.</p>
+      <p class="quiz__important_description"><b>Если вы грузите подобный контент, то соглашаетесь с тем, что делаете это на свой страх и риск. В случае не выхода трека по причине использования пиратского контента, оплата за загрузку НЕ ВОЗВРАЩАЕТСЯ.</b></p>
     </li>
   </ul>
   <div class="quiz__form_bottom">
@@ -583,11 +649,11 @@ const AUDIO_STORE_NAME = 'audio';
 // Опции для прав
 const rightsOptions = [
   { value: 'author', label: 'Я 100% автор музыки' },
-  { value: 'exclusive', label: 'Исключительная лицензия/полная передача права' },
+  { value: 'exclusive', label: 'Исключительная лицензия / полная передача права' },
   { value: 'wav', label: 'Wav лицензия / Аренда' },
   { value: 'mp3', label: 'mp3 лицензия / Аренда' },
   { value: 'free', label: 'free for profit / бит с ютуба' },
-  { value: 'gifted', label: 'подарен/отдан бесплатно / сделан по дружбе' }
+  { value: 'gifted', label: 'подарен / отдан бесплатно / сделан по дружбе' }
 ];
 
 const isLoadingTwo = ref(false);
@@ -648,6 +714,7 @@ interface AlbumTrack {
   uploaded: boolean;
   rightsType: string;
   rightsContractLink: string;
+  additionalInfo: string; // Добавленное необязательное поле
 }
 
 interface SingleTrack {
@@ -664,6 +731,7 @@ interface SingleTrack {
   hasAudioUploaded: boolean;
   rightsType: string;
   rightsContractLink: string;
+  additionalInfo: string; // Добавленное необязательное поле
 }
 
 const singleErrors = ref<Array<{
@@ -909,7 +977,8 @@ const saveStateToDB = async () => {
           hasAudioUploaded: track.hasAudioUploaded || false,
           audioFileId: track.audioFileId || null,
           rightsType: track.rightsType || '',
-          rightsContractLink: track.rightsContractLink || ''
+          rightsContractLink: track.rightsContractLink || '',
+          additionalInfo: track.additionalInfo || '' // Сохраняем новое поле
         })),
         albums: albums.value.map(album => ({
           id: album.id,
@@ -929,7 +998,8 @@ const saveStateToDB = async () => {
             uploaded: track.uploaded || false,
             audioFileId: track.audioFileId || null,
             rightsType: track.rightsType || '',
-            rightsContractLink: track.rightsContractLink || ''
+            rightsContractLink: track.rightsContractLink || '',
+            additionalInfo: track.additionalInfo || '' // Сохраняем новое поле
           }))
         })),
         timestamp: Date.now()
@@ -969,7 +1039,8 @@ const loadSinglesFromStorage = async (savedState: any) => {
           uploaded: true,
           hasAudioUploaded: true,
           rightsType: track.rightsType || '',
-          rightsContractLink: track.rightsContractLink || ''
+          rightsContractLink: track.rightsContractLink || '',
+          additionalInfo: track.additionalInfo || '' // Загружаем новое поле
         });
       }
     }
@@ -1027,7 +1098,8 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
                 audioFileId: track.audioFileId || null,
                 uploaded: track.uploaded || false,
                 rightsType: track.rightsType || '',
-                rightsContractLink: track.rightsContractLink || ''
+                rightsContractLink: track.rightsContractLink || '',
+                additionalInfo: track.additionalInfo || '' // Загружаем новое поле
               };
             })
           );
@@ -1066,6 +1138,24 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
   }));
 };
 
+const getPageTitle = () => {
+  const singlesToLoad = singleCountFromQuiz1.value; // сколько синглов нужно загрузить
+  const albumsToLoad = albumCountFromQuiz1.value;   // сколько альбомов нужно загрузить
+  
+  // Если нужно загрузить синглы и нет альбомов
+  if (singlesToLoad > 0 && albumsToLoad === 0) {
+    return singlesToLoad === 1 ? 'ЗАГРУЗКА СИНГЛА' : 'ЗАГРУЗКА СИНГЛОВ';
+  }
+  
+  // Если нужно загрузить альбомы и нет синглов
+  if (albumsToLoad > 0 && singlesToLoad === 0) {
+    return 'ЗАГРУЗКА АЛЬБОМА';
+  }
+  
+  // Если нужно загрузить и синглы, и альбомы
+  return 'ЗАГРУЗКА СИНГЛОВ И АЛЬБОМОВ';
+};
+
 const loadStateFromDB = async () => {
   if (!dbInitialized.value) return;
   
@@ -1091,9 +1181,8 @@ const loadStateFromDB = async () => {
 };
 
 const isReadyForNextStep = computed(() => {
-  // Валидация синглов (без изменений)
+  // Валидация синглов
   const allSinglesComplete = singleTracks.value.length === 0 || singleTracks.value.every((track, index) => {
-    // Если сингл загружен, проверяем все поля
     if (!track.audioFile || !track.uploaded) return false;
     
     return track.trackName.trim().length >= 1 &&
@@ -1108,21 +1197,14 @@ const isReadyForNextStep = computed(() => {
       (track.rightsType !== 'wav' && track.rightsType !== 'mp3' || (track.rightsContractLink && !singleErrors.value[index]?.rightsContractLink));
   });
 
-  // НОВАЯ ЛОГИКА ДЛЯ АЛЬБОМОВ
+  // Валидация альбомов
   const allAlbumsComplete = albums.value.length === 0 || albums.value.every((album, albumIndex) => {
-    // Проверяем название альбома
     if (!album.albumName.trim()) return false;
-    
-    // Если у альбома нет треков - не готов
     if (album.tracks.length === 0) return false;
     
-    // Проверяем каждый трек
     return album.tracks.every((track, trackIndex) => {
-      // Если трек не загружен (нет аудиофайла) - считаем его незаполненным и не пропускаем
-      // Т.е. если у трека нет файла, альбом не готов
       if (!track.audioFile || !track.uploaded) return false;
       
-      // Для загруженных треков проверяем все поля
       const isPerformerValid = track.performerName.trim().split(/\s+/).length >= 3 &&
         !albumErrors.value[albumIndex]?.tracks[trackIndex]?.performerName;
       
@@ -1394,7 +1476,8 @@ const addSingleTrackWithFile = async () => {
         uploaded: true,
         hasAudioUploaded: true,
         rightsType: '',
-        rightsContractLink: ''
+        rightsContractLink: '',
+        additionalInfo: '' // Инициализируем новое поле
       };
       
       singleTracks.value.push(newTrack);
@@ -1522,7 +1605,8 @@ const uploadAllSingles = async () => {
           uploaded: true,
           hasAudioUploaded: true,
           rightsType: '',
-          rightsContractLink: ''
+          rightsContractLink: '',
+          additionalInfo: '' // Инициализируем новое поле
         };
         
         singleTracks.value.push(newTrack);
@@ -1617,7 +1701,8 @@ const uploadAllAlbumTracks = async () => {
           audioFileId: fileId,
           uploaded: true,
           rightsType: '',
-          rightsContractLink: ''
+          rightsContractLink: '',
+          additionalInfo: '' // Инициализируем новое поле
         };
         
         album.tracks.push(newTrack);
@@ -1713,7 +1798,8 @@ const addAlbumTrackWithFile = async (albumIndex: number) => {
           audioFileId: fileId,
           uploaded: true,
           rightsType: '',
-          rightsContractLink: ''
+          rightsContractLink: '',
+          additionalInfo: '' // Инициализируем новое поле
         };
         
         album.tracks.push(newTrack);
@@ -1909,6 +1995,40 @@ const handleAccept = async () => {
   emit('go-next');
 };
 
+// Отладка
+watch(isReadyForNextStep, (newVal) => {
+  if (!newVal && singleTracks.value.length > 0) {
+    console.log('=== Кнопка НЕ активна, причины: ===');
+    singleTracks.value.forEach((track, index) => {
+      if (!track.trackName.trim()) {
+        console.log(`Сингл ${index + 1}: нет названия трека`);
+      }
+      if (!track.rightsType) {
+        console.log(`Сингл ${index + 1}: не выбран тип прав`);
+      }
+      if (track.rightsType === 'wav' || track.rightsType === 'mp3') {
+        if (!track.rightsContractLink?.trim()) {
+          console.log(`Сингл ${index + 1}: нет ссылки на договор`);
+        } else if (singleErrors.value[index]?.rightsContractLink) {
+          console.log(`Сингл ${index + 1}: неверная ссылка на договор`);
+        }
+      }
+      if (!track.performerName.trim()) {
+        console.log(`Сингл ${index + 1}: нет ФИО исполнителя`);
+      }
+      if (!track.musicAuthor.trim()) {
+        console.log(`Сингл ${index + 1}: нет ФИО автора музыки`);
+      }
+      if (!track.textAuthor.trim()) {
+        console.log(`Сингл ${index + 1}: нет ФИО автора текста`);
+      }
+      if (!track.audioFile) {
+        console.log(`Сингл ${index + 1}: нет аудиофайла`);
+      }
+    });
+  }
+});
+
 onMounted(async () => {
   try {
     isLoadingTwo.value = true;
@@ -1922,11 +2042,6 @@ onMounted(async () => {
     isLoadingTwo.value = false;
   }
 });
-
-watch(albums, () => {
-  console.log('albums changed:', albums.value);
-  console.log('hasAnyAlbumTracksWithFiles:', hasAnyAlbumTracksWithFiles.value);
-}, { deep: true });
 
 watch([singleTracks, albums], async () => {
   if (dataLoaded.value && !isLoadingTwo.value && dbInitialized.value) {
@@ -2051,7 +2166,7 @@ if (typeof window !== 'undefined') {
 .quiz__form_two_controls {
   display: flex;
   gap: 15px;
-  margin-bottom: 30px;
+  margin: 30px 0;
   flex-wrap: wrap;
 }
 .quiz__add_single_button {
@@ -2173,7 +2288,7 @@ if (typeof window !== 'undefined') {
     font-size: 14px;
   }
   .quiz__form_two_controls {
-    margin-bottom: 20px;
+    margin: 20px 0;
   }
   .quiz__form_two_controls .button {
     width: 100%;

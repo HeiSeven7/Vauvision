@@ -1516,7 +1516,10 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
   // --- Данные из Quiz6 (текущий шаг) ---
   console.log('📝 Добавляем данные Quiz6:');
   formDataToSend.append('otkuda-uznali1', formData.platforms[0] || '');
-  formDataToSend.append('otkuda-uznali', formData.platforms[0] || '');
+  // formDataToSend.append('otkuda-uznali', formData.platforms[0] || '');
+  // Отправляем все выбранные варианты одной строкой через запятую
+  const otkudaString = formData.platforms.join(', ');
+  formDataToSend.append('otkuda-uznali', otkudaString);
   formDataToSend.append('others-otkuda', formData.otherPlatform || '');
   formDataToSend.append('comments', formData.additionalComments || '');
   formDataToSend.append('plan', formData.promoPlan || '');
