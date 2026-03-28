@@ -648,7 +648,7 @@ if (typeof window !== 'undefined') {
               </div>
               
               <div class="quiz-popup__instruction">
-                <p>Перед загрузкой клипа прочтите инструкцию 
+                <p>Перед загрузкой клипа прочтите 
                   <RouterLink :to="Tr.i18nRoute({ name: 'faq' })">
                     <span>инструкцию</span>
                   </RouterLink>.

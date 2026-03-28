@@ -1429,7 +1429,7 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
     
     // Эти поля, вероятно, для альбомов, но оставим их здесь, т.к. бэкенд может их игнорировать, если нет альбомов
     formDataToSend.append('alias-album', cleanField(f.performerName || ''));
-    formDataToSend.append('name-relize-album', '');
+    formDataToSend.append('name-relize-album', cleanField(f.releaseName || 'Альбом'));
     formDataToSend.append('kuda-reliz-album1', '');
     formDataToSend.append('kuda-reliz-album', '1');
     formDataToSend.append('others-kuda-album', '');

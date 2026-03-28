@@ -893,7 +893,8 @@ const prepareOrderData = async (): Promise<FormData> => {
 
     if (hasAlbums.value) {
       console.log('--- Альбомные переменные (отправляем) ---');
-      const albumReleaseName = cleanField(quiz2Data.value?.albums?.[0]?.albumName || f.releaseName || 'Альбом');
+      // Используем название релиза из Quiz3 для альбома
+      const albumReleaseName = cleanField(f.releaseName || 'Альбом');
       formData.append('name-relize-album', albumReleaseName);
       formData.append('alias-album', alias);
       formData.append('kuda-reliz-album1', '4');

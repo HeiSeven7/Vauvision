@@ -84,7 +84,7 @@
   </div>
   
   <!-- СИНГЛЫ -->
-  <div class="quiz__section" v-if="singleTracks.length > 0 && dataLoaded">
+  <div class="quiz__section" v-if="singleCountFromQuiz1 > 0 && singleTracks.length > 0 && dataLoaded">
     <h4 class="quiz__section_title">Синглы</h4>
     
     <div class="quiz__singles_list">
@@ -300,7 +300,7 @@
   </div>
   
   <!-- АЛЬБОМЫ -->
-  <div class="quiz__section" v-if="albums.length > 0 && dataLoaded && albums.some(album => album.tracks.length > 0)">
+  <div class="quiz__section" v-if="albumCountFromQuiz1 > 0 && albums.length > 0 && dataLoaded && albums.some(album => album.tracks.length > 0)">
     <div class="quiz__albums_list">
       <div 
         v-for="(album, albumIndex) in albums" 
@@ -309,25 +309,7 @@
       >
         <h5 class="quiz__album_item_title">Альбом {{ albumIndex + 1 }}</h5>
         
-        <!-- Основная информация об альбоме -->
-        <div class="form__flex">
-          <div class="form__group">
-            <label class="form__label button">Название альбома<span>*</span></label>
-            <el-input
-              v-model="album.albumName"
-              type="text"
-              placeholder="Введите название альбома"
-              :disabled="isLoadingTwo"
-              size="large"
-              @input="() => validateAlbumNameOnChange(albumIndex)"
-              @change="() => validateAlbumNameOnChange(albumIndex)"
-              @blur="validateAlbumName(albumIndex)"
-            />
-            <div v-if="albumErrors[albumIndex]?.albumName" class="error text_very quiz__form_single_error">
-              {{ albumErrors[albumIndex].albumName }}
-            </div>
-          </div>
-        </div>
+        <!-- Название альбома удалено - теперь вводится в Quiz3 -->
         
         <!-- Треки альбома -->
         <div class="quiz__album_tracks">
@@ -570,7 +552,7 @@
       </button>
     </div>
   </div>
-  <div v-else-if="dataLoaded && (singleTracks.length === 0 && albums.length === 0)" class="quiz__no_items">
+  <div v-else-if="dataLoaded && singleCountFromQuiz1 === 0 && albumCountFromQuiz1 === 0" class="quiz__no_items">
     <p class="quiz__no_items_text">Не выбрано ни одного сингла или альбома. Вернитесь на предыдущий шаг.</p>
     <div class="quiz__form_bottom">
       <div class="quiz__form_buttons">
@@ -601,7 +583,7 @@
       <p class="quiz__important_description">Если в ваших треках использованы элементы чужих авторов без их разрешения, то нужно либо убрать эти элементы, либо не загружать такой трек. Приписка «Кавер»,«Cover» или любая другая не даёт права использовать материалы чужих авторов без их письменного согласия.</p>
     </li>
     <li class="quiz__important_item">
-      <p class="quiz__important_description"><b>Если вы грузите подобный контент, то соглашаетесь с тем, что делаете это на свой страх и риск. В случае не выхода трека по причине использования пиратского контента, оплата за загрузку НЕ ВОЗВРАЩАЕТСЯ.</b></p>
+      <p class="quiz__important_description"><b style="color:var(--color)" >Если вы грузите подобный контент, то соглашаетесь с тем, что делаете это на свой страх и риск. В случае не выхода трека по причине использования пиратского контента, оплата за загрузку НЕ ВОЗВРАЩАЕТСЯ.</b></p>
     </li>
   </ul>
   <div class="quiz__form_bottom">
@@ -675,15 +657,18 @@ const singleCountFromQuiz1 = ref(0);
 const albumCountFromQuiz1 = ref(0);
 
 const showUploadAllSinglesButton = computed(() => {
+  if (singleCountFromQuiz1.value === 0) return false;
   const needToUpload = singleCountFromQuiz1.value - singleTracks.value.length;
   return needToUpload > 0 && singleTracks.value.length === 0;
 });
 
 const canAddMoreSingles = computed(() => {
+  if (singleCountFromQuiz1.value === 0) return false;
   return singleTracks.value.length < singleCountFromQuiz1.value;
 });
 
 const hasAnyAlbumTracksWithFiles = computed(() => {
+  if (albumCountFromQuiz1.value === 0) return false;
   if (albums.value.length === 0) return false;
   return albums.value.some(album => album.tracks.length > 0);
 });
@@ -714,7 +699,7 @@ interface AlbumTrack {
   uploaded: boolean;
   rightsType: string;
   rightsContractLink: string;
-  additionalInfo: string; // Добавленное необязательное поле
+  additionalInfo: string;
 }
 
 interface SingleTrack {
@@ -731,7 +716,7 @@ interface SingleTrack {
   hasAudioUploaded: boolean;
   rightsType: string;
   rightsContractLink: string;
-  additionalInfo: string; // Добавленное необязательное поле
+  additionalInfo: string;
 }
 
 const singleErrors = ref<Array<{
@@ -963,9 +948,13 @@ const getCountsFromQuiz1 = async () => {
 const saveStateToDB = async () => {
   await safeDBOperation(
     async () => {
-      const stateToSave = {
+      const stateToSave: any = {
         id: STORAGE_KEY,
-        singleTracks: singleTracks.value.map(track => ({
+        timestamp: Date.now()
+      };
+      
+      if (singleCountFromQuiz1.value > 0) {
+        stateToSave.singleTracks = singleTracks.value.map(track => ({
           id: track.id,
           performerName: track.performerName,
           musicAuthor: track.musicAuthor,
@@ -978,9 +967,12 @@ const saveStateToDB = async () => {
           audioFileId: track.audioFileId || null,
           rightsType: track.rightsType || '',
           rightsContractLink: track.rightsContractLink || '',
-          additionalInfo: track.additionalInfo || '' // Сохраняем новое поле
-        })),
-        albums: albums.value.map(album => ({
+          additionalInfo: track.additionalInfo || ''
+        }));
+      }
+      
+      if (albumCountFromQuiz1.value > 0) {
+        stateToSave.albums = albums.value.map(album => ({
           id: album.id,
           albumName: album.albumName,
           performerName: album.performerName,
@@ -999,11 +991,10 @@ const saveStateToDB = async () => {
             audioFileId: track.audioFileId || null,
             rightsType: track.rightsType || '',
             rightsContractLink: track.rightsContractLink || '',
-            additionalInfo: track.additionalInfo || '' // Сохраняем новое поле
+            additionalInfo: track.additionalInfo || ''
           }))
-        })),
-        timestamp: Date.now()
-      };
+        }));
+      }
       
       await quizDB.value.put(STORE_NAME, stateToSave);
       window.dispatchEvent(new CustomEvent('quiz-data-updated'));
@@ -1013,6 +1004,12 @@ const saveStateToDB = async () => {
 };
 
 const loadSinglesFromStorage = async (savedState: any) => {
+  if (singleCountFromQuiz1.value === 0) {
+    singleTracks.value = [];
+    singleErrors.value = [];
+    return;
+  }
+  
   if (savedState && savedState.singleTracks && savedState.singleTracks.length > 0) {
     const loadedTracks = [];
     for (const track of savedState.singleTracks) {
@@ -1040,7 +1037,7 @@ const loadSinglesFromStorage = async (savedState: any) => {
           hasAudioUploaded: true,
           rightsType: track.rightsType || '',
           rightsContractLink: track.rightsContractLink || '',
-          additionalInfo: track.additionalInfo || '' // Загружаем новое поле
+          additionalInfo: track.additionalInfo || ''
         });
       }
     }
@@ -1061,6 +1058,12 @@ const loadSinglesFromStorage = async (savedState: any) => {
 };
 
 const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => {
+  if (albumCountFromQuiz1.value === 0) {
+    albums.value = [];
+    albumErrors.value = [];
+    return;
+  }
+  
   if (savedState && savedState.albums && savedState.albums.length === requiredCount) {
     albums.value = await Promise.all(
       savedState.albums.map(async (album: any, albumIndex: number) => {
@@ -1099,7 +1102,7 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
                 uploaded: track.uploaded || false,
                 rightsType: track.rightsType || '',
                 rightsContractLink: track.rightsContractLink || '',
-                additionalInfo: track.additionalInfo || '' // Загружаем новое поле
+                additionalInfo: track.additionalInfo || ''
               };
             })
           );
@@ -1139,20 +1142,17 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
 };
 
 const getPageTitle = () => {
-  const singlesToLoad = singleCountFromQuiz1.value; // сколько синглов нужно загрузить
-  const albumsToLoad = albumCountFromQuiz1.value;   // сколько альбомов нужно загрузить
+  const singlesToLoad = singleCountFromQuiz1.value;
+  const albumsToLoad = albumCountFromQuiz1.value;
   
-  // Если нужно загрузить синглы и нет альбомов
   if (singlesToLoad > 0 && albumsToLoad === 0) {
     return singlesToLoad === 1 ? 'ЗАГРУЗКА СИНГЛА' : 'ЗАГРУЗКА СИНГЛОВ';
   }
   
-  // Если нужно загрузить альбомы и нет синглов
   if (albumsToLoad > 0 && singlesToLoad === 0) {
     return 'ЗАГРУЗКА АЛЬБОМА';
   }
   
-  // Если нужно загрузить и синглы, и альбомы
   return 'ЗАГРУЗКА СИНГЛОВ И АЛЬБОМОВ';
 };
 
@@ -1167,7 +1167,12 @@ const loadStateFromDB = async () => {
       singleCountFromQuiz1.value = counts.singleCount;
       albumCountFromQuiz1.value = counts.albumCount;
       
-      await loadSinglesFromStorage(savedState);
+      if (counts.singleCount > 0) {
+        await loadSinglesFromStorage(savedState);
+      } else {
+        singleTracks.value = [];
+        singleErrors.value = [];
+      }
       
       if (counts.albumCount > 0) {
         await loadAlbumsFromStorage(savedState, counts.albumCount);
@@ -1181,50 +1186,52 @@ const loadStateFromDB = async () => {
 };
 
 const isReadyForNextStep = computed(() => {
-  // Валидация синглов
-  const allSinglesComplete = singleTracks.value.length === 0 || singleTracks.value.every((track, index) => {
-    if (!track.audioFile || !track.uploaded) return false;
-    
-    return track.trackName.trim().length >= 1 &&
-      track.performerName.trim().split(/\s+/).length >= 3 &&
-      !singleErrors.value[index]?.performerName &&
-      track.musicAuthor.trim().split(/\s+/).length >= 3 &&
-      !singleErrors.value[index]?.musicAuthor &&
-      track.textAuthor.trim().split(/\s+/).length >= 3 &&
-      !singleErrors.value[index]?.textAuthor &&
-      track.rightsType &&
-      !singleErrors.value[index]?.rightsType &&
-      (track.rightsType !== 'wav' && track.rightsType !== 'mp3' || (track.rightsContractLink && !singleErrors.value[index]?.rightsContractLink));
-  });
-
-  // Валидация альбомов
-  const allAlbumsComplete = albums.value.length === 0 || albums.value.every((album, albumIndex) => {
-    if (!album.albumName.trim()) return false;
-    if (album.tracks.length === 0) return false;
-    
-    return album.tracks.every((track, trackIndex) => {
+  const allSinglesComplete = singleCountFromQuiz1.value === 0 || 
+    (singleTracks.value.length === singleCountFromQuiz1.value && 
+     singleTracks.value.every((track, index) => {
       if (!track.audioFile || !track.uploaded) return false;
       
-      const isPerformerValid = track.performerName.trim().split(/\s+/).length >= 3 &&
-        !albumErrors.value[albumIndex]?.tracks[trackIndex]?.performerName;
-      
-      const isMusicAuthorValid = track.musicAuthor.trim().split(/\s+/).length >= 3 &&
-        !albumErrors.value[albumIndex]?.tracks[trackIndex]?.musicAuthor;
-      
-      const isTextAuthorValid = track.textAuthor.trim().split(/\s+/).length >= 3 &&
-        !albumErrors.value[albumIndex]?.tracks[trackIndex]?.textAuthor;
-      
-      const isTrackNameValid = track.trackName.trim().length >= 1;
-      
-      const isRightsValid = track.rightsType &&
-        !albumErrors.value[albumIndex]?.tracks[trackIndex]?.rightsType &&
+      return track.trackName.trim().length >= 1 &&
+        track.performerName.trim().split(/\s+/).length >= 3 &&
+        !singleErrors.value[index]?.performerName &&
+        track.musicAuthor.trim().split(/\s+/).length >= 3 &&
+        !singleErrors.value[index]?.musicAuthor &&
+        track.textAuthor.trim().split(/\s+/).length >= 3 &&
+        !singleErrors.value[index]?.textAuthor &&
+        track.rightsType &&
+        !singleErrors.value[index]?.rightsType &&
         (track.rightsType !== 'wav' && track.rightsType !== 'mp3' || 
-         (track.rightsContractLink && !albumErrors.value[albumIndex]?.tracks[trackIndex]?.rightsContractLink));
+         (track.rightsContractLink && !singleErrors.value[index]?.rightsContractLink));
+    }));
+
+  const allAlbumsComplete = albumCountFromQuiz1.value === 0 || 
+    (albums.value.length === albumCountFromQuiz1.value && 
+     albums.value.every((album, albumIndex) => {
+      if (album.tracks.length === 0) return false;
       
-      return isTrackNameValid && isPerformerValid && isMusicAuthorValid && 
-             isTextAuthorValid && isRightsValid;
-    });
-  });
+      return album.tracks.every((track, trackIndex) => {
+        if (!track.audioFile || !track.uploaded) return false;
+        
+        const isPerformerValid = track.performerName.trim().split(/\s+/).length >= 3 &&
+          !albumErrors.value[albumIndex]?.tracks[trackIndex]?.performerName;
+        
+        const isMusicAuthorValid = track.musicAuthor.trim().split(/\s+/).length >= 3 &&
+          !albumErrors.value[albumIndex]?.tracks[trackIndex]?.musicAuthor;
+        
+        const isTextAuthorValid = track.textAuthor.trim().split(/\s+/).length >= 3 &&
+          !albumErrors.value[albumIndex]?.tracks[trackIndex]?.textAuthor;
+        
+        const isTrackNameValid = track.trackName.trim().length >= 1;
+        
+        const isRightsValid = track.rightsType &&
+          !albumErrors.value[albumIndex]?.tracks[trackIndex]?.rightsType &&
+          (track.rightsType !== 'wav' && track.rightsType !== 'mp3' || 
+           (track.rightsContractLink && !albumErrors.value[albumIndex]?.tracks[trackIndex]?.rightsContractLink));
+        
+        return isTrackNameValid && isPerformerValid && isMusicAuthorValid && 
+               isTextAuthorValid && isRightsValid;
+      });
+    }));
 
   return allSinglesComplete && allAlbumsComplete;
 });
@@ -1388,22 +1395,6 @@ const validateAlbumTrackTrackName = (albumIndex: number, trackIndex: number) => 
   return !error;
 };
 
-const validateAlbumName = (albumIndex: number) => {
-  const value = albums.value[albumIndex].albumName;
-  let error = '';
-  
-  if (!value.trim()) {
-    error = 'Название альбома обязательно для заполнения';
-  } else if (value.trim().length < 1) {
-    error = 'Название альбома должно содержать минимум 1 символ';
-  } else if (checkForbiddenWords(value)) {
-    error = 'В поле "Название альбома" запрещено использовать слова: "нет", "такой", "информации", "не", "знаю", "откуда"';
-  }
-  
-  albumErrors.value[albumIndex].albumName = error;
-  return !error;
-};
-
 const validateAlbumTrackForm = async (albumIndex: number, trackIndex: number) => {
   let isValid = true;
   
@@ -1428,6 +1419,11 @@ const generateAudioId = (type: 'single' | 'album', ...indices: number[]): string
 };
 
 const addSingleTrackWithFile = async () => {
+  if (singleCountFromQuiz1.value === 0) {
+    ElMessage.warning('Синглы не выбраны на первом шаге');
+    return;
+  }
+  
   if (singleTracks.value.length >= singleCountFromQuiz1.value) {
     ElMessage.warning(`Максимальное количество синглов - ${singleCountFromQuiz1.value}`);
     return;
@@ -1477,7 +1473,7 @@ const addSingleTrackWithFile = async () => {
         hasAudioUploaded: true,
         rightsType: '',
         rightsContractLink: '',
-        additionalInfo: '' // Инициализируем новое поле
+        additionalInfo: ''
       };
       
       singleTracks.value.push(newTrack);
@@ -1544,6 +1540,11 @@ const removeSingleUploadedAudio = async (trackIndex: number) => {
 };
 
 const uploadAllSingles = async () => {
+  if (singleCountFromQuiz1.value === 0) {
+    ElMessage.info('Синглы не выбраны на первом шаге');
+    return;
+  }
+  
   const needToUpload = singleCountFromQuiz1.value - singleTracks.value.length;
   
   if (needToUpload === 0) {
@@ -1606,7 +1607,7 @@ const uploadAllSingles = async () => {
           hasAudioUploaded: true,
           rightsType: '',
           rightsContractLink: '',
-          additionalInfo: '' // Инициализируем новое поле
+          additionalInfo: ''
         };
         
         singleTracks.value.push(newTrack);
@@ -1645,6 +1646,11 @@ const uploadAllSingles = async () => {
 };
 
 const uploadAllAlbumTracks = async () => {
+  if (albumCountFromQuiz1.value === 0) {
+    ElMessage.info('Альбомы не выбраны на первом шаге');
+    return;
+  }
+  
   if (albums.value.length === 0) {
     ElMessage.info('Нет доступных альбомов');
     return;
@@ -1702,7 +1708,7 @@ const uploadAllAlbumTracks = async () => {
           uploaded: true,
           rightsType: '',
           rightsContractLink: '',
-          additionalInfo: '' // Инициализируем новое поле
+          additionalInfo: ''
         };
         
         album.tracks.push(newTrack);
@@ -1747,6 +1753,11 @@ const uploadAllAlbumTracks = async () => {
 };
 
 const addAlbumTrackWithFile = async (albumIndex: number) => {
+  if (albumCountFromQuiz1.value === 0) {
+    ElMessage.warning('Альбомы не выбраны на первом шаге');
+    return;
+  }
+  
   if (albumIndex >= 0 && albumIndex < albums.value.length) {
     const album = albums.value[albumIndex];
     
@@ -1799,7 +1810,7 @@ const addAlbumTrackWithFile = async (albumIndex: number) => {
           uploaded: true,
           rightsType: '',
           rightsContractLink: '',
-          additionalInfo: '' // Инициализируем новое поле
+          additionalInfo: ''
         };
         
         album.tracks.push(newTrack);
@@ -1937,11 +1948,6 @@ const validateAlbumTrackOnChange = (albumIndex: number, trackIndex: number, fiel
   saveStateToDB();
 };
 
-const validateAlbumNameOnChange = (albumIndex: number) => {
-  validateAlbumName(albumIndex);
-  saveStateToDB();
-};
-
 const openPopup = () => {
   isPopupVisible.value = true;
   document.body.style.overflow = 'hidden';
@@ -1964,20 +1970,20 @@ const goBack = async () => {
 const handleContinue = async () => {
   let allValid = true;
   
-  for (let i = 0; i < singleTracks.value.length; i++) {
-    if (!await validateSingleForm(i)) {
-      allValid = false;
+  if (singleCountFromQuiz1.value > 0) {
+    for (let i = 0; i < singleTracks.value.length; i++) {
+      if (!await validateSingleForm(i)) {
+        allValid = false;
+      }
     }
   }
   
-  for (let albumIndex = 0; albumIndex < albums.value.length; albumIndex++) {
-    if (!validateAlbumName(albumIndex)) {
-      allValid = false;
-    }
-    
-    for (let trackIndex = 0; trackIndex < albums.value[albumIndex].tracks.length; trackIndex++) {
-      if (!await validateAlbumTrackForm(albumIndex, trackIndex)) {
-        allValid = false;
+  if (albumCountFromQuiz1.value > 0) {
+    for (let albumIndex = 0; albumIndex < albums.value.length; albumIndex++) {
+      for (let trackIndex = 0; trackIndex < albums.value[albumIndex].tracks.length; trackIndex++) {
+        if (!await validateAlbumTrackForm(albumIndex, trackIndex)) {
+          allValid = false;
+        }
       }
     }
   }
@@ -1994,40 +2000,6 @@ const handleAccept = async () => {
   await saveStateToDB();
   emit('go-next');
 };
-
-// Отладка
-watch(isReadyForNextStep, (newVal) => {
-  if (!newVal && singleTracks.value.length > 0) {
-    console.log('=== Кнопка НЕ активна, причины: ===');
-    singleTracks.value.forEach((track, index) => {
-      if (!track.trackName.trim()) {
-        console.log(`Сингл ${index + 1}: нет названия трека`);
-      }
-      if (!track.rightsType) {
-        console.log(`Сингл ${index + 1}: не выбран тип прав`);
-      }
-      if (track.rightsType === 'wav' || track.rightsType === 'mp3') {
-        if (!track.rightsContractLink?.trim()) {
-          console.log(`Сингл ${index + 1}: нет ссылки на договор`);
-        } else if (singleErrors.value[index]?.rightsContractLink) {
-          console.log(`Сингл ${index + 1}: неверная ссылка на договор`);
-        }
-      }
-      if (!track.performerName.trim()) {
-        console.log(`Сингл ${index + 1}: нет ФИО исполнителя`);
-      }
-      if (!track.musicAuthor.trim()) {
-        console.log(`Сингл ${index + 1}: нет ФИО автора музыки`);
-      }
-      if (!track.textAuthor.trim()) {
-        console.log(`Сингл ${index + 1}: нет ФИО автора текста`);
-      }
-      if (!track.audioFile) {
-        console.log(`Сингл ${index + 1}: нет аудиофайла`);
-      }
-    });
-  }
-});
 
 onMounted(async () => {
   try {

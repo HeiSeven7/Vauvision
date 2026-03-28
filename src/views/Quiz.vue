@@ -18,16 +18,22 @@
                 <p class="quiz__preview_desc">Треки выходят на площадках в 00:00 выбранной даты (по Москве).</p>
               </li>
               <li>
-                <p class="quiz__preview_desc">Для редактирования размера обложек используйте сайт <a href="https://pixlr.com" target="_blank">pixlr.com</a></p>
+                <p class="quiz__preview_desc">Для редактирования размера обложек (формат JPEG, от 1500x1500 пикселей) <a href="https://pixlr.com" target="_blank">используйте сайт</a></p>
               </li>
               <li>
-                <p class="quiz__preview_desc">Для редактирования формата треков используйте конвертер <a href="https://online-audio-converter.com" target="_blank">online-audio-converter.com</a></p>
+                <p class="quiz__preview_desc">Для редактирования формата треков (.wav, 16 bit, 44.1 Khz) <a href="https://online-audio-converter.com" target="_blank">используйте конвертер</a></p>
               </li>
               <li>
-                <p class="quiz__preview_desc">После заполнения этой формы, пожалуйста, напишите сообщение в формате "Ваш псевдоним - Название релиза - ДИСТРИБУЦИЯ" в сообщения паблика <a href="https://vk.com/vauvisionlabel" target="_blank">vk.com/vauvisionlabel</a>, либо <a href="https://t.me/vauvision_bot" target="_blank">телеграмм</a>.</p>
+                <p>После заполнения этой формы, пожалуйста, напишите сообщение в формате <strong>"Ваш псевдоним - Название релиза - ДИСТРИБУЦИЯ"</strong> в сообщения паблика 
+                  <a href="https://vk.com/vauvisionlabel" target="_blank" rel="noopener noreferrer">vk.com/vauvisionlabel</a>, либо .
+                </p>
               </li>
               <li>
-                <p class="quiz__preview_desc">Перед загрузкой клипа прочтите инструкцию.</p>
+                <p>Перед загрузкой клипа прочтите 
+                  <RouterLink :to="Tr.i18nRoute({ name: 'faq' })">
+                    <span>инструкцию</span>
+                  </RouterLink>.
+                </p>
               </li>
             </ul>
             <div class="quiz__preview_buttons">
@@ -62,6 +68,7 @@ import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
 import QuizForm from "@/components/layout/QuizForm.vue";
 import { ref, onMounted } from 'vue';
+import Tr from "@/i18n/translation";
 
 // Состояния для переключения
 const showForm = ref(false);
