@@ -515,7 +515,7 @@
           </div>
           
           <!-- Кнопка добавления нового трека -->
-          <div class="quiz__album_add_track" v-if="album.tracks.length < 20">
+          <!-- <div class="quiz__album_add_track" v-if="album.tracks.length < 20">
             <button 
               class="quiz__form_single_button button__black button" 
               @click="() => addAlbumTrackWithFile(albumIndex)"
@@ -526,6 +526,15 @@
           </div>
           <div v-else class="quiz__album_max_tracks_warning">
             <p class="text_small warning">Достигнут лимит треков в альбоме (максимум 20)</p>
+          </div> -->
+          <div class="quiz__album_add_track">
+            <button 
+              class="quiz__form_single_button button__black button" 
+              @click="() => addAlbumTrackWithFile(albumIndex)"
+              :disabled="isLoadingTwo"
+            >
+              <span>+ Добавить трек в альбом</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1761,10 +1770,11 @@ const addAlbumTrackWithFile = async (albumIndex: number) => {
   if (albumIndex >= 0 && albumIndex < albums.value.length) {
     const album = albums.value[albumIndex];
     
-    if (album.tracks.length >= 20) {
-      ElMessage.warning('Максимальное количество треков в альбоме - 20');
-      return;
-    }
+    // Удаляем эту проверку:
+    // if (album.tracks.length >= 20) {
+    //   ElMessage.warning('Максимальное количество треков в альбоме - 20');
+    //   return;
+    // }
     
     const input = document.createElement('input');
     input.type = 'file';
@@ -1832,7 +1842,7 @@ const addAlbumTrackWithFile = async (albumIndex: number) => {
         albums.value = [...albums.value];
         await saveStateToDB();
         
-        ElMessage.success(`Трек добавлен в альбом (${album.tracks.length}/20)`);
+        ElMessage.success(`Трек добавлен в альбом (${album.tracks.length})`);
       } catch (error: any) {
         ElMessage.error(`Ошибка загрузки: ${error.message}`);
       } finally {
@@ -2168,6 +2178,10 @@ if (typeof window !== 'undefined') {
 .warning {
   color: #e6a23c;
 }
+.quiz__album_track_item:not(:first-child) {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
 
 .quiz-popup__overlay {
   position: fixed;
@@ -2264,6 +2278,9 @@ if (typeof window !== 'undefined') {
   }
   .quiz__form_two_controls .button {
     width: 100%;
+  }
+  .quiz__album_track_item {
+    margin-bottom: 15px;
   }
 }
 @media (max-width: 480px) {

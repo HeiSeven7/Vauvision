@@ -17,7 +17,7 @@ const emit = defineEmits<{
 const STORAGE_KEY = 'quiz3_state';
 const DB_NAME = 'quizDB';
 const FILES_DB_NAME = 'filesDB';
-const DB_VERSION = 2; // Увеличиваем версию до 2
+const DB_VERSION = 2;
 
 // Состояние для отображения важной информации
 const showImportantBlock = ref(false);
@@ -34,14 +34,14 @@ const filesDBInitialized = ref(false);
 
 // Данные профиля из API
 const profile = ref<any>({
-  region: 'Russia' // значение по умолчанию
+  region: 'Russia'
 });
 
 // Данные формы - используем reactive для реактивности
 const formData = reactive({
   performerName: '',
   releaseName: '',
-  platforms: [] as string[],
+  platforms: '', // Теперь строка, а не массив
   otherPlatform: '',
   releaseDate: '',
   hasProfanity: '',
@@ -80,7 +80,7 @@ let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 // Флаг для отслеживания, было ли уже загружено состояние из IndexedDB
 const isStateLoaded = ref(false);
 
-// Опции для выбора
+// Опции для выбора площадки (только два варианта)
 const platformOptions = [
   { label: 'Все площадки', value: 'all' },
   { label: 'Другое', value: 'other' }
@@ -96,7 +96,6 @@ const initDB = async () => {
   try {
     console.log('Quiz3: Initializing databases...');
     
-    // База для текстовых данных состояний
     quizDB.value = await openDB(DB_NAME, DB_VERSION, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`Quiz3: Upgrading DB from version ${oldVersion} to ${newVersion}`);
@@ -109,7 +108,6 @@ const initDB = async () => {
       },
     });
     
-    // Отдельная база для файлов (обложек)
     filesDB.value = await openDB(FILES_DB_NAME, DB_VERSION, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`Quiz3: Upgrading Files DB from version ${oldVersion} to ${newVersion}`);
@@ -223,7 +221,6 @@ const generateFileId = (): string => {
 
 // Сохранение состояния в IndexedDB
 const saveStateToDB = async () => {
-  // Не сохраняем во время загрузки или если данные еще не загружены
   if (isLoading.value || !dataLoaded.value || !dbInitialized.value) {
     return;
   }
@@ -235,7 +232,7 @@ const saveStateToDB = async () => {
         formData: {
           performerName: formData.performerName || '',
           releaseName: formData.releaseName || '',
-          platforms: Array.isArray(formData.platforms) ? [...formData.platforms] : [],
+          platforms: formData.platforms || '',
           otherPlatform: formData.otherPlatform || '',
           releaseDate: formData.releaseDate || '',
           hasProfanity: formData.hasProfanity || '',
@@ -255,7 +252,6 @@ const saveStateToDB = async () => {
       await quizDB.value.put('quizState', stateToSave);
       console.log('Quiz3: State saved to IndexedDB');
       
-      // Отправляем событие об обновлении данных для QuizMenu
       window.dispatchEvent(new CustomEvent('quiz-data-updated'));
     },
     null
@@ -276,11 +272,10 @@ const loadStateFromDB = async () => {
       if (savedState) {
         console.log('Quiz3: Loading from IndexedDB:', savedState);
         
-        // Восстанавливаем основные данные формы
         if (savedState.formData) {
           formData.performerName = savedState.formData.performerName || '';
           formData.releaseName = savedState.formData.releaseName || '';
-          formData.platforms = Array.isArray(savedState.formData.platforms) ? [...savedState.formData.platforms] : [];
+          formData.platforms = savedState.formData.platforms || '';
           formData.otherPlatform = savedState.formData.otherPlatform || '';
           formData.releaseDate = savedState.formData.releaseDate || '';
           formData.hasProfanity = savedState.formData.hasProfanity || '';
@@ -289,19 +284,16 @@ const loadStateFromDB = async () => {
           formData.email = savedState.formData.email || '';
         }
         
-        // Восстанавливаем showImportantBlock
         if (savedState.showImportantBlock !== undefined) {
           showImportantBlock.value = savedState.showImportantBlock;
         }
         
-        // Восстанавливаем информацию об обложке
         if (savedState.coverFileInfo) {
           const fileInfo = savedState.coverFileInfo;
           coverFileName.value = fileInfo.name || '';
           coverFileSize.value = fileInfo.size || 0;
           formData.coverFileId = fileInfo.fileId || null;
           
-          // Загружаем сам файл из отдельной базы
           if (formData.coverFileId && filesDBInitialized.value) {
             const fileData = await loadFileFromDB(formData.coverFileId);
             if (fileData) {
@@ -329,20 +321,17 @@ const loadUserData = async () => {
     
     const data = response.data as any;
     
-    // Сохраняем данные профиля
     if (data.profile) {
       profile.value = data.profile;
       console.log('Quiz3: User profile loaded:', data.profile);
     }
     
-    // Сохраняем данные из API
     if (data.user?.email) {
       formData.email = data.user.email;
       console.log('Quiz3: User email loaded:', data.user.email);
     }
     
     if (data.user?.login) {
-      // Загружаем псевдоним, НО только если поле пустое (чтобы не перезаписать то, что пользователь уже ввел)
       if (!formData.performerName) {
         formData.performerName = data.user.login;
         console.log('✅ Quiz3: Performer name loaded from user.login:', data.user.login);
@@ -361,7 +350,7 @@ const isReadyForNextStep = computed(() => {
   const requiredFields = [
     formData.performerName?.trim() || '',
     formData.releaseName?.trim() || '',
-    (formData.platforms?.length || 0) > 0,
+    formData.platforms !== '',
     formData.releaseDate?.trim() || '',
     formData.hasProfanity?.trim() || '',
     formData.coverFile !== null,
@@ -369,7 +358,7 @@ const isReadyForNextStep = computed(() => {
     formData.email?.trim() || ''
   ];
   
-  if (formData.platforms?.includes('other')) {
+  if (formData.platforms === 'other') {
     requiredFields.push((formData.otherPlatform?.trim() || '').length > 0);
   }
   
@@ -396,10 +385,8 @@ const isValidSocialLink = (url: string, region: string) => {
     new URL(url);
     
     if (region === 'Russia') {
-      // Для России разрешаем vk.com и vk.ru
       return url.includes('vk.com/') || url.includes('vk.ru/');
     } else {
-      // Для других регионов разрешаем instagram.com и telegram.org
       return url.includes('instagram.com/') || url.includes('telegram.org/');
     }
   } catch {
@@ -437,12 +424,12 @@ const validateForm = () => {
     isValid = false;
   }
   
-  if (!formData.platforms || formData.platforms.length === 0) {
-    errors.platforms = 'Выберите хотя бы одну площадку для загрузки';
+  if (!formData.platforms) {
+    errors.platforms = 'Выберите площадку для загрузки';
     isValid = false;
   }
   
-  if (formData.platforms?.includes('other') && !formData.otherPlatform?.trim()) {
+  if (formData.platforms === 'other' && !formData.otherPlatform?.trim()) {
     errors.otherPlatform = 'Напишите в свободной форме, на какие площадки нужно (или не нужно) загрузить релиз';
     isValid = false;
   }
@@ -542,20 +529,16 @@ const processCoverFile = async (file: File) => {
     }
     
     try {
-      // Проверяем инициализацию БД
       if (!filesDBInitialized.value) {
         throw new Error('Files DB not initialized');
       }
       
-      // Генерируем ID для файла
       const fileId = generateFileId();
       
-      // Удаляем старый файл если был
       if (formData.coverFileId) {
         await removeFileFromDB(formData.coverFileId);
       }
       
-      // Сохраняем в IndexedDB
       await saveFileToDB(file, fileId);
       
       errors.coverFile = '';
@@ -685,11 +668,17 @@ const debouncedSave = () => {
   }, 500);
 };
 
-// Watchers с debounce (только если данные уже загружены)
+// Watchers с debounce
 watch(() => formData.performerName, () => {
   if (dataLoaded.value) debouncedSave();
 });
 watch(() => formData.releaseName, () => {
+  if (dataLoaded.value) debouncedSave();
+});
+watch(() => formData.platforms, (newValue) => {
+  if (newValue !== 'other') {
+    formData.otherPlatform = '';
+  }
   if (dataLoaded.value) debouncedSave();
 });
 watch(() => formData.otherPlatform, () => {
@@ -720,21 +709,10 @@ watch(showImportantBlock, () => {
   if (dataLoaded.value) debouncedSave();
 });
 
-// Специальный watch для platforms с debounce
-watch(() => formData.platforms, () => {
-  if (dataLoaded.value) debouncedSave();
-}, { deep: false });
-
 // Логика очистки зависимых полей
 watch(() => formData.hasProfanity, (newValue) => {
   if (newValue === 'no') {
     formData.profanityTracks = '';
-  }
-});
-
-watch(() => formData.platforms, (newValue) => {
-  if (!newValue?.includes('other')) {
-    formData.otherPlatform = '';
   }
 });
 
@@ -743,24 +721,16 @@ onMounted(async () => {
   isLoading.value = true;
   
   try {
-    // Сначала инициализируем БД
     await initDB();
-    
-    // Затем загружаем сохраненное состояние из IndexedDB
     await loadStateFromDB();
-    
-    // Затем загружаем данные с сервера (они перезапишут только пустые поля)
     await loadUserData();
-    
-    // Помечаем, что данные загружены
     dataLoaded.value = true;
-    
     console.log('Quiz3: Initialization complete');
     console.log('Quiz3: Final form data:', {
       performerName: formData.performerName,
+      platforms: formData.platforms,
       email: formData.email,
-      coverFile: formData.coverFile ? 'File exists' : 'No file',
-      platforms: formData.platforms
+      coverFile: formData.coverFile ? 'File exists' : 'No file'
     });
   } catch (error) {
     console.error('Quiz3: Error during initialization:', error);
@@ -786,7 +756,6 @@ const handleVisibilityChange = async () => {
   }
 };
 
-// Добавляем обработчики событий
 onMounted(() => {
   window.addEventListener('beforeunload', handleBeforeUnload);
   document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -802,7 +771,6 @@ onUnmounted(() => {
 </script>
 
 <template>
-<!-- Template остается без изменений -->
 <div class="quiz__form quiz__form_three" v-if="!showImportantBlock">
   <h4 class="quiz__form_head">Информация о треке</h4>
   
@@ -813,7 +781,7 @@ onUnmounted(() => {
   
   <div v-else class="quiz__form_single">
     <div class="form__flex">
-      <!-- Псевдоним артиста - ПЕРВОЕ ПОЛЕ (подгружается из user.login) -->
+      <!-- Псевдоним артиста -->
       <div class="form__group">
         <label for="performerName" class="form__label button">впишите псевдоним артиста<span>*</span></label>
         <p class="form__hint text_small">Укажите имя артиста (ваш псевдоним). Даже если трек совместный, укажите только один свой псевдоним.</p>
@@ -863,13 +831,12 @@ onUnmounted(() => {
         </div>
       </div>
       
-      <!-- Площадки для загрузки -->
+      <!-- Площадки для загрузки (только два варианта) -->
       <div class="form__group">
         <label class="form__label button">Куда загружать релиз?<span>*</span></label>
         <el-select
           v-model="formData.platforms"
-          multiple
-          placeholder="Выберите площадки"
+          placeholder="Выберите площадку"
           :class="{ 'error': errors.platforms }"
           size="large"
           @change="validateForm"
@@ -885,12 +852,13 @@ onUnmounted(() => {
           {{ errors.platforms }}
         </div>
         
-        <!-- Другое поле для других платформ -->
-        <div v-if="formData.platforms.includes('other')" class="form__group_inner">
+        <!-- Другое поле для других платформ (обязательное) -->
+        <div v-if="formData.platforms === 'other'" class="form__group_inner">
+          <label class="form__label button text_small">Укажите площадки<span>*</span></label>
           <el-input
             v-model="formData.otherPlatform"
             type="text"
-            placeholder="Укажите другие площадки"
+            placeholder="Например: VK Музыка, Apple Music, Spotify"
             :class="{ 'error': errors.otherPlatform }"
             @blur="validateForm"
             @input="errors.otherPlatform = ''"
@@ -1065,7 +1033,7 @@ onUnmounted(() => {
         </div>
       </div>
       
-      <!-- Email (подгружается из API) -->
+      <!-- Email -->
       <div class="form__group">
         <label for="email" class="form__label button">Введите вашу электронную почту<span>*</span></label>
         <el-input
@@ -1111,7 +1079,7 @@ onUnmounted(() => {
 <!-- Блок с важной информацией -->
 <div class="quiz__form quiz__important" v-if="showImportantBlock">
   <h4 class="quiz__important_head">Игнорирование требований приведёт к увеличению сроков отгрузки релиза.</h4>
-  <h6 class="quiz__important_head">ПОЖАЛУЙСТА, ПРОВЕРЬТЕ ВНИМАТЕЛЬНО СООТВЕТСТВИЕ ТРЕБОВАНИЯМ. ПРИ НЕОБХОДИМОСТИ ВЕРНИТЕСЬ НА ШАГ НАЗАД.</h6>
+  <h4 class="quiz__important_head">ПОЖАЛУЙСТА, ПРОВЕРЬТЕ ВНИМАТЕЛЬНО СООТВЕТСТВИЕ ТРЕБОВАНИЯМ. ПРИ НЕОБХОДИМОСТИ ВЕРНИТЕСЬ НА ШАГ НАЗАД.</h4>
   <ul class="quiz__important_list">
     <li class="quiz__important_item">
       <p class="quiz__important_description">Обложка должна быть квадратная, размером от 1500х1500 до 4000х4000 пикселей, в формате JPG, размером не больше 10-12 мегабайт.</p>
@@ -1126,7 +1094,7 @@ onUnmounted(() => {
       <p class="quiz__important_description">Разрешаются обложки без надписей вообще.</p>
     </li>
     <li class="quiz__important_item">
-      <p class="quiz__important_description">Также приглашаем изучить рекомендации (носящие обязательный характер) от <a href="https://music.apple.com/" target="_blank">Apple Music</a></p>
+      <p class="quiz__important_description">Также приглашаем изучить рекомендации (носящие обязательный характер) от <a href="https://artists.apple.com/ru-ru/support/1120-cover-art" target="_blank">Apple Music</a></p>
     </li>
   </ul>
   <div class="quiz__form_bottom">
@@ -1152,7 +1120,6 @@ onUnmounted(() => {
 </template>
 
 <style lang="css" scoped>
-/* Стили остаются без изменений */
 .quiz__form_single {
   padding: 20px 0 0;
 }

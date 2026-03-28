@@ -1031,8 +1031,11 @@ onUnmounted(() => {
       </div>
       
       <div class="form__group">
-        <label class="form__label button">Текст</label>
+        <label class="form__label button">Текст (ПО ЖЕЛАНИЮ)</label>
         <ul class="form__hint_list">
+          <li class="form__hint_item">
+            <p class="form__hint text_small">Если у вас несколько текстов, то поместите их все в один файл .docx, перед каждым текстом подпишите его название.</p>
+          </li>
           <li class="form__hint_item">
             <p class="form__hint text_small">В тексте должно быть только то, что произносится в песне. Не нужно подписей: «Припев», «Куплет» и подобных.</p>
           </li>
@@ -1091,44 +1094,6 @@ onUnmounted(() => {
       </div>
       
       <div class="form__group">
-        <label class="form__label button">ЕСТЬ ЛИ У ВАС В РЕЛИЗЕ УПОМИНАНИЕ НАРКОТИЧЕСКИХ СРЕДСТВ?<span>*</span></label>
-        <p class="form__hint text_small">В тексте или названии любого из треков. Независимо от контекста: любое упоминание веществ, способы употребления или производства, в том числе слегновые названия. Алкоголь и сигареты не считаются.</p>
-        <el-select
-          v-model="formData.hasDrugsMention"
-          placeholder="Выберите ответ"
-          :class="{ 'error': errors.hasDrugsMention }"
-          size="large"
-          @change="validateField('hasDrugsMention')"
-        >
-          <el-option
-            v-for="option in drugsOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-        <div v-if="errors.hasDrugsMention" class="error text_very">
-          {{ errors.hasDrugsMention }}
-        </div>
-        
-        <div v-if="formData.hasDrugsMention === 'yes'" class="form__group_inner">
-          <p class="form__hint text_small">Укажите номера треков*</p>
-          <el-input
-            v-model="formData.drugsTracks"
-            type="text"
-            placeholder="Например: 1, 3, 5"
-            :class="{ 'error': errors.drugsTracks }"
-            @blur="validateField('drugsTracks')"
-            @input="errors.drugsTracks = ''"
-            size="large"
-          />
-          <div v-if="errors.drugsTracks" class="error text_very">
-            {{ errors.drugsTracks }}
-          </div>
-        </div>
-      </div>
-      
-      <div class="form__group">
         <label class="form__label button">КАРАОКЕ ТЕКСТ МОЖНО <a href="https://vauvisionkaraoke.ru/" target="_blank">СДЕЛАТЬ ТУТ</a></label>
         <ul class="form__hint_list">
           <li class="form__hint_item">
@@ -1182,6 +1147,44 @@ onUnmounted(() => {
         </div>
         <div v-if="errors.fileConsistency" class="error text_very quiz__form_single_error">
           {{ errors.fileConsistency }}
+        </div>
+      </div>
+      
+      <div class="form__group">
+        <label class="form__label button">ЕСТЬ ЛИ У ВАС В РЕЛИЗЕ УПОМИНАНИЕ НАРКОТИЧЕСКИХ СРЕДСТВ?<span>*</span></label>
+        <p class="form__hint text_small">В тексте или названии любого из треков. Независимо от контекста: любое упоминание веществ, способы употребления или производства, в том числе сленговые названия. Алкоголь и сигареты не считаются.</p>
+        <el-select
+          v-model="formData.hasDrugsMention"
+          placeholder="Выберите ответ"
+          :class="{ 'error': errors.hasDrugsMention }"
+          size="large"
+          @change="validateField('hasDrugsMention')"
+        >
+          <el-option
+            v-for="option in drugsOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+        <div v-if="errors.hasDrugsMention" class="error text_very">
+          {{ errors.hasDrugsMention }}
+        </div>
+        
+        <div v-if="formData.hasDrugsMention === 'yes'" class="form__group_inner">
+          <p class="form__hint text_small">Укажите номера треков*</p>
+          <el-input
+            v-model="formData.drugsTracks"
+            type="text"
+            placeholder="Например: 1, 3, 5"
+            :class="{ 'error': errors.drugsTracks }"
+            @blur="validateField('drugsTracks')"
+            @input="errors.drugsTracks = ''"
+            size="large"
+          />
+          <div v-if="errors.drugsTracks" class="error text_very">
+            {{ errors.drugsTracks }}
+          </div>
         </div>
       </div>
       

@@ -28,7 +28,7 @@
                   <span class="personal__balance_description text_one">Баланс</span>
                   {{ profileData.balance.toLocaleString() }} ₽
                 </h4>
-                <p class="personal__balance_desc">Баланс обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится</p>
+                <p class="personal__balance_desc text_very">Баланс обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится</p>
               </div>
             </div>
             <button 
@@ -64,6 +64,7 @@
                   <span class="personal__balance_description text_one">Бонусы партнера</span>
                   {{ profileData.bonus.toLocaleString() }}
                 </h4>
+                <p class="personal__balance_desc text_very">Бонусы начисляются за каждую покупку, а также за рекомендации по Партнёрской программе! Бонусами можно оплачивать до 100% покупок. 1 бонус = 1 рубль.</p>
               </div>
             </div>
             <button 
