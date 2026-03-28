@@ -111,7 +111,7 @@
                     </div>
                     <div class="personal__releases_flex">
                       <div class="personal__releases_top">
-                        <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Сингл' : 'Релиз' }}</span> {{ release.name }}</h5>
+                        <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Альбом' : 'Сингл' }}</span> {{ release.name }}</h5>
                         <p class="personal__releases_album text_very"></p>
                       </div>
                       <p class="personal__releases_date text_very">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
@@ -119,12 +119,14 @@
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
-                      <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Сингл' : 'Альбом' }}</span> {{ release.name }}</h5>
+                      <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Альбом' : 'Сингл' }}</span> {{ release.name }}</h5>
                       <p class="personal__releases_album text_very"></p>
                     </div>
+                    <!-- Блок с кодами и ссылкой -->
                     <div class="personal__releases_codes">
-                      <button 
-                        v-if="release.upcCode" 
+                      <!-- UPC код -->
+                      <div 
+                        v-if="release.upcCode && release.upcCode !== 'Нет данных'" 
                         class="personal__releases_code"
                         @click="copyToClipboard(release.upcCode, 'UPC код')"
                       >
@@ -132,9 +134,21 @@
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1ZM19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM19 21H8V7H19V21Z" fill="currentColor"/>
                         </svg>
-                      </button>
+                      </div>
                       <div 
-                        v-if="release.link" 
+                        v-else
+                        class="personal__releases_code personal__releases_code_action"
+                        @click="handleUpcClick(release)"
+                      >
+                        <span>UPC код: {{ getUpcDisplayText(release) }}</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill="currentColor"/>
+                        </svg>
+                      </div>
+
+                      <!-- Ссылка на релиз -->
+                      <div 
+                        v-if="release.link && release.link !== 'Нет данных'" 
                         class="personal__releases_code"
                         @click="copyToClipboard(release.link, 'Ссылка')"
                       >
@@ -144,8 +158,16 @@
                           <path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1ZM19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM19 21H8V7H19V21Z" fill="currentColor"/>
                         </svg>
                       </div>
+                      <RouterLink 
+                        v-else
+                        :to="Tr.i18nRoute({ name: 'support' })"
+                        class="personal__releases_code personal__releases_code_action"
+                        target="_blank"
+                      >
+                        <span>ISRC: {{ getLinkDisplayText(release) }}</span>
+                      </RouterLink>
                     </div>
-                    
+
                     <!-- Блок с треками релиза -->
                     <div class="personal__releases_tracks" v-if="release.tracks && release.tracks.length > 0">
                       <h6 class="personal__tracks_title">Треки:</h6>
@@ -158,7 +180,20 @@
                           <div class="personal__tracks_number">{{ trackIndex + 1 }}</div>
                           <div class="personal__tracks_info">
                             <div class="personal__tracks_name">{{ track.title }}</div>
-                            <div v-if="track.isrc" class="personal__tracks_isrc">ISRC: {{ track.isrc }}</div>
+                            <!-- ISRC код для трека -->
+                            <div class="personal__tracks_isrc">
+                              <span v-if="track.isrc && track.isrc !== 'Нет данных'">
+                                ISRC: {{ track.isrc }}
+                              </span>
+                              <RouterLink 
+                                v-else
+                                :to="Tr.i18nRoute({ name: 'support' })"
+                                class="personal__tracks_isrc_link"
+                                target="_blank"
+                              >
+                                ISRC: уточнить в поддержке
+                              </RouterLink>
+                            </div>
                           </div>
                         </li>
                       </ul>
@@ -373,7 +408,7 @@
               <h5 class="personal__articles_head">Стать партнёром VAUVISION</h5>
               <p class="personal__articles_desc">Зарабатывайте деньги за рекомендации!</p>
             </div>
-            <RouterLink class="personal__partner_button button__primary" :to="Tr.i18nRoute({ name: 'partner' })">
+            <RouterLink class="personal__partner_button button button__primary" :to="Tr.i18nRoute({ name: 'partner' })">
               <span>Присоединиться</span>
             </RouterLink>
           </div>
@@ -456,17 +491,24 @@
       </div>
       <div class="popup__body">
         <div class="popup__years" v-if="reportYears.length > 0">
-          <button 
-            v-for="year in reportYears" 
-            :key="year"
-            class="popup__year-button button button__primary"
-            :class="{ 'button__loading': loadingYear === year }"
-            @click="selectYear(year)"
-            :disabled="loadingYear === year"
+          <select 
+            v-model="selectedYear" 
+            class="popup__year-select"
+            :disabled="isLoadingQuarters"
+            @change="selectYear(selectedYear)"
           >
-            <span v-if="loadingYear !== year">{{ year }}</span>
-            <span v-else class="button__loader">Загрузка...</span>
-          </button>
+            <option value="" disabled>Выберите год</option>
+            <option 
+              v-for="year in reportYears" 
+              :key="year"
+              :value="year"
+            >
+              {{ year }}
+            </option>
+          </select>
+          <div v-if="isLoadingQuarters" class="popup__loading-select">
+            Загрузка кварталов...
+          </div>
         </div>
         <div v-else class="popup__empty">
           <p>Нет доступных отчетов</p>
@@ -767,6 +809,8 @@ interface Track {
   composer?: string;
   lyricist?: string;
   is_explicit?: boolean;
+  // Добавляем поле для отслеживания состояния
+  isrcStatus?: 'loading' | 'error' | 'success';
 }
 
 interface Release {
@@ -787,6 +831,8 @@ interface Release {
   propertyLinkValue?: string | null;
   propertyDogovorStatusValue?: string | null;
   tracks?: Track[];
+  // Новые поля
+  dataFromZvonko?: boolean; // Флаг, что данные уже загружены с Zvonko
 }
 
 interface Report {
@@ -1865,6 +1911,96 @@ const loadAllData = async () => {
   }
 };
 
+// Вспомогательная функция для получения текущей даты
+const getCurrentDate = (): Date => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
+
+// Функция для получения даты релиза
+const getReleaseDate = (release: Release): Date | null => {
+  const dateStr = release.propertyDateRelizValue || release.date;
+  if (!dateStr) return null;
+  
+  // Парсим дату в формате YYYY-MM-DD
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]) - 1;
+    const day = parseInt(parts[2]);
+    return new Date(year, month, day);
+  }
+  return null;
+};
+
+// Функция для получения текста отображения UPC
+const getUpcDisplayText = (release: Release): string => {
+  // Если данные уже есть
+  if (release.upcCode && release.upcCode !== 'Нет данных') {
+    return release.upcCode;
+  }
+  
+  const releaseDate = getReleaseDate(release);
+  const currentDate = getCurrentDate();
+  
+  // Если дата релиза меньше или равна текущей (релиз уже должен быть)
+  if (releaseDate && releaseDate <= currentDate) {
+    return 'узнать';
+  }
+  
+  // Если дата релиза в будущем или нет данных о дате
+  return 'уточнить в поддержке';
+};
+
+// Функция для получения текста отображения ссылки
+const getLinkDisplayText = (release: Release): string => {
+  if (release.link && release.link !== 'Нет данных') {
+    return release.link;
+  }
+  
+  const releaseDate = getReleaseDate(release);
+  const currentDate = getCurrentDate();
+  
+  if (releaseDate && releaseDate <= currentDate) {
+    return 'уточнить в поддержке';
+  }
+  
+  return 'уточнить в поддержке';
+};
+
+// Обработчик клика по UPC
+const handleUpcClick = (release: Release) => {
+  const displayText = getUpcDisplayText(release);
+  
+  if (displayText === 'уточнить в поддержке') {
+    openSupportPage();
+  } else if (displayText === 'узнать') {
+    window.open('https://musicfetch.io/upc-finder', '_blank');
+  } else if (displayText !== 'уточнить в поддержке' && displayText !== 'узнать') {
+    // Если есть код - копируем
+    copyToClipboard(release.upcCode!, 'UPC код');
+  }
+};
+
+// Обработчик клика по ссылке
+const handleLinkClick = (release: Release) => {
+  const displayText = getLinkDisplayText(release);
+  
+  if (displayText === 'уточнить в поддержке') {
+    openSupportPage();
+  } else if (displayText !== 'уточнить в поддержке') {
+    // Если есть ссылка - копируем
+    copyToClipboard(release.link!, 'Ссылка');
+  }
+};
+
+// Функция открытия страницы поддержки (для UPC и ссылки)
+const openSupportPage = () => {
+  const supportUrl = '/support'; // Замените на реальный URL
+  window.open(supportUrl, '_blank');
+};
+
 watch(currentReportsPage, async (newPage) => {
   if (newPage > 0) {
     await fetchReportsPage(newPage);
@@ -2605,6 +2741,25 @@ onMounted(() => {
 .personal__transactions_amountvalue {
   color: var(--text);
 }
+.personal__releases_code_action {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.personal__releases_code_action:hover {
+  background-color: var(--color);
+  color: var(--white);
+}
+.personal__tracks_isrc_action {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.personal__tracks_isrc_action:hover {
+  background-color: var(--color);
+  color: var(--white);
+}
 
 /* Стили для disabled кнопки */
 .button__disabled {
@@ -2852,6 +3007,41 @@ onMounted(() => {
   width: 100%;
   height: auto;
   object-fit: contain;
+}
+/* Стили для выпадающего списка */
+.popup__year-select {
+  width: 100%;
+  padding: 12px 15px;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+.popup__year-select:hover {
+  border-color: var(--color);
+}
+
+.popup__year-select:focus {
+  outline: none;
+  border-color: var(--color);
+  box-shadow: 0 0 0 2px rgba(var(--color-rgb), 0.1);
+}
+
+.popup__year-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.popup__loading-select {
+  margin-top: 10px;
+  padding: 10px;
+  text-align: center;
+  color: var(--text-gray);
+  font-size: 14px;
 }
 
 /* Адаптация для десктопов (1919px и меньше) */
