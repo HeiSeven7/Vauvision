@@ -790,7 +790,7 @@ const prepareOrderData = async (): Promise<FormData> => {
   formData.append('countSingle', String(singleCount.value));
   formData.append('countAlbum', String(albumCount.value));
 
-  // --- 2. ШАГ 2: Синглы (текстовые данные) - ТОЛЬКО ЕСЛИ ЕСТЬ СИНГЛЫ ---
+  // --- 2. ШАГ 2: Синглы ---
   if (hasSingles.value && quiz2Data.value?.singleTracks) {
     console.log('--- СИНГЛЫ (отправляем) ---');
     quiz2Data.value.singleTracks.forEach((track: SingleTrack, index: number) => {
@@ -805,10 +805,33 @@ const prepareOrderData = async (): Promise<FormData> => {
         formData.append(`autor-words[${track.product_id}]`, cleanField(track.textAuthor || ''));
         formData.append(`autor-files[${track.product_id}]`, cleanField(track.performerName || ''));
         
-        // Добавляем поля для прав на инструментал
         if (track.rightsType) {
-          formData.append(`instrument_rights[${track.product_id}]`, track.rightsType);
-          console.log(`  instrument_rights[${track.product_id}]: ${track.rightsType}`);
+          let rightsText = '';
+          switch (track.rightsType) {
+            case 'author':
+              rightsText = 'Я 100% автор музыки';
+              break;
+            case 'exclusive':
+              rightsText = 'Исключительная лицензия / полная передача права';
+              break;
+            case 'wav':
+              rightsText = 'Wav лицензия / Аренда';
+              break;
+            case 'mp3':
+              rightsText = 'Mp3 лицензия / Аренда';
+              break;
+            case 'free':
+              rightsText = 'free for profit / бит с ютуба';
+              break;
+            case 'gifted':
+              rightsText = 'подарен / отдан бесплатно / сделан по дружбе';
+              break;
+            default:
+              rightsText = track.rightsType;
+          }
+          
+          formData.append(`instrument_rights[${track.product_id}]`, rightsText);
+          console.log(`  instrument_rights[${track.product_id}]: ${rightsText}`);
         }
         
         if (track.rightsContractLink) {
@@ -820,10 +843,10 @@ const prepareOrderData = async (): Promise<FormData> => {
       }
     });
   } else {
-    console.log('--- НЕТ СИНГЛОВ, пропускаем данные для синглов ---');
+    console.log('--- НЕТ СИНГЛОВ, пропускаем ---');
   }
 
-  // --- 3. ШАГ 2: Альбомы (текстовые данные) - ТОЛЬКО ЕСЛИ ЕСТЬ АЛЬБОМЫ ---
+  // --- 3. ШАГ 2: Альбомы ---
   if (hasAlbums.value && quiz2Data.value?.albums) {
     console.log('--- АЛЬБОМЫ (отправляем) ---');
     quiz2Data.value.albums.forEach((album: Album, albumIndex: number) => {
@@ -835,6 +858,7 @@ const prepareOrderData = async (): Promise<FormData> => {
             formData.append('albumID[]', track.product_id);
             formData.append(`path-file-album[${track.product_id}]`, track.audioFileName || '');
             formData.append(`name-file-album[${track.product_id}]`, track.audioFileName || '');
+            
             const releaseName = quiz3Data.value?.formData?.releaseName || '';
             formData.append(`artist-album[${track.product_id}]`, cleanField(releaseName));
             formData.append(`autor-files-album[${track.product_id}]`, cleanField(releaseName));
@@ -842,12 +866,33 @@ const prepareOrderData = async (): Promise<FormData> => {
             formData.append(`autor-music-album[${track.product_id}]`, cleanField(track.musicAuthor || ''));
             formData.append(`autor-words-album[${track.product_id}]`, cleanField(track.textAuthor || ''));
             
-            formData.append(`autor-files-album[${track.product_id}]`, cleanField(album.albumName || ''));
-            
-            // Добавляем поля для прав на инструментал
             if (track.rightsType) {
-              formData.append(`instrument_rights[${track.product_id}]`, track.rightsType);
-              console.log(`  instrument_rights[${track.product_id}]: ${track.rightsType}`);
+              let rightsText = '';
+              switch (track.rightsType) {
+                case 'author':
+                  rightsText = 'Я 100% автор музыки';
+                  break;
+                case 'exclusive':
+                  rightsText = 'Исключительная лицензия / полная передача права';
+                  break;
+                case 'wav':
+                  rightsText = 'Wav лицензия / Аренда';
+                  break;
+                case 'mp3':
+                  rightsText = 'Mp3 лицензия / Аренда';
+                  break;
+                case 'free':
+                  rightsText = 'free for profit / бит с ютуба';
+                  break;
+                case 'gifted':
+                  rightsText = 'подарен / отдан бесплатно / сделан по дружбе';
+                  break;
+                default:
+                  rightsText = track.rightsType;
+              }
+              
+              formData.append(`instrument_rights[${track.product_id}]`, rightsText);
+              console.log(`  instrument_rights[${track.product_id}]: ${rightsText}`);
             }
             
             if (track.rightsContractLink) {
@@ -861,7 +906,7 @@ const prepareOrderData = async (): Promise<FormData> => {
       }
     });
   } else {
-    console.log('--- НЕТ АЛЬБОМОВ, пропускаем данные для альбомов ---');
+    console.log('--- НЕТ АЛЬБОМОВ, пропускаем ---');
   }
 
   // --- 4. ШАГ 3: Информация о релизе ---
