@@ -1983,18 +1983,6 @@ const handleUpcClick = (release: Release) => {
   }
 };
 
-// Обработчик клика по ссылке
-const handleLinkClick = (release: Release) => {
-  const displayText = getLinkDisplayText(release);
-  
-  if (displayText === 'уточнить в поддержке') {
-    openSupportPage();
-  } else if (displayText !== 'уточнить в поддержке') {
-    // Если есть ссылка - копируем
-    copyToClipboard(release.link!, 'Ссылка');
-  }
-};
-
 // Функция открытия страницы поддержки (для UPC и ссылки)
 const openSupportPage = () => {
   const supportUrl = '/support'; // Замените на реальный URL

@@ -1384,42 +1384,20 @@ const uploadCoverAndGenerateContract = async (file: File, type: 'single' | 'albu
   // --- Данные из Quiz2 (АЛЬБОМЫ) ---
   if (quiz2State?.albums && quiz2State.albums.length > 0) {
     console.log(`📝 Добавляем данные Quiz2 - альбомы (${quiz2State.albums.length} шт):`);
-    
     quiz2State.albums.forEach((album: any, albumIndex: number) => {
       if (album.tracks && album.tracks.length > 0) {
         console.log(`  Альбом ${albumIndex + 1}: ${album.tracks.length} треков`);
-        
         album.tracks.forEach((track: any, trackIndex: number) => {
           if (track.product_id) {
-            // ✅ Берем performerName из трека
-            const performerName = track.performerName || '';
-            
-            console.log(`    Трек ${trackIndex + 1}: ID=${track.product_id}, performerName="${performerName}"`);
-            
             // Используем только ключи для АЛЬБОМОВ
             formDataToSend.append('albumID[]', track.product_id);
             formDataToSend.append(`path-file-album[${track.product_id}]`, track.audioFileName || '');
             formDataToSend.append(`name-file-album[${track.product_id}]`, track.audioFileName || '');
-            
-            // ✅ ГЛАВНОЕ ИСПРАВЛЕНИЕ: artist-album
-            formDataToSend.append(`artist-album[${track.product_id}]`, cleanField(performerName));
-            
+            formDataToSend.append(`artist-album[${track.product_id}]`, cleanField(track.performerName || ''));
             formDataToSend.append(`autor-music-album[${track.product_id}]`, cleanField(track.musicAuthor || ''));
             formDataToSend.append(`autor-words-album[${track.product_id}]`, cleanField(track.textAuthor || ''));
-            formDataToSend.append(`autor-files-album[${track.product_id}]`, cleanField(performerName));
-            
-            // Права на инструментал
-            if (track.rightsType) {
-              formDataToSend.append(`instrument_rights[${track.product_id}]`, track.rightsType);
-            }
-            
-            if (track.rightsContractLink) {
-              formDataToSend.append(`url_rights_doc[${track.product_id}]`, track.rightsContractLink);
-            }
-            
-            console.log(`      ✅ artist-album[${track.product_id}] = "${cleanField(performerName)}"`);
-          } else {
-            console.warn(`    ❌ Трек ${trackIndex + 1} не имеет product_id!`);
+            formDataToSend.append(`autor-files-album[${track.product_id}]`, cleanField(track.performerName || ''));
+            console.log(`    Трек ${trackIndex + 1}: ID=${track.product_id}, Name=${track.audioFileName}`);
           }
         });
       }
