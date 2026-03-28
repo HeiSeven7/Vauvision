@@ -749,274 +749,419 @@ const findProductIdByFileName = (fileName: string): string | undefined => {
   return undefined;
 };
 
+// Функция для создания FormData с ВСЕМИ файлами
 const prepareOrderData = async (): Promise<FormData> => {
   const formData = new FormData();
   
+  console.log('========== НАЧАЛО ФОРМИРОВАНИЯ ЗАПРОСА ==========');
+  console.log('hasSingles:', hasSingles.value, 'hasAlbums:', hasAlbums.value);
+  
+  console.log('--- ДАННЫЕ ДЛЯ trackID[] И albumID[] ---');
+
+  if (hasSingles.value && quiz2Data.value?.singleTracks) {
+    console.log('trackID[] будет содержать:');
+    quiz2Data.value.singleTracks.forEach((track, index) => {
+      if (track.product_id) {
+        console.log(`  [${index}] ${track.product_id} (${track.trackName})`);
+      }
+    });
+  }
+
+  if (hasAlbums.value && quiz2Data.value?.albums) {
+    console.log('albumID[] будет содержать:');
+    quiz2Data.value.albums.forEach((album, albumIndex) => {
+      album.tracks?.forEach((track, trackIndex) => {
+        if (track.product_id) {
+          console.log(`  [Альбом ${albumIndex + 1}, Трек ${trackIndex + 1}] ${track.product_id} (${track.trackName})`);
+        }
+      });
+    });
+  }
+  
   // --- 1. ШАГ 1: Количество ---
   formData.append('check-karta', cardCount.value > 0 ? 'on' : 'off');
+  console.log('check-karta:', cardCount.value > 0 ? 'on' : 'off');
+  
   formData.append('COUNT', String(singleCount.value));
   formData.append('COUNT', String(albumCount.value));
   formData.append('COUNT', String(clipCount.value));
   formData.append('COUNT', String(cardCount.value));
+  
   formData.append('countSingle', String(singleCount.value));
   formData.append('countAlbum', String(albumCount.value));
 
-  // --- 2. ШАГ 2: Синглы ---
-  if (hasSingles.value === true) {
-    if (quiz2Data.value && quiz2Data.value.singleTracks && quiz2Data.value.singleTracks.length > 0) {
-      for (let index = 0; index < quiz2Data.value.singleTracks.length; index++) {
-        const track = quiz2Data.value.singleTracks[index];
-        if (track.product_id) {
-          formData.append('trackID[]', track.product_id);
-          formData.append(`path-file[${track.product_id}]`, track.audioFileName || '');
-          formData.append(`name-file[${track.product_id}]`, track.audioFileName || '');
-          formData.append(`artist[${track.product_id}]`, cleanField(track.performerName || ''));
-          formData.append(`autor-music[${track.product_id}]`, cleanField(track.musicAuthor || ''));
-          formData.append(`autor-words[${track.product_id}]`, cleanField(track.textAuthor || ''));
-          formData.append(`autor-files[${track.product_id}]`, cleanField(track.performerName || ''));
-          if (track.rightsType) {
-            formData.append(`instrument_rights[${track.product_id}]`, track.rightsType);
-          }
-          if (track.rightsContractLink) {
-            formData.append(`url_rights_doc[${track.product_id}]`, track.rightsContractLink);
-          }
+  // --- 2. ШАГ 2: Синглы (текстовые данные) - ТОЛЬКО ЕСЛИ ЕСТЬ СИНГЛЫ ---
+  if (hasSingles.value && quiz2Data.value?.singleTracks) {
+    console.log('--- СИНГЛЫ (отправляем) ---');
+    quiz2Data.value.singleTracks.forEach((track: SingleTrack, index: number) => {
+      if (track.product_id) {
+        console.log(`Сингл ${index + 1}: ID=${track.product_id}`);
+        
+        formData.append('trackID[]', track.product_id);
+        formData.append(`path-file[${track.product_id}]`, track.audioFileName || '');
+        formData.append(`name-file[${track.product_id}]`, track.audioFileName || '');
+        formData.append(`artist[${track.product_id}]`, cleanField(track.performerName || ''));
+        formData.append(`autor-music[${track.product_id}]`, cleanField(track.musicAuthor || ''));
+        formData.append(`autor-words[${track.product_id}]`, cleanField(track.textAuthor || ''));
+        formData.append(`autor-files[${track.product_id}]`, cleanField(track.performerName || ''));
+        
+        // Добавляем поля для прав на инструментал
+        if (track.rightsType) {
+          formData.append(`instrument_rights[${track.product_id}]`, track.rightsType);
+          console.log(`  instrument_rights[${track.product_id}]: ${track.rightsType}`);
         }
+        
+        if (track.rightsContractLink) {
+          formData.append(`url_rights_doc[${track.product_id}]`, track.rightsContractLink);
+          console.log(`  url_rights_doc[${track.product_id}]: ${track.rightsContractLink}`);
+        }
+      } else {
+        console.warn(`Сингл ${index + 1} не имеет product_id!`);
       }
-    }
+    });
+  } else {
+    console.log('--- НЕТ СИНГЛОВ, пропускаем данные для синглов ---');
   }
 
-  // --- 3. ШАГ 2: Альбомы ---
-  if (hasAlbums.value === true) {
-    if (quiz2Data.value && quiz2Data.value.albums && quiz2Data.value.albums.length > 0) {
-      for (let albumIndex = 0; albumIndex < quiz2Data.value.albums.length; albumIndex++) {
-        const album = quiz2Data.value.albums[albumIndex];
-        if (album.tracks && album.tracks.length > 0) {
-          for (let trackIndex = 0; trackIndex < album.tracks.length; trackIndex++) {
-            const track = album.tracks[trackIndex];
-            if (track.product_id) {
-              formData.append('albumID[]', track.product_id);
-              formData.append(`path-file-album[${track.product_id}]`, track.audioFileName || '');
-              formData.append(`name-file-album[${track.product_id}]`, track.audioFileName || '');
-              formData.append(`artist-album[${track.product_id}]`, cleanField(track.performerName || ''));
-              formData.append(`autor-music-album[${track.product_id}]`, cleanField(track.musicAuthor || ''));
-              formData.append(`autor-words-album[${track.product_id}]`, cleanField(track.textAuthor || ''));
-              formData.append(`autor-files-album[${track.product_id}]`, cleanField(track.performerName || ''));
-              if (track.rightsType) {
-                formData.append(`instrument_rights[${track.product_id}]`, track.rightsType);
-              }
-              if (track.rightsContractLink) {
-                formData.append(`url_rights_doc[${track.product_id}]`, track.rightsContractLink);
-              }
+  // --- 3. ШАГ 2: Альбомы (текстовые данные) - ТОЛЬКО ЕСЛИ ЕСТЬ АЛЬБОМЫ ---
+  if (hasAlbums.value && quiz2Data.value?.albums) {
+    console.log('--- АЛЬБОМЫ (отправляем) ---');
+    quiz2Data.value.albums.forEach((album: Album, albumIndex: number) => {
+      if (album.tracks) {
+        album.tracks.forEach((track: AlbumTrack, trackIndex: number) => {
+          if (track.product_id) {
+            console.log(`Альбом ${albumIndex + 1}, Трек ${trackIndex + 1}: ID=${track.product_id}`);
+            
+            formData.append('albumID[]', track.product_id);
+            formData.append(`path-file-album[${track.product_id}]`, track.audioFileName || '');
+            formData.append(`name-file-album[${track.product_id}]`, track.audioFileName || '');
+            const releaseName = quiz3Data.value?.formData?.releaseName || '';
+            formData.append(`artist-album[${track.product_id}]`, cleanField(releaseName));
+            formData.append(`autor-files-album[${track.product_id}]`, cleanField(releaseName));
+            
+            formData.append(`autor-music-album[${track.product_id}]`, cleanField(track.musicAuthor || ''));
+            formData.append(`autor-words-album[${track.product_id}]`, cleanField(track.textAuthor || ''));
+            
+            formData.append(`autor-files-album[${track.product_id}]`, cleanField(album.albumName || ''));
+            
+            // Добавляем поля для прав на инструментал
+            if (track.rightsType) {
+              formData.append(`instrument_rights[${track.product_id}]`, track.rightsType);
+              console.log(`  instrument_rights[${track.product_id}]: ${track.rightsType}`);
             }
+            
+            if (track.rightsContractLink) {
+              formData.append(`url_rights_doc[${track.product_id}]`, track.rightsContractLink);
+              console.log(`  url_rights_doc[${track.product_id}]: ${track.rightsContractLink}`);
+            }
+          } else {
+            console.warn(`Альбом ${albumIndex + 1}, трек ${trackIndex + 1} не имеет product_id!`);
           }
-        }
+        });
       }
-    }
+    });
+  } else {
+    console.log('--- НЕТ АЛЬБОМОВ, пропускаем данные для альбомов ---');
   }
 
   // --- 4. ШАГ 3: Информация о релизе ---
-  if (quiz3Data.value && quiz3Data.value.formData) {
-    const formDataQuiz3 = quiz3Data.value.formData;
-    const releaseNameValue = formDataQuiz3.releaseName || '';
-    const performerNameValue = formDataQuiz3.performerName || '';
-    const otherPlatformValue = formDataQuiz3.otherPlatform || '';
-    const releaseDateValue = formDataQuiz3.releaseDate || '';
-    const profanityTracksValue = formDataQuiz3.profanityTracks || '';
-    const vkLinkValue = formDataQuiz3.vkLink || '';
-    const emailValue = formDataQuiz3.email || '';
-    const hasProfanityValue = formDataQuiz3.hasProfanity === 'yes' ? '12' : '13';
+  if (quiz3Data.value?.formData) {
+    const f = quiz3Data.value.formData;
     
-    formData.append('name_relize', cleanField(releaseNameValue));
-    formData.append('alias', cleanField(performerNameValue));
+    console.log('--- ШАГ 3: Информация о релизе ---');
+    
+    // ОТПРАВЛЯЕМ name_relize ТОЛЬКО ЕСЛИ ЕСТЬ СИНГЛЫ
+    if (hasSingles.value) {
+      const releaseName = cleanField(f.releaseName || 'Релиз');
+      formData.append('name_relize', releaseName);
+      console.log('name_relize отправлен (есть синглы):', releaseName);
+    } else {
+      console.log('name_relize НЕ отправлен (только альбом)');
+    }
+    
+    const alias = cleanField(f.performerName || '');
+    formData.append('alias', alias);
+    
     formData.append('kuda-reliz1', '1');
     formData.append('kuda-reliz', '1');
-    formData.append('others-kuda', otherPlatformValue);
-    formData.append('calendar-reliz', releaseDateValue);
-    formData.append('mat1', hasProfanityValue);
-    formData.append('mat', hasProfanityValue);
-    formData.append('others-mat', profanityTracksValue);
+    formData.append('others-kuda', f.otherPlatform || '');
+    formData.append('calendar-reliz', f.releaseDate || '');
+    
+    const matValue = f.hasProfanity === 'yes' ? '12' : '13';
+    formData.append('mat1', matValue);
+    formData.append('mat', matValue);
+    formData.append('others-mat', f.profanityTracks || '');
+    
     formData.append('mat1ai', '13');
     formData.append('matai', '13');
     formData.append('others-matai', '');
     formData.append('all-obl', '1');
-    formData.append('vk', vkLinkValue);
-    formData.append('email-clear', emailValue);
+    formData.append('vk', f.vkLink || '');
+    formData.append('email-clear', f.email || '');
 
-    if (hasAlbums.value === true) {
-      formData.append('name-relize-album', cleanField(releaseNameValue));
-      formData.append('alias-album', cleanField(performerNameValue));
+    // Альбомные переменные - отправляем всегда, если есть альбом
+    if (hasAlbums.value) {
+      console.log('--- Альбомные переменные (отправляем) ---');
+      const albumReleaseName = cleanField(f.releaseName || 'Альбом');
+      formData.append('name-relize-album', albumReleaseName);
+      formData.append('alias-album', alias);
       formData.append('kuda-reliz-album1', '4');
       formData.append('kuda-reliz-album', '4');
       formData.append('others-kuda-album', '');
-      formData.append('calendar-reliz-album', releaseDateValue);
-      formData.append('mat-album1', hasProfanityValue);
-      formData.append('mat-album', hasProfanityValue);
-      formData.append('others-mat-album', profanityTracksValue);
+      formData.append('calendar-reliz-album', f.releaseDate || '');
+      formData.append('mat-album1', matValue);
+      formData.append('mat-album', matValue);
+      formData.append('others-mat-album', f.profanityTracks || '');
       formData.append('mat-album1ai', '13');
       formData.append('mat-albumai', '13');
       formData.append('others-matai-album', '');
-      formData.append('vk-album', vkLinkValue);
-      formData.append('email-clear-album', emailValue);
+      formData.append('vk-album', f.vkLink || '');
+      formData.append('email-clear-album', f.email || '');
+    } else {
+      console.log('--- НЕТ АЛЬБОМОВ, пропускаем альбомные переменные ---');
     }
   }
 
   // --- 5. ШАГ 4: Данные пользователя ---
-  if (quiz4Data.value && quiz4Data.value.formData) {
+  if (quiz4Data.value?.formData) {
     const u = quiz4Data.value.formData;
-    const userTypeValue = u.userType === 'individual' ? 'Физическое лицо' : 'Индивидуальный предприниматель';
-    const legalAddressValue = u.legalAddress || '';
-    const innValue = u.inn || '';
-    const ogrnValue = u.ogrn || '';
-    const accountNumberValue = u.accountNumber || '';
-    const bankNameValue = u.bankName || '';
-    const bankInnValue = u.bankInn || '';
-    const bankBikValue = u.bankBik || '';
-    const correspondentAccountValue = u.correspondentAccount || '';
-    const bankLegalAddressValue = u.bankLegalAddress || '';
-    const citizenshipValue = formatCitizenship(u.citizenship, u.otherCitizenship);
-    const lastNameValue = u.lastName || '';
-    const firstNameValue = u.firstName || '';
-    const middleNameValue = u.middleName || '';
-    const passportNumberValue = u.passportNumber || '';
-    const passportIssuedByValue = u.passportIssuedBy || '';
-    const passportIssueDateValue = formatDateForAPI(u.passportIssueDate) || '22/22/2222';
-    const registrationAddressValue = u.registrationAddress || '';
+    console.log('--- ШАГ 4: Данные пользователя ---');
     
     formData.append('citysenship1', '');
-    formData.append('citysenship', userTypeValue);
+    formData.append('citysenship', u.userType === 'individual' ? 'Физическое лицо' : 'Индивидуальный предприниматель');
     formData.append('select__fizurlico', '');
     formData.append('others', '');
-    formData.append('yur-arg-org', legalAddressValue);
-    formData.append('inn', innValue);
-    formData.append('ogrn', ogrnValue);
-    formData.append('rasy', accountNumberValue);
-    formData.append('bank', bankNameValue);
-    formData.append('inn-bank', bankInnValue);
-    formData.append('bik', bankBikValue);
-    formData.append('kor-s', correspondentAccountValue);
-    formData.append('yur-adr-bank', bankLegalAddressValue);
+    formData.append('yur-arg-org', u.legalAddress || '');
+    formData.append('inn', u.inn || '');
+    formData.append('ogrn', u.ogrn || '');
+    formData.append('rasy', u.accountNumber || '');
+    formData.append('bank', u.bankName || '');
+    formData.append('inn-bank', u.bankInn || '');
+    formData.append('bik', u.bankBik || '');
+    formData.append('kor-s', u.correspondentAccount || '');
+    formData.append('yur-adr-bank', u.bankLegalAddress || '');
+    
     formData.append('citysenship1', '');
-    formData.append('citysenship', citizenshipValue);
+    formData.append('citysenship', formatCitizenship(u.citizenship, u.otherCitizenship));
     formData.append('others', '');
-    formData.append('FAM', lastNameValue);
-    formData.append('IMYA', firstNameValue);
-    formData.append('OTCH', middleNameValue);
-    formData.append('passport', passportNumberValue);
-    formData.append('who-doing', passportIssuedByValue);
-    formData.append('when-doing', passportIssueDateValue);
-    formData.append('adress', registrationAddressValue);
+    formData.append('FAM', u.lastName || '');
+    formData.append('IMYA', u.firstName || '');
+    formData.append('OTCH', u.middleName || '');
+    formData.append('passport', u.passportNumber || '');
+    formData.append('who-doing', u.passportIssuedBy || '');
+    formData.append('when-doing', formatDateForAPI(u.passportIssueDate) || '22/22/2222');
+    formData.append('adress', u.registrationAddress || '');
   }
 
   // --- 6. ШАГ 5: Жанр и текст ---
-  if (quiz5Data.value && quiz5Data.value.formData) {
+  if (quiz5Data.value?.formData) {
     const g = quiz5Data.value.formData;
-    const genreValue = g.genre || '';
-    const tiktokStartSecondsValue = g.tiktokStartSeconds || '';
-    const hasDrugsMentionValue = g.hasDrugsMention === 'yes' ? '12' : '13';
-    const drugsTracksValue = g.drugsTracks || '';
-    const appleMusicLinksValue = g.appleMusicLinks || '';
-    const spotifyLinksValue = g.spotifyLinks || '';
-    const vkLinksValue = g.vkLinks || '';
-    const yandexMusicLinksValue = g.yandexMusicLinks || '';
-    const socialLinksValue = g.socialLinks || '';
+    console.log('--- ШАГ 5: Жанр и текст ---');
     
-    formData.append('genre', genreValue);
-    formData.append('time-play', tiktokStartSecondsValue);
-    formData.append('nark', hasDrugsMentionValue);
-    formData.append('narc', hasDrugsMentionValue);
-    formData.append('others-narc', drugsTracksValue);
-    formData.append('apple', appleMusicLinksValue);
-    formData.append('spotify', spotifyLinksValue);
-    formData.append('link-vk', vkLinksValue);
-    formData.append('link-yandex', yandexMusicLinksValue);
-    formData.append('socialartist', socialLinksValue);
+    formData.append('genre', g.genre || '');
+    formData.append('time-play', g.tiktokStartSeconds || '');
+    formData.append('nark', g.hasDrugsMention === 'yes' ? '12' : '13');
+    formData.append('narc', g.hasDrugsMention === 'yes' ? '12' : '13');
+    formData.append('others-narc', g.drugsTracks || '');
+    formData.append('apple', g.appleMusicLinks || '');
+    formData.append('spotify', g.spotifyLinks || '');
+    formData.append('link-vk', g.vkLinks || '');
+    formData.append('link-yandex', g.yandexMusicLinks || '');
+    formData.append('socialartist', g.socialLinks || '');
   }
 
   // --- 7. ШАГ 6: Дополнительная информация ---
-  if (quiz6Data.value && quiz6Data.value.formData) {
+  if (quiz6Data.value?.formData) {
     const a = quiz6Data.value.formData;
-    const platformsValue = a.platforms && a.platforms.length > 0 ? a.platforms[0] : '0';
-    const otherPlatformValue = a.otherPlatform || '';
-    const rightsInfoValue = a.rightsInfo || '';
-    const additionalCommentsValue = a.additionalComments || '';
-    const promoPlanValue = a.promoPlan || '';
-    const bandlinkUrlValue = a.bandlinkUrl || '';
-    const promoCodeValue = a.promoCode || '';
-    const confirmNoRightsViolationValue = a.confirmNoRightsViolation ? 'on' : 'off';
-    
-    formData.append('otkuda-uznali1', platformsValue);
-    formData.append('otkuda-uznali', platformsValue);
-    formData.append('others-otkuda', otherPlatformValue);
-    formData.append('instrumentals', rightsInfoValue);
-    formData.append('comments', additionalCommentsValue);
-    formData.append('plan', promoPlanValue);
-    formData.append('link-bandlink', bandlinkUrlValue);
-    formData.append('promocode', promoCodeValue);
+    console.log('--- ШАГ 6: Дополнительная информация ---');
+
+    const platformValue = a.platforms && a.platforms.length > 0 ? a.platforms[0] : '0';
+
+    formData.append('otkuda-uznali1', platformValue);
+    formData.append('otkuda-uznali', platformValue);
+    formData.append('others-otkuda', a.otherPlatform || '');
+    formData.append('instrumentals', a.rightsInfo || '');
+    formData.append('comments', a.additionalComments || '');
+    formData.append('plan', a.promoPlan || '');
+    formData.append('link-bandlink', a.bandlinkUrl || '');
+    formData.append('promocode', a.promoCode || '');
     formData.append('promosum', '');
     
     const baseAmount = 2590;
-    const finalSum = quiz6Data.value.promoDiscount 
+    const finalSum = quiz6Data.value?.promoDiscount 
       ? Math.floor(baseAmount * (100 - quiz6Data.value.promoDiscount) / 100)
       : baseAmount;
     formData.append('sumOrder', String(finalSum));
-    formData.append('policy', confirmNoRightsViolationValue);
+    formData.append('policy', a.confirmNoRightsViolation ? 'on' : 'off');
+    
+    console.log('policy:', a.confirmNoRightsViolation ? 'on' : 'off');
   }
 
   // --- 8. ОТВЕТ ИЗ NEWDOCK ---
   if (contractData.value) {
+    console.log('--- ОТВЕТ ИЗ NEWDOCK ---');
+    console.log('docName:', contractData.value.doc_pdf);
+    console.log('docNameDocx:', contractData.value.doc_docx);
+    
     formData.append('docName', contractData.value.doc_pdf || '');
     formData.append('docNameDocx', contractData.value.doc_docx || '');
     
     if (contractData.value.images && Array.isArray(contractData.value.images)) {
-      for (let index = 0; index < contractData.value.images.length; index++) {
-        const img = contractData.value.images[index];
+      contractData.value.images.forEach((img: string, index: number) => {
+        console.log(`imgDoc${index}:`, img);
         formData.append(`imgDoc${index}`, img);
-      }
+      });
     }
   }
 
   // --- 9. ШАГ 7: Согласия и Подпись ---
-  const acceptTerms = quiz7Data.value && quiz7Data.value.formData && quiz7Data.value.formData.acceptTerms === true;
-  const acceptPrivacy = quiz7Data.value && quiz7Data.value.formData && quiz7Data.value.formData.acceptPrivacy === true;
+  const acceptTerms = quiz7Data.value?.formData?.acceptTerms === true;
+  const acceptPrivacy = quiz7Data.value?.formData?.acceptPrivacy === true;
+  
+  console.log('--- ШАГ 7: Согласия и Подпись ---');
+  console.log('quiz-policy-one:', acceptTerms ? 'on' : 'off');
+  console.log('quiz-policy-two:', acceptPrivacy ? 'on' : 'off');
   
   formData.append('quiz-policy-one', acceptTerms ? 'on' : 'off');
   formData.append('quiz-policy-two', acceptPrivacy ? 'on' : 'off');
   
-  if (quiz7Data.value && quiz7Data.value.signature) {
+  if (quiz7Data.value?.signature) {
+    console.log('podp-url: [подпись получена]');
     formData.append('podp-url', quiz7Data.value.signature);
   }
 
   // --- 10. ПРИКРЕПЛЯЕМ ВСЕ ФАЙЛЫ ---
+  console.log('--- ПРИКРЕПЛЯЕМ ФАЙЛЫ ---');
+  
+  let totalFiles = 0;
+  if (coverFile.value) totalFiles++;
+  totalFiles += audioFilesList.value.length;
+  if (appleMusicFile.value) totalFiles++;
+  if (karaokeFile.value) totalFiles++;
+  totalFilesCount.value = totalFiles;
+  uploadedCount.value = 0;
+  let currentFileIndex = 0;
+  
+  // 10.1 Прикрепляем обложку
   if (coverFile.value) {
-    if (hasSingles.value === true && singleCount.value > 1) {
+    if (hasSingles.value && singleCount.value > 1) {
       for (let i = 1; i <= singleCount.value; i++) {
         formData.append(`file-obl${i}`, coverFile.value);
+        console.log(`Прикреплена обложка как file-obl${i}:`, coverFile.value.name);
       }
-    } else if (hasAlbums.value === true) {
+    } else if (hasAlbums.value) {
       formData.append('file-obl-album', coverFile.value);
+      console.log('Прикреплена обложка как file-obl-album:', coverFile.value.name);
     } else {
       formData.append('file-obl1', coverFile.value);
+      console.log('Прикреплена обложка как file-obl1:', coverFile.value.name);
     }
+    
+    currentFileIndex++;
+    uploadedCount.value = currentFileIndex;
   }
   
+  // 10.2 Прикрепляем аудиофайлы по их product_id (с резервным поиском)
   for (let i = 0; i < audioFilesList.value.length; i++) {
     const audio = audioFilesList.value[i];
     let productId = audio.productId;
+    
     if (!productId) {
       productId = findProductIdByFileName(audio.fileName);
+      if (productId) {
+        console.log(`✅ Найден product_id ${productId} для файла ${audio.fileName} через поиск`);
+      }
     }
+    
     if (productId) {
       formData.append(`file[${productId}]`, audio.file);
+      console.log(`Прикреплен аудиофайл file[${productId}]:`, audio.fileName);
+    } else {
+      console.warn('⚠️ Аудиофайл без product_id, пропускаем:', audio.fileName);
+    }
+    
+    currentFileIndex++;
+    uploadedCount.value = currentFileIndex;
+  }
+  
+  // 10.3 Прикрепляем Apple Music файл (docx)
+  if (appleMusicFile.value) {
+    formData.append('apple-music-text', appleMusicFile.value);
+    console.log('Прикреплен Apple Music текст (docx):', appleMusicFile.value.name);
+    
+    currentFileIndex++;
+    uploadedCount.value = currentFileIndex;
+  }
+  
+  // 10.4 Прикрепляем Karaoke файл (ttml)
+  if (karaokeFile.value) {
+    formData.append('karaoke-text', karaokeFile.value);
+    console.log('Прикреплен Karaoke текст (ttml):', karaokeFile.value.name);
+    
+    currentFileIndex++;
+    uploadedCount.value = currentFileIndex;
+  }
+
+  // --- 11. ФИНАЛЬНАЯ ПРОВЕРКА ---
+  console.log('========== ФИНАЛЬНАЯ ПРОВЕРКА ==========');
+  console.log('Проверяем критически важные поля:');
+  console.log('name-relize:', formData.get('name-relize'));
+  
+  if (hasSingles.value) {
+    console.log('trackID[]:', formData.getAll('trackID[]'));
+    console.log('Количество trackID[]:', formData.getAll('trackID[]').length);
+    
+    // Логируем отправленные права для синглов
+    const singlesRightsCount = quiz2Data.value?.singleTracks?.filter(t => t.rightsType).length || 0;
+    console.log(`📊 Синглы с instrument_rights: ${singlesRightsCount}`);
+  }
+  
+  if (hasAlbums.value) {
+    console.log('albumID[]:', formData.getAll('albumID[]'));
+    console.log('Количество albumID[]:', formData.getAll('albumID[]').length);
+    console.log('name-relize-album:', formData.get('name-relize-album'));
+    
+    // Логируем отправленные права для треков альбомов
+    let albumRightsCount = 0;
+    let albumLinksCount = 0;
+    quiz2Data.value?.albums?.forEach(album => {
+      album.tracks?.forEach(track => {
+        if (track.rightsType) albumRightsCount++;
+        if (track.rightsContractLink) albumLinksCount++;
+      });
+    });
+    console.log(`📊 Треки альбомов с instrument_rights: ${albumRightsCount}`);
+    console.log(`📊 Треки альбомов с url_rights_doc: ${albumLinksCount}`);
+  }
+  
+  console.log('quiz-policy-one:', formData.get('quiz-policy-one'));
+  console.log('quiz-policy-two:', formData.get('quiz-policy-two'));
+  console.log('Количество файлов:', totalFilesCount.value);
+  console.log('Обложка:', coverFile.value ? '✅' : '❌');
+  console.log('Аудиофайлы:', audioFilesList.value.length);
+  console.log('Apple Music файл:', appleMusicFile.value ? '✅' : '❌');
+  console.log('Karaoke файл:', karaokeFile.value ? '✅' : '❌');
+  
+  if (hasSingles.value) {
+    const singlesWithoutId = quiz2Data.value?.singleTracks?.filter(t => !t.product_id) || [];
+    if (singlesWithoutId.length > 0) {
+      console.warn(`ВНИМАНИЕ: ${singlesWithoutId.length} синглов без product_id!`);
     }
   }
   
-  if (appleMusicFile.value) {
-    formData.append('apple-music-text', appleMusicFile.value);
+  if (hasAlbums.value) {
+    let tracksWithoutId = 0;
+    quiz2Data.value?.albums?.forEach(album => {
+      album.tracks?.forEach(track => {
+        if (!track.product_id) tracksWithoutId++;
+      });
+    });
+    if (tracksWithoutId > 0) {
+      console.warn(`ВНИМАНИЕ: ${tracksWithoutId} треков альбомов без product_id!`);
+    }
   }
   
-  if (karaokeFile.value) {
-    formData.append('karaoke-text', karaokeFile.value);
-  }
+  console.log('=========================================');
 
   return formData;
 };
