@@ -451,7 +451,7 @@
   <div class="popup" v-if="showReportPopup" @click.self="closeAllPopups">
     <div class="popup__content">
       <div class="popup__header">
-        <h4 class="popup__title">Выберите год отчета</h4>
+        <h5 class="popup__title">Выберите год отчета</h5>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
@@ -460,9 +460,12 @@
             v-for="year in reportYears" 
             :key="year"
             class="popup__year-button button button__primary"
+            :class="{ 'button__loading': loadingYear === year }"
             @click="selectYear(year)"
+            :disabled="loadingYear === year"
           >
-            {{ year }}
+            <span v-if="loadingYear !== year">{{ year }}</span>
+            <span v-else class="button__loader">Загрузка...</span>
           </button>
         </div>
         <div v-else class="popup__empty">
@@ -479,7 +482,7 @@
   <div class="popup" v-if="showNoReportsPopup" @click.self="closeAllPopups">
     <div class="popup__content popup__content_small">
       <div class="popup__header">
-        <h4 class="popup__title">Нет доступных отчетов</h4>
+        <h5 class="popup__title">Нет доступных отчетов</h5>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
@@ -506,7 +509,7 @@
     <div class="popup__content">
       <div class="popup__header">
         <button class="popup__back" @click="backToYearSelection">← Назад</button>
-        <h4 class="popup__title">Выберите квартал</h4>
+        <h5 class="popup__title">Выберите квартал</h5>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
@@ -520,11 +523,11 @@
           <button 
             v-for="quarter in availableQuarters" 
             :key="quarter.id"
-            class="popup__quarter-button"
+            class="popup__quarter-button popup__button button button__black""
             :class="{ 'selected': selectedQuarter === quarter.id }"
             @click="selectedQuarter = quarter.id"
           >
-            <span class="quarter__name">{{ quarter.name }}</span>
+            <!-- <span class="quarter__name">{{ quarter.name }}</span> -->
             <span class="quarter__months">{{ quarter.months }}</span>
           </button>
         </div>
@@ -552,7 +555,7 @@
   <div class="popup" v-if="showPayoutAmountPopup" @click.self="closeAllPopups">
     <div class="popup__content popup__content_small">
       <div class="popup__header">
-        <h4 class="popup__title">Запрос выплаты</h4>
+        <h5 class="popup__title">Запрос выплаты</h5>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
@@ -611,7 +614,7 @@
   <div class="popup" v-if="showImagesPopup && actData" @click.self="closeAllPopups">
     <div class="popup__content popup__content_images">
       <div class="popup__header">
-        <h4 class="popup__title">Изображения акта</h4>
+        <h5 class="popup__title">Изображения акта</h5>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
@@ -666,7 +669,7 @@
   <div class="popup" v-if="showBonusPayoutPopup" @click.self="closeBonusPayoutPopup">
     <div class="popup__content popup__content_small">
       <div class="popup__header">
-        <h4 class="popup__title">Запрос выплаты бонусов</h4>
+        <h5 class="popup__title">Запрос выплаты бонусов</h5>
         <button class="popup__close" @click="closeBonusPayoutPopup">×</button>
       </div>
       <div class="popup__body">
@@ -877,6 +880,7 @@ const isLoadingReports = ref(false);
 const isLoadingTransactions = ref(false);
 const isLoadingQuarters = ref(false);
 const isDownloading = ref(false);
+const loadingYear = ref<string | null>(null); // Состояние загрузки для кнопки года
 
 const releasesPagination = ref({
   currentPage: 1,
@@ -1196,94 +1200,48 @@ const getStatusText = (status: string) => {
 
 const selectYear = async (year: string) => {
   selectedYear.value = year;
+  loadingYear.value = year; // Устанавливаем загрузку только для выбранной кнопки
   
-  loading.value = true;
   isLoadingQuarters.value = true;
+  
   try {
     const response = await sendRequest('post', '/ajax_vue/ajax/profile/kvartal.php', {
       ID: year
     });
     
-    console.log('Ответ с кварталами (HTML):', response.data);
+    console.log('Ответ с кварталами (JSON):', response.data);
     
-    const quartersHtml = response.data;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(quartersHtml, 'text/html');
-    const radioInputs = doc.querySelectorAll('input[name="QUARTER_ID"]');
-    
-    console.log('Найдено radio inputs:', radioInputs.length);
-    
-    availableQuarters.value = [];
-    
-    radioInputs.forEach((input: Element) => {
-      const value = input.getAttribute('value');
-      const label = doc.querySelector(`label[for="${input.id}"]`);
-      let text = '';
-      
-      if (label) {
-        const span = label.querySelector('span');
-        text = span ? span.textContent || '' : label.textContent || '';
-      }
-      
-      console.log('Найден квартал:', { value, text });
-      
-      if (value) {
-        const match = text.match(/(Q[1-4])\s*\((.+)\)/);
-        if (match) {
-          availableQuarters.value.push({
-            id: value,
-            name: match[1],
-            months: match[2]
-          });
-        } else {
-          availableQuarters.value.push({
-            id: value,
-            name: text || value,
-            months: ''
-          });
-        }
-      }
-    });
-    
-    if (availableQuarters.value.length === 0) {
-      const select = doc.querySelector('select[name="QUARTER_ID"]');
-      if (select) {
-        const options = select.querySelectorAll('option');
-        options.forEach((option: Element) => {
-          const value = option.getAttribute('value');
-          const text = option.textContent || '';
-          
-          if (value) {
-            const match = text.match(/(Q[1-4])\s*\((.+)\)/);
-            if (match) {
-              availableQuarters.value.push({
-                id: value,
-                name: match[1],
-                months: match[2]
-              });
-            } else {
-              availableQuarters.value.push({
-                id: value,
-                name: text,
-                months: ''
-              });
-            }
-          }
-        });
+    // Обрабатываем JSON ответ
+    if (response.data && response.data.error === 0 && response.data.data && response.data.data.quarters) {
+      availableQuarters.value = response.data.data.quarters.map((quarter: any) => ({
+        id: quarter.value,
+        name: quarter.value, // Q1, Q2, Q3, Q4
+        months: quarter.label.replace(quarter.value, '').replace(/[()]/g, '').trim() // "июнь, июль, август"
+      }));
+    } else {
+      // Если нет кварталов, показываем пустой массив
+      availableQuarters.value = [];
+      if (response.data && response.data.message) {
+        console.warn('Нет кварталов:', response.data.message);
       }
     }
     
     console.log('Обработанные кварталы:', availableQuarters.value);
     
-    showReportPopup.value = false;
-    showQuarterPopup.value = true;
+    if (availableQuarters.value.length > 0) {
+      showReportPopup.value = false;
+      showQuarterPopup.value = true;
+    } else {
+      alert('Для выбранного года нет доступных кварталов');
+    }
     
   } catch (error) {
     console.error('Ошибка при загрузке кварталов:', error);
     alert('Не удалось загрузить список кварталов');
+    availableQuarters.value = [];
   } finally {
     isLoadingQuarters.value = false;
-    loading.value = false;
+    loadingYear.value = null; // Снимаем загрузку с кнопки
   }
 };
 
@@ -1313,20 +1271,43 @@ const downloadReport = async () => {
     const data = await response.json();
     console.log('Ответ от сервера:', data);
     
-    if (data.message) {
-      if (data.error === 0 && data.message.startsWith('http')) {
-        const link = document.createElement('a');
-        link.href = data.message;
-        link.download = '';
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        closeAllPopups();
-      } else {
-        alert(data.message);
-      }
+    // Проверяем, есть ли ссылка в поле error или message
+    let downloadUrl = null;
+    
+    if (data.error && typeof data.error === 'string' && (data.error.startsWith('http') || data.error.startsWith('/'))) {
+      // Если error содержит ссылку
+      downloadUrl = data.error;
+    } else if (data.message && typeof data.message === 'string' && (data.message.startsWith('http') || data.message.startsWith('/'))) {
+      // Если message содержит ссылку
+      downloadUrl = data.message;
+    } else if (data.data && data.data.url) {
+      // Если ссылка в data.url
+      downloadUrl = data.data.url;
+    }
+    
+    if (downloadUrl) {
+      // Скачиваем файл
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = ''; // Это заставит браузер скачать файл, а не открывать его
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      closeAllPopups();
+      
+      // Показываем сообщение об успешной загрузке
+      ElMessage({
+        message: 'Отчет успешно скачивается',
+        type: 'success',
+        duration: 3000,
+        showClose: true
+      });
+    } else {
+      // Если ссылки нет, показываем сообщение об ошибке
+      const errorMessage = data.message || data.error || 'Не удалось получить ссылку для скачивания';
+      alert(errorMessage);
     }
     
   } catch (error) {
@@ -1369,6 +1350,7 @@ const closeAllPopups = () => {
   actError.value = '';
   payoutAmount.value = null;
   vyplataError.value = '';
+  loadingYear.value = null; // Сбрасываем состояние загрузки при закрытии
   document.documentElement.classList.remove('noscroll');
 };
 
@@ -1904,6 +1886,39 @@ onMounted(() => {
 .loading__svg {
   width: 100px;
   height: 100px;
+}
+
+/* Стили для кнопки с загрузкой */
+.button__loading {
+  opacity: 0.7;
+  cursor: wait;
+  pointer-events: none;
+  position: relative;
+}
+
+.button__loader {
+  display: inline-block;
+  position: relative;
+  padding-left: 24px;
+}
+
+.button__loader::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: button-spin 0.8s linear infinite;
+}
+
+@keyframes button-spin {
+  0% { transform: translateY(-50%) rotate(0deg); }
+  100% { transform: translateY(-50%) rotate(360deg); }
 }
 
 .personal__flex {
@@ -2654,13 +2669,6 @@ onMounted(() => {
   color: var(--text);
 }
 
-.popup__title {
-  margin: 0;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
 .popup__close {
   background: none;
   border: none;
@@ -2698,37 +2706,18 @@ onMounted(() => {
 .popup__years,
 .popup__quarters {
   display: flex;
+  width: 100%;
   flex-direction: column;
   gap: 10px;
   margin-bottom: 20px;
 }
 
-.popup__year-button,
-.popup__quarter-button {
+.popup__years button,
+.popup__quarters button,
+.popup__years button span,
+.popup__quarters button span {
   width: 100%;
-  padding: 15px;
-  text-align: left;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.3s;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.popup__year-button:hover,
-.popup__quarter-button:hover {
-  background-color: var(--color);
-  color: var(--white);
-  border-color: var(--color);
-}
-
-.popup__quarter-button.selected {
-  background-color: var(--color);
-  color: var(--white);
-  border-color: var(--color);
+  min-width: 100%;
 }
 
 .quarter__name {
@@ -2990,13 +2979,7 @@ onMounted(() => {
   }
   
   .popup__header {
-    flex-direction: column;
     gap: 10px;
-  }
-  
-  .popup__title {
-    position: static;
-    transform: none;
   }
 }
 
