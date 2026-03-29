@@ -1021,7 +1021,10 @@ const loadSinglesFromStorage = async (savedState: any) => {
   
   if (savedState && savedState.singleTracks && savedState.singleTracks.length > 0) {
     const loadedTracks = [];
-    for (const track of savedState.singleTracks) {
+    // Ограничиваем количество загружаемых синглов согласно singleCountFromQuiz1
+    const tracksToLoad = savedState.singleTracks.slice(0, singleCountFromQuiz1.value);
+    
+    for (const track of tracksToLoad) {
       let audioFile = null;
       
       if (track.audioFileId) {
@@ -1051,6 +1054,14 @@ const loadSinglesFromStorage = async (savedState: any) => {
       }
     }
     singleTracks.value = loadedTracks;
+    
+    // Если загружено меньше, чем нужно, удаляем лишние аудиофайлы из БД
+    const extraTracks = savedState.singleTracks.slice(singleCountFromQuiz1.value);
+    for (const extraTrack of extraTracks) {
+      if (extraTrack.audioFileId) {
+        await removeAudioFromDB(extraTrack.audioFileId);
+      }
+    }
   } else {
     singleTracks.value = [];
   }
@@ -1073,9 +1084,12 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
     return;
   }
   
-  if (savedState && savedState.albums && savedState.albums.length === requiredCount) {
+  if (savedState && savedState.albums && savedState.albums.length > 0) {
+    // Ограничиваем количество загружаемых альбомов согласно albumCountFromQuiz1
+    const albumsToLoad = savedState.albums.slice(0, albumCountFromQuiz1.value);
+    
     albums.value = await Promise.all(
-      savedState.albums.map(async (album: any, albumIndex: number) => {
+      albumsToLoad.map(async (album: any, albumIndex: number) => {
         const newAlbum = {
           id: album.id || `album-${Date.now()}-${albumIndex}-${Math.random()}`,
           albumName: album.albumName || '',
@@ -1120,6 +1134,18 @@ const loadAlbumsFromStorage = async (savedState: any, requiredCount: number) => 
         return newAlbum;
       })
     );
+    
+    // Удаляем лишние альбомы из БД
+    const extraAlbums = savedState.albums.slice(albumCountFromQuiz1.value);
+    for (const extraAlbum of extraAlbums) {
+      if (extraAlbum.tracks && Array.isArray(extraAlbum.tracks)) {
+        for (const track of extraAlbum.tracks) {
+          if (track.audioFileId) {
+            await removeAudioFromDB(track.audioFileId);
+          }
+        }
+      }
+    }
   } else if (requiredCount > 0) {
     albums.value = [];
     for (let i = 0; i < requiredCount; i++) {
@@ -1165,6 +1191,47 @@ const getPageTitle = () => {
   return 'ЗАГРУЗКА СИНГЛОВ И АЛЬБОМОВ';
 };
 
+// Добавьте эту функцию в компонент
+const cleanupExcessData = async () => {
+  if (!dbInitialized.value) return;
+  
+  try {
+    const savedState = await quizDB.value.get(STORE_NAME, STORAGE_KEY);
+    if (savedState) {
+      // Очищаем лишние синглы
+      if (savedState.singleTracks && savedState.singleTracks.length > singleCountFromQuiz1.value) {
+        const tracksToRemove = savedState.singleTracks.slice(singleCountFromQuiz1.value);
+        for (const track of tracksToRemove) {
+          if (track.audioFileId) {
+            await removeAudioFromDB(track.audioFileId);
+          }
+        }
+        savedState.singleTracks = savedState.singleTracks.slice(0, singleCountFromQuiz1.value);
+      }
+      
+      // Очищаем лишние альбомы
+      if (savedState.albums && savedState.albums.length > albumCountFromQuiz1.value) {
+        const albumsToRemove = savedState.albums.slice(albumCountFromQuiz1.value);
+        for (const album of albumsToRemove) {
+          if (album.tracks && Array.isArray(album.tracks)) {
+            for (const track of album.tracks) {
+              if (track.audioFileId) {
+                await removeAudioFromDB(track.audioFileId);
+              }
+            }
+          }
+        }
+        savedState.albums = savedState.albums.slice(0, albumCountFromQuiz1.value);
+      }
+      
+      await quizDB.value.put(STORE_NAME, savedState);
+    }
+  } catch (error) {
+    console.error('Error cleaning up excess data:', error);
+  }
+};
+
+// Вызовите cleanupExcessData после загрузки counts
 const loadStateFromDB = async () => {
   if (!dbInitialized.value) return;
   
@@ -1176,15 +1243,21 @@ const loadStateFromDB = async () => {
       singleCountFromQuiz1.value = counts.singleCount;
       albumCountFromQuiz1.value = counts.albumCount;
       
+      // Очищаем лишние данные перед загрузкой
+      await cleanupExcessData();
+      
+      // Загружаем обновленные данные
+      const updatedState = await quizDB.value.get(STORE_NAME, STORAGE_KEY);
+      
       if (counts.singleCount > 0) {
-        await loadSinglesFromStorage(savedState);
+        await loadSinglesFromStorage(updatedState);
       } else {
         singleTracks.value = [];
         singleErrors.value = [];
       }
       
       if (counts.albumCount > 0) {
-        await loadAlbumsFromStorage(savedState, counts.albumCount);
+        await loadAlbumsFromStorage(updatedState, counts.albumCount);
       } else {
         albums.value = [];
         albumErrors.value = [];
@@ -2058,10 +2131,6 @@ if (typeof window !== 'undefined') {
 .quiz__additional {
   text-transform: uppercase;
 }
-.quiz__section_title,
-.quiz__album_item_title {
-  padding: 20px 0 10px;
-}
 .quiz__form_two_lists {
   display: flex;
   flex-direction: column;
@@ -2074,7 +2143,7 @@ if (typeof window !== 'undefined') {
   display: flex;
   width: 100%;
   padding: 20px;
-  margin: 20px 0;
+  margin: 0 0 20px;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -2178,9 +2247,11 @@ if (typeof window !== 'undefined') {
 .warning {
   color: #e6a23c;
 }
+.quiz__single_item:not(:first-child),
 .quiz__album_track_item:not(:first-child) {
-  border-top: 1px solid var(--border);
   padding-top: 20px;
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
 }
 
 .quiz-popup__overlay {
@@ -2278,9 +2349,6 @@ if (typeof window !== 'undefined') {
   }
   .quiz__form_two_controls .button {
     width: 100%;
-  }
-  .quiz__album_track_item {
-    margin-bottom: 15px;
   }
 }
 @media (max-width: 480px) {

@@ -28,7 +28,7 @@
                   <span class="personal__balance_description text_one">Баланс</span>
                   {{ profileData.balance.toLocaleString() }} ₽
                 </h4>
-                <p class="personal__balance_desc text_very">Баланс обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится</p>
+                <p class="personal__balance_desc text_small">Баланс обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится</p>
               </div>
             </div>
             <button 
@@ -64,7 +64,7 @@
                   <span class="personal__balance_description text_one">Бонусы партнера</span>
                   {{ profileData.bonus.toLocaleString() }}
                 </h4>
-                <p class="personal__balance_desc text_very">Бонусы начисляются за каждую покупку, а также за рекомендации по Партнёрской программе! Бонусами можно оплачивать до 100% покупок. 1 бонус = 1 рубль.</p>
+                <p class="personal__balance_desc text_small">Бонусы начисляются за каждую покупку, а также за рекомендации по Партнёрской программе!<br>Бонусами можно оплачивать до 100% покупок. 1 бонус = 1 рубль.</p>
               </div>
             </div>
             <button 
@@ -112,22 +112,22 @@
                     <div class="personal__releases_flex">
                       <div class="personal__releases_top">
                         <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Альбом' : 'Сингл' }}</span> {{ release.name }}</h5>
-                        <p class="personal__releases_album text_very"></p>
+                        <p class="personal__releases_album text_small"></p>
                       </div>
-                      <p class="personal__releases_date text_very">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
+                      <p class="personal__releases_date text_small">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
                     </div>
                   </div>
                   <div class="personal__releases_info">
                     <div class="personal__releases_top">
                       <h5 class="personal__releases_head"><span>{{ release.propertyNewDocxValue === '1' ? 'Альбом' : 'Сингл' }}</span> {{ release.name }}</h5>
-                      <p class="personal__releases_album text_very"></p>
+                      <p class="personal__releases_album text_small"></p>
                     </div>
                     <!-- Блок с кодами и ссылкой -->
                     <div class="personal__releases_codes">
                       <!-- UPC код -->
                       <div 
                         v-if="release.upcCode && release.upcCode !== 'Нет данных'" 
-                        class="personal__releases_code"
+                        class="personal__releases_code text_small"
                         @click="copyToClipboard(release.upcCode, 'UPC код')"
                       >
                         <span>UPC код: {{ release.upcCode }}</span>
@@ -137,7 +137,7 @@
                       </div>
                       <div 
                         v-else
-                        class="personal__releases_code personal__releases_code_action"
+                        class="personal__releases_code personal__releases_code_action text_small"
                         @click="handleUpcClick(release)"
                       >
                         <span>UPC код: {{ getUpcDisplayText(release) }}</span>
@@ -149,7 +149,7 @@
                       <!-- Ссылка на релиз -->
                       <div 
                         v-if="release.link && release.link !== 'Нет данных'" 
-                        class="personal__releases_code"
+                        class="personal__releases_code text_small"
                         @click="copyToClipboard(release.link, 'Ссылка')"
                       >
                         <LinkSVG/>
@@ -161,10 +161,26 @@
                       <RouterLink 
                         v-else
                         :to="Tr.i18nRoute({ name: 'support' })"
-                        class="personal__releases_code personal__releases_code_action"
+                        class="personal__releases_code personal__releases_code_action text_small"
                         target="_blank"
                       >
-                        <span>ISRC: {{ getLinkDisplayText(release) }}</span>
+                        <LinkSVG/>
+                        <span>ссылку уточнить в поддержке</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill="currentColor"/>
+                        </svg>
+                      </RouterLink>
+                      <!-- ISRC код для релиза (если нет треков) -->
+                      <RouterLink 
+                        v-if="!release.tracks || release.tracks.length === 0"
+                        :to="Tr.i18nRoute({ name: 'support' })"
+                        class="personal__releases_code personal__releases_code_action text_small"
+                        target="_blank"
+                      >
+                        <span>ISRC: уточнить в поддержке</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill="currentColor"/>
+                        </svg>
                       </RouterLink>
                     </div>
 
@@ -179,28 +195,29 @@
                         >
                           <div class="personal__tracks_number">{{ trackIndex + 1 }}</div>
                           <div class="personal__tracks_info">
-                            <div class="personal__tracks_name">{{ track.title }}</div>
-                            <!-- ISRC код для трека -->
-                            <div class="personal__tracks_isrc">
-                              <span v-if="track.isrc && track.isrc !== 'Нет данных'">
-                                ISRC: {{ track.isrc }}
-                              </span>
-                              <RouterLink 
-                                v-else
-                                :to="Tr.i18nRoute({ name: 'support' })"
-                                class="personal__tracks_isrc_link"
-                                target="_blank"
-                              >
-                                ISRC: уточнить в поддержке
-                              </RouterLink>
-                            </div>
+                            <div class="personal__tracks_name text_small">{{ track.title }}</div>
+                              <!-- ISRC код для трека -->
+                              <div class="personal__tracks_isrc text_small">
+                                <span v-if="track.isrc && track.isrc !== 'Нет данных'">
+                                  ISRC: {{ track.isrc }}
+                                </span>
+                                <RouterLink 
+                                  v-else
+                                  :to="Tr.i18nRoute({ name: 'support' })"
+                                  class="personal__tracks_isrc_link text_small"
+                                  target="_blank"
+                                >
+                                  <LinkSVG/>
+                                  <span>ISRC: уточнить в поддержке</span>
+                                </RouterLink>
+                              </div>
                           </div>
                         </li>
                       </ul>
                     </div>
                     
                     <div class="personal__releases_bottom">
-                      <p class="personal__releases_date text_very">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
+                      <p class="personal__releases_date text_small">Дата релиза: {{ release.propertyDateRelizValue ? release.propertyDateRelizValue.split('-').reverse().join('.') : release.date.split(' ')[0]  }}</p>
                       <div class="personal__releases_agreements">
                         <a 
                           v-if="release.contractFile" 
@@ -255,9 +272,9 @@
             </div>
             <ul class="personal__reports_list">
               <li class="personal__reports_item personal__reports_header">
-                <div class="personal__reports_cell personal__reports_info text_very">Отчет</div>
-                <div class="personal__reports_cell personal__reports_date text_very">Дата</div>
-                <div class="personal__reports_cell personal__reports_actions text_very"></div>
+                <div class="personal__reports_cell personal__reports_info text_small">Отчет</div>
+                <div class="personal__reports_cell personal__reports_date text_small">Дата</div>
+                <div class="personal__reports_cell personal__reports_actions text_small"></div>
               </li>
               <li 
                 class="personal__reports_item" 
@@ -266,20 +283,20 @@
               >
                 <div class="personal__reports_cell personal__reports_info">
                   <div class="personal__reports_image"><ReportsSVG /></div>
-                  <div class="personal__reports_file">
+                  <div class="personal__reports_file text_small">
                     <span class="personal__reports_filename">{{ report.filename }}</span>
                     <span class="personal__reports_filesize">{{ report.filesize }}</span>
                   </div>
                 </div>
-                <div class="personal__reports_cell personal__reports_date">
+                <div class="personal__reports_cell personal__reports_date text_small">
                   <span class="personal__reports_datevalue">{{ report.date }}</span>
                 </div>
                 <div class="personal__reports_cell personal__reports_actions">
-                  <div class="personal__reports_buttons">
+                  <div class="personal__reports_buttons text_small">
                     <a 
                       v-if="report.xlsxUrl"
                       :href="getFullUrl(report.xlsxUrl)" 
-                      class="personal__reports_button button__text" 
+                      class="personal__reports_button text_small" 
                       download=""
                     >
                       <DownloadSVG/>
@@ -289,7 +306,7 @@
                     <a 
                       v-if="report.pdfUrl"
                       :href="getFullUrl(report.pdfUrl)" 
-                      class="personal__reports_button button__text" 
+                      class="personal__reports_button text_small" 
                       download=""
                     >
                       <DownloadSVG/>
@@ -298,7 +315,7 @@
                     
                     <a 
                       :href="getFullUrl(`/acts/${report.id}`)" 
-                      class="personal__reports_button button__text"
+                      class="personal__reports_button text_small"
                       v-if="report.hasAct"
                       download=""
                     >
@@ -340,11 +357,11 @@
             <h5 class="personal__transactions_head">Финансовые транзакции</h5>
             <ul class="personal__transactions_list">
               <li class="personal__transactions_item personal__transactions_header">
-                <div class="personal__transactions_cell personal__transactions_type text_very">Тип транзакции</div>
-                <div class="personal__transactions_cell personal__transactions_date text_very">Дата</div>
-                <div class="personal__transactions_cell personal__transactions_period text_very">Период</div>
-                <div class="personal__transactions_cell personal__transactions_status text_very">Статус</div>
-                <div class="personal__transactions_cell personal__transactions_amount text_very">Сумма</div>
+                <div class="personal__transactions_cell personal__transactions_type text_small">Тип транзакции</div>
+                <div class="personal__transactions_cell personal__transactions_date text_small">Дата</div>
+                <div class="personal__transactions_cell personal__transactions_period text_small">Период</div>
+                <div class="personal__transactions_cell personal__transactions_status text_small">Статус</div>
+                <div class="personal__transactions_cell personal__transactions_amount text_small">Сумма</div>
               </li>
               <li 
                 class="personal__transactions_item" 
@@ -353,7 +370,7 @@
               >
                 <div class="personal__transactions_cell personal__transactions_type">
                   <div class="personal__transactions_image"><TransactionSVG /></div>
-                  <span class="personal__transactions_typevalue button">{{ transaction.type }}</span>
+                  <span class="personal__transactions_typevalue text_small">{{ transaction.type }}</span>
                 </div>
                 <div class="personal__transactions_cell personal__transactions_date">
                   <span class="personal__transactions_datevalue text_small">{{ transaction.date }}</span>
@@ -435,7 +452,7 @@
                   </div>
                   <div class="personal__articles_info">
                     <p class="personal__articles_head text_small">{{ article.name }}</p>
-                    <p class="personal__articles_date text_very">Читать статью</p>
+                    <p class="personal__articles_date text_small">Читать статью</p>
                   </div>
                 </a>
               </li>
@@ -464,13 +481,13 @@
               >
                 <a href="#" target="_blank" class="personal__partners_link">
                   <p class="personal__partners_heading button">{{ partner.name }}</p>
-                  <p class="personal__partners_desc text_very">{{ partner.email }} • {{ partner.date }}</p>
+                  <p class="personal__partners_desc text_small">{{ partner.email }} • {{ partner.date }}</p>
                 </a>
               </li>
               <li v-if="lastThreePartners.length === 0" class="personal__partners_item">
                 <div class="personal__partners_link">
                   <p class="personal__partners_heading button">Нет партнеров</p>
-                  <p class="personal__partners_desc text_very">Пригласите друзей</p>
+                  <p class="personal__partners_desc text_small">Пригласите друзей</p>
                 </div>
               </li>
             </ul>
@@ -491,21 +508,22 @@
       </div>
       <div class="popup__body">
         <div class="popup__years" v-if="reportYears.length > 0">
-          <select 
-            v-model="selectedYear" 
-            class="popup__year-select"
+          <!-- Заменяем обычный select на el-select -->
+          <el-select
+            v-model="selectedYear"
+            placeholder="Выберите год"
             :disabled="isLoadingQuarters"
-            @change="selectYear(selectedYear)"
+            @change="selectYear"
+            class="popup__year-select"
+            popper-class="popup-select-popper"
           >
-            <option value="" disabled>Выберите год</option>
-            <option 
-              v-for="year in reportYears" 
+            <el-option
+              v-for="year in reportYears"
               :key="year"
+              :label="year"
               :value="year"
-            >
-              {{ year }}
-            </option>
-          </select>
+            />
+          </el-select>
           <div v-if="isLoadingQuarters" class="popup__loading-select">
             Загрузка кварталов...
           </div>
@@ -584,7 +602,6 @@
           :disabled="!selectedQuarter || isLoadingQuarters || isDownloading"
           @click="downloadReport"
         >
-          <DownloadSVG/>
           <span>{{ isDownloading ? 'Загрузка...' : 'Скачать отчет' }}</span>
         </button>
       </div>
@@ -1404,6 +1421,7 @@ const backToYearSelection = () => {
   showQuarterPopup.value = false;
   showReportPopup.value = true;
   selectedQuarter.value = '';
+  selectedYear.value = '';
   availableQuarters.value = [];
 };
 
@@ -1953,22 +1971,6 @@ const getUpcDisplayText = (release: Release): string => {
   return 'уточнить в поддержке';
 };
 
-// Функция для получения текста отображения ссылки
-const getLinkDisplayText = (release: Release): string => {
-  if (release.link && release.link !== 'Нет данных') {
-    return release.link;
-  }
-  
-  const releaseDate = getReleaseDate(release);
-  const currentDate = getCurrentDate();
-  
-  if (releaseDate && releaseDate <= currentDate) {
-    return 'уточнить в поддержке';
-  }
-  
-  return 'уточнить в поддержке';
-};
-
 // Обработчик клика по UPC
 const handleUpcClick = (release: Release) => {
   const displayText = getUpcDisplayText(release);
@@ -2276,6 +2278,7 @@ onMounted(() => {
 }
 .personal__releases_codes {
   display: flex;
+  padding: 0 0 10px;
   flex-wrap: wrap;
   gap: 10px;
 }
@@ -2796,7 +2799,6 @@ onMounted(() => {
   border-bottom: 1px solid var(--border);
   position: relative;
 }
-
 .popup__back {
   background: none;
   border: none;
@@ -2806,17 +2808,30 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 5px;
+  position: relative;
+  z-index: 1;
 }
 
 .popup__back:hover {
   color: var(--text);
 }
-
+.popup__title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  margin: 0;
+  white-space: nowrap;
+}
 .popup__close {
   background: none;
   border: none;
   cursor: pointer;
   color: var(--text-gray);
+  position: relative;
+  z-index: 1;
+  font-size: 24px;
+  line-height: 1;
 }
 
 .popup__body {
@@ -2996,32 +3011,8 @@ onMounted(() => {
   height: auto;
   object-fit: contain;
 }
-/* Стили для выпадающего списка */
 .popup__year-select {
   width: 100%;
-  padding: 12px 15px;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.3s ease;
-}
-
-.popup__year-select:hover {
-  border-color: var(--color);
-}
-
-.popup__year-select:focus {
-  outline: none;
-  border-color: var(--color);
-  box-shadow: 0 0 0 2px rgba(var(--color-rgb), 0.1);
-}
-
-.popup__year-select:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .popup__loading-select {

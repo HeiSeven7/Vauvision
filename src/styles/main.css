@@ -1053,16 +1053,16 @@ section {
 .quiz__album_track_buttons {
   padding: 20px 0 0;
 }
-.quiz__album_item {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.quiz__single_item_title,
+.quiz__section_title,
+.quiz__album_item_title {
+  padding: 20px 0;
 }
 .quiz__form_single_name {
   display: flex;
   width: 100%;
   padding: 20px;
-  margin: 20px 0;
+  margin: 0 0 20px;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
