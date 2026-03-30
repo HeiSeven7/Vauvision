@@ -588,7 +588,7 @@
             @click="selectedQuarter = quarter.id"
           >
             <!-- <span class="quarter__name">{{ quarter.name }}</span> -->
-            <span class="quarter__months">{{ quarter.months }}</span>
+            <span class="quarter__months">{{ quarter.name }} ({{ quarter.months }})</span>
           </button>
         </div>
         
@@ -2278,29 +2278,63 @@ onMounted(() => {
 }
 .personal__releases_codes {
   display: flex;
-  padding: 0 0 10px;
   flex-wrap: wrap;
   gap: 10px;
+  padding: 0 0 10px;
 }
+
 .personal__releases_code {
-  display: flex;
-  padding: 10px 20px;
-  flex-wrap: nowrap;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  flex: 1 1 auto;
+  min-width: 140px;
   font-size: 12px;
+  font-weight: 500;
   color: var(--text);
   background-color: var(--bg);
   border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.personal__releases_code:hover {
-  color: var(--white);
-  background-color: var(--color);
+
+.personal__releases_code span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
 .personal__releases_code svg {
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
   object-fit: contain;
+}
+
+.personal__releases_code:hover {
+  color: var(--white);
+  background-color: var(--color);
+  border-color: var(--color);
+}
+
+.personal__releases_code_action {
+  cursor: pointer;
+}
+
+.personal__releases_codes:has(.personal__releases_code:only-child) {
+  justify-content: flex-start;
+}
+
+.personal__releases_codes:has(.personal__releases_code:only-child) .personal__releases_code {
+  flex: 0 0 auto;
+  min-width: 200px;
 }
 .personal__releases_date {
   color: var(--text-gray);
@@ -2731,14 +2765,6 @@ onMounted(() => {
 }
 .personal__transactions_amountvalue {
   color: var(--text);
-}
-.personal__releases_code_action {
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-.personal__releases_code_action:hover {
-  background-color: var(--color);
-  color: var(--white);
 }
 .personal__tracks_isrc_action {
   cursor: pointer;
@@ -3252,6 +3278,10 @@ onMounted(() => {
   .personal__tracks_name {
     white-space: normal;
     word-break: break-word;
+  }
+  .personal__releases_code {
+    width: 100%;
+    max-width: 100%;
   }
 }
 </style>
