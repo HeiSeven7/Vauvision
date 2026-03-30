@@ -611,17 +611,20 @@ section {
   color: var(--text);
 }
 
-.button__primary:hover span,
 .button__black:hover span,
-.button__pagination:hover span {
+.button__black.active span,
+.button__pagination:hover span,
+.button__pagination.active span {
   color: var(--white);
   background-color: var(--color);
 }
-.button__primary:hover span {
+.button__primary:hover span,
+.button__primary:.active span {
   color: var(--white);
   background-color: var(--black);
 }
-.button__red:hover span {
+.button__red:hover span,
+.button__red.active span {
   color: var(--white);
   background-color: var(--black);
 }

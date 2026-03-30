@@ -583,11 +583,10 @@
           <button 
             v-for="quarter in availableQuarters" 
             :key="quarter.id"
-            class="popup__quarter-button popup__button button button__black""
-            :class="{ 'selected': selectedQuarter === quarter.id }"
-            @click="selectedQuarter = quarter.id"
+            class="popup__quarter-button popup__button button button__black"
+            :class="{ 'active': selectedQuarter === quarter.id }"
+            @click="toggleQuarter(quarter.id)"
           >
-            <!-- <span class="quarter__name">{{ quarter.name }}</span> -->
             <span class="quarter__months">{{ quarter.name }} ({{ quarter.months }})</span>
           </button>
         </div>
@@ -1078,6 +1077,14 @@ const prevTransactionsPage = async () => {
   if (currentTransactionsPage.value > 1) {
     currentTransactionsPage.value--;
     await fetchTransactionsPage(currentTransactionsPage.value);
+  }
+};
+
+const toggleQuarter = (quarterId: string) => {
+  if (selectedQuarter.value === quarterId) {
+    selectedQuarter.value = '';
+  } else {
+    selectedQuarter.value = quarterId;
   }
 };
 
