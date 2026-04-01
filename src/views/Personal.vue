@@ -197,14 +197,14 @@
                           <div class="personal__tracks_info">
                             <div class="personal__tracks_name text_small">{{ track.title }}</div>
                               <!-- ISRC код для трека -->
-                              <div class="personal__tracks_isrc text_small">
+                              <div class="personal__tracks_isrc text_very">
                                 <span v-if="track.isrc && track.isrc !== 'Нет данных'">
                                   ISRC: {{ track.isrc }}
                                 </span>
                                 <RouterLink 
                                   v-else
                                   :to="Tr.i18nRoute({ name: 'support' })"
-                                  class="personal__tracks_isrc_link text_small"
+                                  class="personal__tracks_isrc_link text_very"
                                   target="_blank"
                                 >
                                   <LinkSVG/>
@@ -273,7 +273,7 @@
             <ul class="personal__reports_list">
               <li class="personal__reports_item personal__reports_header">
                 <div class="personal__reports_cell personal__reports_info text_small">Отчет</div>
-                <div class="personal__reports_cell personal__reports_date text_small">Дата</div>
+                <!-- <div class="personal__reports_cell personal__reports_date text_small">Дата</div> -->
                 <div class="personal__reports_cell personal__reports_actions text_small"></div>
               </li>
               <li 
@@ -497,7 +497,34 @@
     </div>
   </div>
 </section>
-
+<!-- Попап для подтверждения перед скачиванием отчета -->
+<Teleport to="body">
+  <div class="popup" v-if="showConfirmReportPopup" @click.self="closeAllPopups">
+    <div class="popup__content popup__content_small">
+      <div class="popup__header">
+        <h5 class="popup__title">Скачать отчет</h5>
+        <button class="popup__close" @click="closeAllPopups">×</button>
+      </div>
+      <div class="popup__body">
+        <div class="popup__info-message">
+          Перед скачиванием отчета, пожалуйста, убедитесь, что у вас в настройках указаны верные реквизиты
+        </div>
+        
+        <div class="popup__actions popup__actions_two_buttons">
+          <RouterLink :to="Tr.i18nRoute({ name: 'setting' })" class="popup__button button button__black">
+            <span>Настройки</span>
+          </RouterLink>
+          <button 
+            class="popup__button button button__primary"
+            @click="proceedToReportDownload"
+          >
+            <span>Скачать отчет</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</Teleport>
 <!-- Попап для выбора года -->
 <Teleport to="body">
   <div class="popup" v-if="showReportPopup" @click.self="closeAllPopups">
@@ -608,7 +635,7 @@
   </div>
 </Teleport>
 
-<!-- Попап для ввода суммы выплаты -->
+<!-- Попап для запроса выплаты -->
 <Teleport to="body">
   <div class="popup" v-if="showPayoutAmountPopup" @click.self="closeAllPopups">
     <div class="popup__content popup__content_small">
@@ -619,7 +646,7 @@
       <div class="popup__body">
         <div class="popup__info">
           <p class="popup__balance-info">
-            Доступно средств: <strong>{{ profileData.balance.toLocaleString() }} ₽</strong>
+            Сумма к выплате: <strong>{{ profileData.balance.toLocaleString() }} ₽</strong>
           </p>
           <p class="popup__min-amount">
             Минимальная сумма: <strong>{{ minPayoutAmount }} ₽</strong>
@@ -627,21 +654,9 @@
         </div>
         
         <div class="popup__form-group">
-          <label for="payout-amount" class="popup__label">
-            Введите сумму для выплаты:
-          </label>
-          <input
-            id="payout-amount"
-            type="number"
-            class="popup__input"
-            :class="{ 'popup__input_error': actError }"
-            v-model.number="payoutAmount"
-            :min="minPayoutAmount"
-            :max="profileData.balance"
-            :placeholder="`От ${minPayoutAmount} до ${profileData.balance}`"
-            :disabled="isRequestingAct"
-            @keyup.enter="requestPayoutAct"
-          />
+          <p class="popup__info-message">
+            Будет запрошена выплата на сумму {{ profileData.balance.toLocaleString() }} ₽
+          </p>
           <p v-if="actError" class="popup__error-message">{{ actError }}</p>
         </div>
         
@@ -649,7 +664,7 @@
           <button 
             class="popup__button button button__primary"
             @click="requestPayoutAct"
-            :disabled="!isPayoutAmountValid || isRequestingAct"
+            :disabled="isRequestingAct"
           >
             <span v-if="!isRequestingAct">Получить акт</span>
             <span v-else>Запрос...</span>
@@ -921,6 +936,7 @@ const showNoReportsPopup = ref(false);
 const actData = ref<ActResponse | null>(null);
 const userLabel = ref(0);
 const isoldsumm = ref("0");
+const showConfirmReportPopup = ref(false);
 
 const payoutAmount = ref<number | null>(null);
 const isRequestingAct = ref(false);
@@ -1034,8 +1050,8 @@ const minPayoutAmount = computed(() => {
 });
 
 const isPayoutAmountValid = computed(() => {
-  if (!payoutAmount.value) return false;
-  return payoutAmount.value >= minPayoutAmount.value && payoutAmount.value <= profileData.value.balance;
+  // Всегда валидно, так как сумма автоматически равна максимальному балансу
+  return true;
 });
 
 const nextReleasesPage = async () => {
@@ -1395,6 +1411,16 @@ const showReportPopupFunc = () => {
     return;
   }
   
+  // Открываем попап с подтверждением
+  showConfirmReportPopup.value = true;
+  document.documentElement.classList.add('noscroll');
+};
+
+// Продолжить скачивание отчета
+const proceedToReportDownload = () => {
+  closeAllPopups();
+  
+  // Проверяем наличие годов для отчета
   if (reportYears.value.length === 0) {
     showNoReportsPopup.value = true;
     document.documentElement.classList.add('noscroll');
@@ -1413,6 +1439,7 @@ const closeAllPopups = () => {
   showPayoutAmountPopup.value = false;
   showImagesPopup.value = false;
   showNoReportsPopup.value = false;
+  showConfirmReportPopup.value = false; // Добавьте эту строку
   selectedYear.value = '';
   selectedQuarter.value = '';
   availableQuarters.value = [];
@@ -1420,7 +1447,7 @@ const closeAllPopups = () => {
   actError.value = '';
   payoutAmount.value = null;
   vyplataError.value = '';
-  loadingYear.value = null; // Сбрасываем состояние загрузки при закрытии
+  loadingYear.value = null;
   document.documentElement.classList.remove('noscroll');
 };
 
@@ -1630,7 +1657,8 @@ const openPayoutAmountPopup = () => {
     return;
   }
   
-  payoutAmount.value = null;
+  // Автоматически устанавливаем сумму равной максимальному балансу
+  payoutAmount.value = profileData.value.balance;
   actError.value = '';
   showPayoutAmountPopup.value = true;
   document.documentElement.classList.add('noscroll');
@@ -2168,6 +2196,7 @@ onMounted(() => {
   min-height: 315px;
   padding: 40px;
   flex-direction: column;
+  justify-content: space-between;
   gap: 30px;
   position: relative;
   background-color: var(--bg);
@@ -2292,14 +2321,12 @@ onMounted(() => {
 
 .personal__releases_code {
   display: inline-flex;
+  width: calc(33.333% - 7px);
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 10px 16px;
-  flex: 1 1 auto;
   min-width: 140px;
-  font-size: 12px;
-  font-weight: 500;
   color: var(--text);
   background-color: var(--bg);
   border: 1px solid var(--border);
@@ -2434,15 +2461,13 @@ onMounted(() => {
 }
 
 .personal__tracks_isrc {
-  color: var(--text-gray);
   margin-top: 2px;
-  font-family: monospace;
 }
 
 .personal__partner {
   display: flex;
   min-height: 315px;
-  padding: 52px;
+  padding: 40px;
   flex-direction: column;
   justify-content: space-between;
   gap: 20px;
@@ -2648,7 +2673,6 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   color: var(--text);
-  text-transform: uppercase;
 }
 .personal__reports_button:hover {
   color: var(--color);
@@ -2657,6 +2681,7 @@ onMounted(() => {
   width: 16px;
   height: 16px;
   object-fit: contain;
+  transform: translateY(-2px);
 }
 
 .personal__reports_empty {
@@ -2709,23 +2734,23 @@ onMounted(() => {
 }
 .personal__transactions_type {
   flex: 2;
-  min-width: 180px;
+  min-width: 120px;
 }
 .personal__transactions_date {
   flex: 1;
-  min-width: 120px;
+  min-width: 90px;
 }
 .personal__transactions_period {
   flex: 1;
-  min-width: 120px;
+  min-width: 100px;
 }
 .personal__transactions_status {
   flex: 1;
-  min-width: 140px;
+  min-width: 115px;
 }
 .personal__transactions_amount {
   flex: 1;
-  min-width: 120px;
+  min-width: 90px;
   justify-content: flex-end;
   font-weight: 500;
 }
@@ -2893,7 +2918,15 @@ onMounted(() => {
   margin-top: 8px;
   color: var(--text-gray-light);
 }
-
+.popup__info-message {
+  padding: 12px 15px;
+  background-color: var(--bg-secondary, #f5f5f5);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-align: center;
+  font-weight: 500;
+}
 .popup__years,
 .popup__quarters {
   display: flex;
@@ -2946,7 +2979,7 @@ onMounted(() => {
 }
 
 .popup__content_small {
-  max-width: 400px;
+  max-width: 600px;
 }
 
 .popup__info {
@@ -3258,6 +3291,9 @@ onMounted(() => {
     width: 24px;
     text-align: center;
   }
+  .personal__releases_code {
+    width: calc(50% - 5px);
+  }
 }
 
 /* Адаптация для очень маленьких устройств (580px и меньше) */
@@ -3266,14 +3302,13 @@ onMounted(() => {
     width: 150px;
     bottom: -100px;
   }
+  .popup__actions {
+    flex-direction: column;
+  }
 }
 
 /* Адаптация для самых маленьких устройств (480px и меньше) */
 @media (max-width: 480px) {
-  .popup__actions {
-    flex-direction: column;
-  }
-  
   .popup__images-grid {
     grid-template-columns: 1fr;
   }
