@@ -44,7 +44,7 @@
             <div class="personal__balance_top">
               <div class="personal__balance_svg"><WalletSVG/></div>
               <div class="personal__balance_top_info">
-                <h4 class="personal__balance_heading text_one">Отчет</h4>
+                <h4 class="personal__balance_heading text_one">Отчёт</h4>
               </div>
             </div>
             <button 
@@ -53,7 +53,7 @@
               :disabled="!showReportButton"
               @click="showReportPopupFunc"
             >
-              <span><DownloadSVG/>Скачать отчет</span>
+              <span><DownloadSVG/>Скачать отчёт</span>
             </button>
           </li>
           <li class="personal__balance_item">
@@ -267,12 +267,12 @@
           </div>
           <div class="personal__reports">
             <div class="personal__reports_top">
-              <h5 class="personal__reports_head">Ранее полученные отчеты</h5>
+              <h5 class="personal__reports_head">Ранее полученные отчёты</h5>
               <p class="personal__reports_desc">Новый отчёт нужно скачать через кнопку «Скачать отчёт» вверху страницы</p>
             </div>
             <ul class="personal__reports_list">
               <li class="personal__reports_item personal__reports_header">
-                <div class="personal__reports_cell personal__reports_info text_small">Отчет</div>
+                <div class="personal__reports_cell personal__reports_info text_small">Отчёт</div>
                 <!-- <div class="personal__reports_cell personal__reports_date text_small">Дата</div> -->
                 <div class="personal__reports_cell personal__reports_actions text_small"></div>
               </li>
@@ -327,7 +327,7 @@
               </li>
             </ul>
             <div v-if="paginatedReports.length === 0 && !isLoadingReports" class="personal__reports_empty">
-              <p class="personal__reports_empty_text">Нет доступных отчетов</p>
+              <p class="personal__reports_empty_text">Нет доступных отчётов</p>
             </div>
             <div class="pagination__buttons" v-if="showReportsPagination">
               <button 
@@ -497,17 +497,17 @@
     </div>
   </div>
 </section>
-<!-- Попап для подтверждения перед скачиванием отчета -->
+<!-- Попап для подтверждения перед скачиванием отчёта -->
 <Teleport to="body">
   <div class="popup" v-if="showConfirmReportPopup" @click.self="closeAllPopups">
     <div class="popup__content popup__content_small">
       <div class="popup__header">
-        <h5 class="popup__title">Скачать отчет</h5>
+        <h5 class="popup__title">Скачать отчёт</h5>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
         <div class="popup__info-message">
-          Перед скачиванием отчета, пожалуйста, убедитесь, что у вас в настройках указаны верные реквизиты
+          Перед скачиванием отчёта, пожалуйста, убедитесь, что у вас в настройках указаны верные реквизиты
         </div>
         
         <div class="popup__actions popup__actions_two_buttons">
@@ -518,7 +518,7 @@
             class="popup__button button button__primary"
             @click="proceedToReportDownload"
           >
-            <span>Скачать отчет</span>
+            <span>Скачать отчёт</span>
           </button>
         </div>
       </div>
@@ -530,7 +530,7 @@
   <div class="popup" v-if="showReportPopup" @click.self="closeAllPopups">
     <div class="popup__content">
       <div class="popup__header">
-        <h5 class="popup__title">Выберите год отчета</h5>
+        <h5 class="popup__title">Выберите год отчёта</h5>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
@@ -556,7 +556,7 @@
           </div>
         </div>
         <div v-else class="popup__empty">
-          <p>Нет доступных отчетов</p>
+          <p>Нет доступных отчётов</p>
           <p class="popup__empty_hint">Попробуйте позже или обратитесь в поддержку</p>
         </div>
       </div>
@@ -564,17 +564,17 @@
   </div>
 </Teleport>
 
-<!-- Попап для сообщения "Нет доступных отчетов" -->
+<!-- Попап для сообщения "Нет доступных отчётов" -->
 <Teleport to="body">
   <div class="popup" v-if="showNoReportsPopup" @click.self="closeAllPopups">
     <div class="popup__content popup__content_small">
       <div class="popup__header">
-        <h5 class="popup__title">Нет доступных отчетов</h5>
+        <h5 class="popup__title">Нет доступных отчётов</h5>
         <button class="popup__close" @click="closeAllPopups">×</button>
       </div>
       <div class="popup__body">
         <div class="popup__empty">
-          <p>На данный момент нет доступных отчетов</p>
+          <p>На данный момент нет доступных отчётов</p>
           <p class="popup__empty_hint">Попробуйте позже или обратитесь в поддержку</p>
         </div>
         <div class="popup__actions">
@@ -620,7 +620,7 @@
         
         <div v-else class="popup__empty">
           <p>Нет доступных кварталов</p>
-          <p class="popup__empty_hint">Для выбранного года нет отчетов</p>
+          <p class="popup__empty_hint">Для выбранного года нет отчётов</p>
         </div>
         
         <button 
@@ -628,7 +628,7 @@
           :disabled="!selectedQuarter || isLoadingQuarters || isDownloading"
           @click="downloadReport"
         >
-          <span>{{ isDownloading ? 'Загрузка...' : 'Скачать отчет' }}</span>
+          <span>{{ isDownloading ? 'Загрузка...' : 'Скачать отчёт' }}</span>
         </button>
       </div>
     </div>
@@ -648,9 +648,9 @@
           <p class="popup__balance-info">
             Сумма к выплате: <strong>{{ profileData.balance.toLocaleString() }} ₽</strong>
           </p>
-          <p class="popup__min-amount">
+          <!-- <p class="popup__min-amount">
             Минимальная сумма: <strong>{{ minPayoutAmount }} ₽</strong>
-          </p>
+          </p> -->
         </div>
         
         <div class="popup__form-group">
@@ -1201,7 +1201,7 @@ const fetchReportsPage = async (page: number) => {
     if (response.data && response.data.downloadedReports) {
       reportsData.value = response.data.downloadedReports.items.map((item: any) => ({
         id: item.id,
-        filename: item.name || 'Отчет',
+        filename: item.name || 'Отчёт',
         filesize: '',
         date: '',
         hasAct: false,
@@ -1219,7 +1219,7 @@ const fetchReportsPage = async (page: number) => {
       currentReportsPage.value = reportsPagination.value.currentPage;
     }
   } catch (error) {
-    console.error('Ошибка при загрузке отчетов:', error);
+    console.error('Ошибка при загрузке отчётов:', error);
   } finally {
     isLoadingReports.value = false;
   }
@@ -1385,7 +1385,7 @@ const downloadReport = async () => {
       
       // Показываем сообщение об успешной загрузке
       ElMessage({
-        message: 'Отчет успешно скачивается',
+        message: 'Отчёт успешно скачивается',
         type: 'success',
         duration: 3000,
         showClose: true
@@ -1407,7 +1407,7 @@ const downloadReport = async () => {
 
 const showReportPopupFunc = () => {
   if (!showReportButton.value) {
-    alert('Кнопка скачивания отчета недоступна');
+    alert('Кнопка скачивания отчёта недоступна');
     return;
   }
   
@@ -1416,11 +1416,11 @@ const showReportPopupFunc = () => {
   document.documentElement.classList.add('noscroll');
 };
 
-// Продолжить скачивание отчета
+// Продолжить скачивание отчёта
 const proceedToReportDownload = () => {
   closeAllPopups();
   
-  // Проверяем наличие годов для отчета
+  // Проверяем наличие годов для отчёта
   if (reportYears.value.length === 0) {
     showNoReportsPopup.value = true;
     document.documentElement.classList.add('noscroll');
@@ -1545,7 +1545,7 @@ const fetchReports = async () => {
     if (response.data && response.data.downloadedReports) {
       reportsData.value = response.data.downloadedReports.items.map((item: any) => ({
         id: item.id,
-        filename: item.name || 'Отчет',
+        filename: item.name || 'Отчёт',
         filesize: '',
         date: '',
         hasAct: false,
@@ -1562,7 +1562,7 @@ const fetchReports = async () => {
       currentReportsPage.value = reportsPagination.value.currentPage;
     }
   } catch (error) {
-    console.error('Ошибка при загрузке отчетов:', error);
+    console.error('Ошибка при загрузке отчётов:', error);
     throw error;
   }
 };
@@ -2644,8 +2644,8 @@ onMounted(() => {
   min-width: 300px;
 }
 .personal__reports_actions {
+  min-width: 120px;
   flex: 2;
-  min-width: 200px;
   justify-content: flex-end;
 }
 .personal__reports_file {
@@ -3198,6 +3198,7 @@ onMounted(() => {
   }
   .personal__transactions_date {
     min-width: auto;
+    margin: 0 0 0 55px;
     order: 3;
   }
   .personal__transactions_period {
@@ -3209,10 +3210,11 @@ onMounted(() => {
     order: 5;
   }
   .personal__reports_info {
-    width: 100%;
     flex: 0 0 auto;
   }
-  
+  .personal__balance_button span {
+    width: auto;
+  }
   .popup__header {
     gap: 10px;
   }

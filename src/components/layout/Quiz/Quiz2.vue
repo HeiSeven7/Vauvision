@@ -1511,36 +1511,77 @@ const addSingleTrackWithFile = async () => {
     return;
   }
   
+  // Создаем input элемент
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = 'audio/*';
+  // ВАЖНО: для iOS нужно указывать конкретные расширения, а не просто audio/*
+  input.accept = '.mp3,.wav,.flac,.aac,.m4a,.ogg,audio/mpeg,audio/wav,audio/x-wav,audio/flac,audio/aac,audio/mp4,audio/ogg';
   input.multiple = false;
-  input.style.display = 'none';
+  input.style.position = 'absolute';
+  input.style.top = '-100px';
+  input.style.left = '-100px';
+  input.style.opacity = '0';
   
-  input.onchange = async (event) => {
-    const file = (event.target as HTMLInputElement).files?.[0];
-    if (!file) return;
+  // Добавляем в DOM (обязательно для iOS)
+  document.body.appendChild(input);
+  
+  // Флаг для предотвращения двойной обработки
+  let isProcessing = false;
+  
+  // Обработчик выбора файла
+  const handleFileSelect = async (event: Event) => {
+    if (isProcessing) return;
     
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    
+    // Удаляем обработчики
+    input.removeEventListener('change', handleFileSelect);
+    input.removeEventListener('cancel', handleCancel);
+    
+    // Удаляем input из DOM
+    if (document.body.contains(input)) {
+      document.body.removeChild(input);
+    }
+    
+    if (!file) {
+      return;
+    }
+    
+    isProcessing = true;
     isLoadingTwo.value = true;
     
     try {
+      // Проверка размера файла
+      const maxSize = 50 * 1024 * 1024; // 50MB
       if (file.size === 0) {
         throw new Error('Файл имеет 0 байт. Проверьте файл и попробуйте снова.');
       }
       
-      const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg'];
-      if (!allowedTypes.includes(file.type)) {
-        throw new Error('Недопустимый формат файла');
-      }
-      
-      const maxSize = 50 * 1024 * 1024;
       if (file.size > maxSize) {
-        throw new Error('Файл слишком большой');
+        throw new Error(`Файл слишком большой (${(file.size / 1024 / 1024).toFixed(2)}MB). Максимальный размер - 50MB`);
       }
       
+      // Проверка расширения файла (для iOS type часто приходит пустым)
+      const validExtensions = ['.mp3', '.wav', '.flac', '.aac', '.m4a', '.ogg'];
+      const fileName = file.name.toLowerCase();
+      const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+      
+      if (!hasValidExtension) {
+        throw new Error('Недопустимый формат файла. Поддерживаются: MP3, WAV, FLAC, AAC, M4A, OGG');
+      }
+      
+      // Дополнительная проверка MIME-типа (если он есть)
+      const validMimeTypes = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/flac', 'audio/aac', 'audio/mp4', 'audio/ogg'];
+      if (file.type && !validMimeTypes.includes(file.type) && !file.type.startsWith('audio/')) {
+        console.warn(`Нестандартный MIME-тип: ${file.type}, но расширение валидное`);
+      }
+      
+      // Генерируем ID и сохраняем в IndexedDB
       const fileId = generateAudioId('single', singleTracks.value.length);
       await saveAudioToDB(file, fileId);
       
+      // Создаем новый трек
       const newTrack: SingleTrack = {
         id: `single-${Date.now()}-${singleTracks.value.length}-${Math.random()}`,
         performerName: '',
@@ -1569,20 +1610,36 @@ const addSingleTrackWithFile = async () => {
         rightsContractLink: ''
       });
       
+      // Обновляем реактивность
       singleTracks.value = [...singleTracks.value];
       await saveStateToDB();
       
       ElMessage.success(`Сингл добавлен (${singleTracks.value.length}/${singleCountFromQuiz1.value})`);
+      
     } catch (error: any) {
+      console.error('Ошибка при загрузке файла:', error);
       ElMessage.error(`Ошибка загрузки: ${error.message}`);
     } finally {
       isLoadingTwo.value = false;
+      isProcessing = false;
     }
   };
   
-  document.body.appendChild(input);
-  input.click();
-  document.body.removeChild(input);
+  // Обработчик отмены выбора файла
+  const handleCancel = () => {
+    if (document.body.contains(input)) {
+      document.body.removeChild(input);
+    }
+  };
+  
+  // Добавляем обработчики
+  input.addEventListener('change', handleFileSelect);
+  input.addEventListener('cancel', handleCancel);
+  
+  // Задержка перед вызовом click() для iOS
+  setTimeout(() => {
+    input.click();
+  }, 100);
 };
 
 const removeSingleTrack = async (trackIndex: number) => {
@@ -1634,14 +1691,27 @@ const uploadAllSingles = async () => {
     return;
   }
   
+  // Создаем input с правильными атрибутами для iOS
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = 'audio/*';
-  input.multiple = true;
-  input.style.display = 'none';
+  input.accept = '.mp3,.wav,.flac,.aac,.m4a,.ogg,audio/mpeg,audio/wav,audio/x-wav,audio/flac,audio/aac,audio/mp4,audio/ogg';
+  input.multiple = true; // Для массовой загрузки
+  input.style.position = 'absolute';
+  input.style.top = '-100px';
+  input.style.left = '-100px';
+  input.style.opacity = '0';
   
-  input.onchange = async (event) => {
-    const files = Array.from((event.target as HTMLInputElement).files || []);
+  document.body.appendChild(input);
+  
+  const handleFileSelect = async (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const files = Array.from(target.files || []);
+    
+    // Удаляем input
+    if (document.body.contains(input)) {
+      document.body.removeChild(input);
+    }
+    
     if (files.length === 0) return;
     
     if (files.length !== needToUpload) {
@@ -1658,18 +1728,22 @@ const uploadAllSingles = async () => {
       try {
         const file = files[i];
         
+        // Проверка размера
         if (file.size === 0) {
           throw new Error('Файл имеет 0 байт');
         }
         
-        const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg'];
-        if (!allowedTypes.includes(file.type)) {
-          throw new Error('Недопустимый формат файла');
-        }
-        
         const maxSize = 50 * 1024 * 1024;
         if (file.size > maxSize) {
-          throw new Error('Файл слишком большой');
+          throw new Error(`Файл слишком большой (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+        }
+        
+        // Проверка расширения
+        const validExtensions = ['.mp3', '.wav', '.flac', '.aac', '.m4a', '.ogg'];
+        const hasValidExtension = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+        
+        if (!hasValidExtension) {
+          throw new Error(`Недопустимый формат файла: ${file.name}`);
         }
         
         const fileId = generateAudioId('single', singleTracks.value.length);
@@ -1722,9 +1796,12 @@ const uploadAllSingles = async () => {
     }
   };
   
-  document.body.appendChild(input);
-  input.click();
-  document.body.removeChild(input);
+  input.addEventListener('change', handleFileSelect);
+  
+  // Небольшая задержка для iOS
+  setTimeout(() => {
+    input.click();
+  }, 100);
 };
 
 const uploadAllAlbumTracks = async () => {

@@ -506,6 +506,7 @@ onMounted(() => {
   display: flex;
   width: 40px;
   height: 40px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
@@ -713,6 +714,7 @@ onMounted(() => {
   }
   .partner__date {
     min-width: auto;
+    margin: 0 0 0 55px;
     flex: 0 0 auto;
     order: 3;
   }

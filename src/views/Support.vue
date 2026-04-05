@@ -154,8 +154,8 @@ onMounted(() => {
                   <FaqSVG />
                 </div>
                 <div class="support__faq_card_content">
-                  <h4 class="support__faq_card_title">Как скачать отчет?</h4>
-                  <p class="support__faq_card_desc">Инструкция по скачиванию квартальных отчетов</p>
+                  <h4 class="support__faq_card_title">Как скачать отчёт?</h4>
+                  <p class="support__faq_card_desc">Инструкция по скачиванию квартальных отчётов</p>
                 </div>
               </RouterLink>
             </div>

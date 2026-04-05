@@ -25,7 +25,7 @@
               </li>
               <li>
                 <p>После заполнения этой формы, пожалуйста, напишите сообщение в формате <strong>"Ваш псевдоним - Название релиза - ДИСТРИБУЦИЯ"</strong> в сообщения паблика 
-                  <a href="https://vk.com/vauvisionlabel" target="_blank" rel="noopener noreferrer">vk.com/vauvisionlabel</a>, либо .
+                  <a href="https://vk.com/vauvisionlabel" target="_blank" rel="noopener noreferrer">vk.com/vauvisionlabel</a>, либо <a href="https://vk.com/vauvisionlabel" target="_blank" rel="noopener noreferrer">телеграмм</a>.
                 </p>
               </li>
               <li>
