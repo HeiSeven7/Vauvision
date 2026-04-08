@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 import { sendRequest } from '@/utils/api';
+import LabelArtistsMenuBlock from "@/components/layout/LabelArtistsMenuBlock.vue";
+import {
+  syncLabelMenuFromGetDataResponse,
+  registerLabelArtistsExternalRefresh,
+  clearStoredLabelReturnUserId,
+} from "@/composables/labelArtistsMenu";
 import LogoSVG from "@/uikit/Logo.vue";
 import PaySVG from "@/uikit/icon/PaySVG.vue";
 import LinkSVG from "@/uikit/icon/LinkSVG.vue";
@@ -33,6 +39,8 @@ const referralLink = ref('');
 // Ссылка для выхода
 const logoutUrl = ref('');
 
+let unregisterLabelArtistsRefresh: (() => void) | null = null;
+
 // Состояние копирования
 const isCopying = ref(false);
 const copySuccess = ref(false);
@@ -40,9 +48,11 @@ const copySuccess = ref(false);
 // Получаем базовый URL из текущего окна
 const baseUrl = window.location.origin;
 
-const fetchUserData = async () => {
+const fetchUserData = async (prefetched?: Record<string, unknown>) => {
   try {
-    const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
+    const response = prefetched
+      ? { data: prefetched }
+      : await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
     console.log('Header данные из API:', response.data);
     
     if (response.data) {
@@ -71,6 +81,10 @@ const fetchUserData = async () => {
       if (response.data.unauth) {
         logoutUrl.value = response.data.unauth;
       }
+
+      syncLabelMenuFromGetDataResponse(
+        response.data as Record<string, unknown>
+      );
     }
   } catch (error) {
     console.error('Ошибка при загрузке данных в Header:', error);
@@ -110,7 +124,15 @@ const getAvatarUrl = (avatarPath: string) => {
 };
 
 onMounted(async () => {
+  unregisterLabelArtistsRefresh = registerLabelArtistsExternalRefresh(
+    fetchUserData
+  );
   await fetchUserData();
+});
+
+onUnmounted(() => {
+  unregisterLabelArtistsRefresh?.();
+  unregisterLabelArtistsRefresh = null;
 });
 
 const clickOverlay = () => {
@@ -155,6 +177,7 @@ const closeMenu = () => {
 // Функция для выхода
 const handleLogout = () => {
   if (logoutUrl.value) {
+    clearStoredLabelReturnUserId();
     window.location.href = `${baseUrl}${logoutUrl.value}`;
   }
 };
@@ -272,20 +295,15 @@ const handleAvatarError = (event: Event) => {
               <p class="burger__personal_mail">{{ userData.email || 'email@example.com' }}</p>
             </div>
           </div>
+
+          <LabelArtistsMenuBlock
+            :include-modal="false"
+            root-class="menu__artists--burger menu__artists--burger-inline"
+          />
           
           <!-- Навигация -->
           <nav class="burger__nav">
             <ul class="burger__nav_list">
-              <li class="burger__nav_item burger__profile">
-                <RouterLink 
-                  :to="Tr.i18nRoute({ name: 'setting' })" 
-                  class="burger__nav_link"
-                  @click="closeMenu"
-                >
-                  <SettingSVG class="burger__nav_icon" />
-                  <p>Профиль</p>
-                </RouterLink>
-              </li>
               <li class="burger__nav_item">
                 <RouterLink 
                   :to="Tr.i18nRoute({ name: 'personal' })" 
@@ -304,6 +322,16 @@ const handleAvatarError = (event: Event) => {
                 >
                   <UploadSVG class="burger__nav_icon" />
                   <p>Выложить релиз</p>
+                </RouterLink>
+              </li>
+              <li class="burger__nav_item burger__profile">
+                <RouterLink 
+                  :to="Tr.i18nRoute({ name: 'setting' })" 
+                  class="burger__nav_link"
+                  @click="closeMenu"
+                >
+                  <SettingSVG class="burger__nav_icon" />
+                  <p>Настройки</p>
                 </RouterLink>
               </li>
               <li class="burger__nav_item">
@@ -692,11 +720,11 @@ const handleAvatarError = (event: Event) => {
 .burger__nav {
   flex: 1;
 }
-.burger__profile {
+/* .burger__profile {
   margin: 0 0 20px;
   padding: 0 0 20px;
   border-bottom: 1px solid var(--border);
-}
+} */
 .burger__logout {
   margin: 20px 0 0;
   padding: 10px 0;

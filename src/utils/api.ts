@@ -81,6 +81,40 @@ const sendRequest = async (typeRequest:string, url:string, data:any) => {
   }
 }
 
+/**
+ * POST как форма (application/x-www-form-urlencoded) — для legacy PHP вроде addLableUser.php ($_REQUEST).
+ * Ответ не трогаем transform-ом: Bitrix часто отдаёт text/html с телом «123» (ID пользователя).
+ */
+const postUrlEncodedRequest = async (
+  url: string,
+  fields: Record<string, string | number | boolean>
+) => {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined || value === null) continue;
+    params.append(key, String(value));
+  }
+  try {
+    return await axios.request({
+      method: "post",
+      url,
+      data: params,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+      },
+      withCredentials: true,
+      responseType: "text",
+      transformResponse: [(raw) => raw],
+    });
+  } catch (error: any) {
+    if (error.response?.status === 401) {
+      console.log("401 Unauthorized - перенаправление на логин");
+      redirectToLogin();
+    }
+    throw error;
+  }
+};
+
 const BearerRequest = async (typeRequest:string, url:string, data:any) => {
   let config = {
     method: typeRequest,
@@ -170,4 +204,13 @@ const getCSRFToken = async() => {
   }
 }
 
-export { setToken, getToken, getCSRFToken, sendRequest, BearerRequest, FileRequest, clearTokens }
+export {
+  setToken,
+  getToken,
+  getCSRFToken,
+  sendRequest,
+  postUrlEncodedRequest,
+  BearerRequest,
+  FileRequest,
+  clearTokens,
+};

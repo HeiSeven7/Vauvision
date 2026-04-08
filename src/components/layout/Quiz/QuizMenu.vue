@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, onMounted, watch, onUnmounted } from 'vue';
+import { ref, onMounted, watch, onUnmounted, nextTick } from 'vue';
 import { openDB } from 'idb';
 
 const props = defineProps<{
@@ -18,6 +18,20 @@ const availableSteps = ref<boolean[]>([true, false, false, false, false, false, 
 const isLoading = ref(false);
 const dbInitialized = ref(false);
 const quizDB = ref<any>(null);
+const menuRef = ref<HTMLElement | null>(null);
+
+const isMobileMenuLayout = (): boolean =>
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 1439px)').matches;
+
+const scrollActiveStepIntoView = (): void => {
+  if (!isMobileMenuLayout()) return;
+  nextTick(() => {
+    const root = menuRef.value;
+    if (!root) return;
+    const active = root.querySelector('.quiz__menu_button.active') as HTMLElement | null;
+    active?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  });
+};
 
 const initDB = async (): Promise<void> => {
   try {
@@ -210,11 +224,17 @@ const handleDataUpdate = () => {
 onMounted(async () => {
   await initDB();
   await loadStepsAvailability();
+  scrollActiveStepIntoView();
   window.addEventListener('quiz-data-updated', handleDataUpdate);
 });
 
 watch(() => props.currentStep, () => {
   loadStepsAvailability();
+  scrollActiveStepIntoView();
+});
+
+watch(isLoading, (loading) => {
+  if (!loading) scrollActiveStepIntoView();
 });
 
 onUnmounted(() => {
@@ -223,7 +243,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-<div class="quiz__menu">
+<div ref="menuRef" class="quiz__menu">
   <div v-if="isLoading" class="quiz__menu_loading">
     <span>Загрузка...</span>
   </div>
@@ -311,14 +331,20 @@ onUnmounted(() => {
     flex-wrap: nowrap;
     gap: 10px;
     overflow-y: hidden;
-    overflow-x: scroll;
+    overflow-x: auto;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
   .quiz__menu::-webkit-scrollbar {
     display: none;
     width: 0px;
+    height: 0px;
   }
   .quiz__menu_button {
+    flex: 0 0 auto;
     padding: 10px 20px;
     white-space: nowrap;
     text-overflow: ellipsis;

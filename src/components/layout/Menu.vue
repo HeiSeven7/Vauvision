@@ -30,6 +30,8 @@
       </div>
     </div>
 
+    <LabelArtistsMenuBlock />
+
     <!-- Основная навигация -->
     <ul class="menu__list">
       <li class="menu__item">
@@ -108,7 +110,7 @@
 <script setup lang="ts">
 import { onMounted, ref, onUnmounted } from "vue";
 import { RouterLink } from "vue-router";
-import { sendRequest } from '@/utils/api';
+import { sendRequest } from "@/utils/api";
 import HomeSVG from "@/uikit/menu/HomeSVG.vue";
 import UploadSVG from "@/uikit/menu/UploadSVG.vue";
 import SettingSVG from "@/uikit/menu/SettingSVG.vue";
@@ -119,6 +121,16 @@ import LogoutSVG from "@/uikit/menu/LogoutSVG.vue";
 import PaySVG from "@/uikit/icon/PaySVG.vue";
 import PersonalSVG from "@/uikit/icon/PersonalSVG.vue";
 import Tr from "@/i18n/translation";
+
+import LabelArtistsMenuBlock from "@/components/layout/LabelArtistsMenuBlock.vue";
+import {
+  syncLabelMenuFromGetDataResponse,
+  registerLabelArtistsExternalRefresh,
+  clearStoredLabelReturnUserId,
+  refreshLabelArtists,
+} from "@/composables/labelArtistsMenu";
+
+let unregisterLabelArtistsRefresh: (() => void) | null = null;
 
 // Типы для данных пользователя
 interface UserData {
@@ -183,12 +195,14 @@ let updateTimer: number | null = null;
 // Получаем базовый URL из текущего окна
 const baseUrl = window.location.origin;
 
-// Функция для загрузки данных с сервера
-const fetchUserData = async () => {
+// Функция для загрузки данных с сервера (prefetched — после смены сессии без лишнего запроса)
+const fetchUserData = async (prefetched?: Record<string, unknown>) => {
   try {
-    const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
+    const response = prefetched
+      ? { data: prefetched }
+      : await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
     console.log('Menu данные из API:', response.data);
-    
+
     if (response.data) {
       // Данные пользователя
       const newUserData: UserData = {
@@ -203,26 +217,24 @@ const fetchUserData = async () => {
         newUserData.name = response.data.user.name || response.data.user.login || 'Пользователь';
         newUserData.email = response.data.user.email || 'email@example.com';
         newUserData.login = response.data.user.login || '';
-        
-        // Аватарка пользователя
+
         if (response.data.user.personalPhoto) {
           newUserData.avatar = response.data.user.personalPhoto;
         }
       }
-      
-      // Баланс
+
       if (response.data.profile) {
         newUserData.balance = response.data.profile.balance || 0;
       }
-      
-      // Ссылка для выхода
+
+      syncLabelMenuFromGetDataResponse(
+        response.data as Record<string, unknown>
+      );
+
       const newLogoutUrl = response.data.unauth || '';
-      
-      // Обновляем локальные данные
+
       userData.value = newUserData;
       logoutUrl.value = newLogoutUrl;
-      
-      // Сохраняем в localStorage
       saveToStorage({
         userData: newUserData,
         logoutUrl: newLogoutUrl,
@@ -269,6 +281,7 @@ const handleLogout = () => {
   if (logoutUrl.value) {
     // Очищаем localStorage при выходе
     localStorage.removeItem(STORAGE_KEY);
+    clearStoredLabelReturnUserId();
     window.location.href = `${baseUrl}${logoutUrl.value}`;
   }
 };
@@ -337,15 +350,21 @@ window.__menuApi = {
 };
 
 onMounted(() => {
-  // Если нет сохраненных данных или они устарели - загружаем
+  unregisterLabelArtistsRefresh = registerLabelArtistsExternalRefresh(
+    fetchUserData
+  );
+  refreshLabelArtists();
+
   if (shouldUpdateData()) {
     fetchUserData();
   }
-  
+
   startPeriodicUpdate();
 });
 
 onUnmounted(() => {
+  unregisterLabelArtistsRefresh?.();
+  unregisterLabelArtistsRefresh = null;
   if (updateTimer) {
     clearInterval(updateTimer);
     updateTimer = null;
@@ -478,7 +497,7 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
-/* Стили для кнопки баланса */
+/* Кнопка баланса */
 .menu__balance {
   padding: 0 20px 15px 20px;
   border-bottom: 1px solid var(--border);

@@ -17,6 +17,7 @@
       <div class="personal__balance">
         <div class="personal__balance_info">
           <h3 class="personal__balance_head">ЛИЧНЫЙ КАБИНЕТ {{ userName }}</h3>
+          <p v-if="viewingArtistBanner" class="personal__artist_banner text_small">{{ viewingArtistBanner }}</p>
         </div>
         <div class="personal__divider"></div>
         <ul class="personal__balance_list">
@@ -64,7 +65,7 @@
                   <span class="personal__balance_description text_one">Бонусы партнера</span>
                   {{ profileData.bonus.toLocaleString() }}
                 </h4>
-                <p class="personal__balance_desc text_small">Бонусы начисляются за каждую покупку, а также за рекомендации по Партнёрской программе!<br>Бонусами можно оплачивать до 100% покупок. 1 бонус = 1 рубль.</p>
+                <p class="personal__balance_desc text_small">Бонусы начисляются за каждую покупку, а также за рекомендации по Партнёрской программе!<br>Бонусами можно оплачивать до 100% покупок.<br> 1 бонус = 1 рубль.</p>
               </div>
             </div>
             <button 
@@ -796,7 +797,8 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { useRoute } from "vue-router";
 import { ElMessage } from 'element-plus';
 import { sendRequest } from '@/utils/api';
 import Header from "@/components/layout/Header.vue";
@@ -812,6 +814,29 @@ import TransactionSVG from "@/uikit/icon/TransactionSVG.vue";
 import ButtonSVG from "@/uikit/icon/ButtonSVG.vue";
 import Tr from "@/i18n/translation"
 import SignaturePopup from "@/components/layout/Signature.vue";
+import { registerLabelArtistsExternalRefresh } from "@/composables/labelArtistsMenu";
+
+interface LabelArtistRow {
+  id: string;
+  pseudonym: string;
+}
+
+function mapProfileGroupMembersToArtists(members: unknown): LabelArtistRow[] {
+  if (!Array.isArray(members)) return [];
+  const out: LabelArtistRow[] = [];
+  for (const raw of members) {
+    const m = raw as Record<string, unknown>;
+    const id = m.ID ?? m.id;
+    if (id == null || id === "") continue;
+    const login = String(m.LOGIN ?? m.login ?? "").trim();
+    const name = String(m.NAME ?? m.name ?? "").trim();
+    const lastName = String(m.LAST_NAME ?? m.lastName ?? "").trim();
+    const pseudonym =
+      login || [name, lastName].filter(Boolean).join(" ").trim() || "Артист";
+    out.push({ id: String(id), pseudonym });
+  }
+  return out;
+}
 
 const loading = ref<boolean>(true);
 const loadingSvg = `
@@ -923,6 +948,14 @@ const profileData = ref({
   region: 'Russia'
 });
 const userName = ref<string>('');
+const route = useRoute();
+const labelArtistsFromProfile = ref<LabelArtistRow[]>([]);
+const viewingArtistBanner = computed(() => {
+  const id = route.query.artist;
+  if (!id || typeof id !== 'string') return '';
+  const fromApi = labelArtistsFromProfile.value.find((a) => a.id === id);
+  return fromApi ? `Просмотр кабинета артиста: ${fromApi.pseudonym}` : "";
+});
 const showReportButton = ref(false);
 const reportYears = ref<string[]>([]);
 const selectedYear = ref<string>('');
@@ -1470,9 +1503,11 @@ const handleImageError = (event: Event) => {
   }
 };
 
-const fetchProfileData = async () => {
+const fetchProfileData = async (prefetched?: Record<string, unknown>) => {
   try {
-    const response = await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
+    const response = prefetched
+      ? { data: prefetched }
+      : await sendRequest('get', '/ajax_vue/ajax/getData.php', {});
     console.log('Данные из API:', response.data);
     
     if (response.data) {
@@ -1484,11 +1519,24 @@ const fetchProfileData = async () => {
     }
     
     if (response.data && response.data.profile) {
-      profileData.value.balance = response.data.profile.balance || 0;
-      profileData.value.bonus = response.data.profile.bonus || 0;
-      profileData.value.region = response.data.profile.region || 'Russia';
-      showReportButton.value = response.data.profile.showReportButton || false;
-      userLabel.value = response.data.profile.ufLable || 0;
+      const prof = response.data.profile as Record<string, unknown>;
+      const uf = (response.data.user as Record<string, unknown> | undefined)?.uf as
+        | Record<string, unknown>
+        | undefined;
+      profileData.value.balance = (prof.balance as number) || 0;
+      profileData.value.bonus = (prof.bonus as number) || 0;
+      profileData.value.region = (prof.region as string) || 'Russia';
+      showReportButton.value = !!prof.showReportButton;
+      /* getData: isLabel <=> UF_LEBL; в profile нет ufLable */
+      userLabel.value =
+        prof.isLabel === true ||
+        uf?.UF_LEBL === 1 ||
+        uf?.UF_LEBL === "1"
+          ? 1
+          : 0;
+      labelArtistsFromProfile.value = mapProfileGroupMembersToArtists(
+        prof.groupMembers
+      );
     }
     
     if (response.data && response.data.reportYears) {
@@ -1964,6 +2012,33 @@ const loadAllData = async () => {
   }
 };
 
+let unregisterPersonalShellRefresh: (() => void) | null = null;
+
+const refreshPersonalAfterShellEvent = async (
+  prefetched?: Record<string, unknown>
+) => {
+  if (prefetched) {
+    loading.value = true;
+    loadedCount.value = 0;
+    try {
+      await fetchProfileData(prefetched).finally(() => loadedCount.value++);
+      await Promise.all([
+        fetchReleases().finally(() => loadedCount.value++),
+        fetchReports().finally(() => loadedCount.value++),
+        fetchTransactions().finally(() => loadedCount.value++),
+        fetchArticles().finally(() => loadedCount.value++),
+        fetchPartners().finally(() => loadedCount.value++),
+      ]);
+    } catch (error) {
+      console.error("Ошибка обновления ЛК после смены аккаунта:", error);
+    } finally {
+      loading.value = false;
+    }
+  } else {
+    await loadAllData();
+  }
+};
+
 // Вспомогательная функция для получения текущей даты
 const getCurrentDate = (): Date => {
   const today = new Date();
@@ -2033,7 +2108,15 @@ watch(currentReportsPage, async (newPage) => {
 });
 
 onMounted(() => {
+  unregisterPersonalShellRefresh = registerLabelArtistsExternalRefresh(
+    refreshPersonalAfterShellEvent
+  );
   loadAllData();
+});
+
+onUnmounted(() => {
+  unregisterPersonalShellRefresh?.();
+  unregisterPersonalShellRefresh = null;
 });
 </script>
 
@@ -2102,6 +2185,11 @@ onMounted(() => {
   padding: 40px;
   flex-direction: column;
   gap: 15px;
+}
+.personal__artist_banner {
+  margin: 0;
+  color: var(--color);
+  font-weight: 500;
 }
 .personal__balance_desc {
   color: var(--text-gray);
@@ -2210,6 +2298,7 @@ onMounted(() => {
   position: relative;
   z-index: 2;
 }
+
 .personal__release_button {
   position: relative;
   z-index: 2;
@@ -3295,6 +3384,15 @@ onMounted(() => {
   }
   .personal__releases_code {
     width: calc(50% - 5px);
+  }
+  
+  .personal__release_flex {
+    padding-left: 50px;
+  }
+
+  .personal__balance .personal__balance_item .personal__balance_button,
+  .personal__release_button {
+    padding-left: 50px;
   }
 }
 

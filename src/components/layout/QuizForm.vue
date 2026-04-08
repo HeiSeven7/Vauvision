@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import QuizMenu from '@/components/layout/Quiz/QuizMenu.vue';
 import Quiz1 from '@/components/layout/Quiz/Quiz1.vue';
@@ -15,6 +15,13 @@ const emit = defineEmits<{
   'go-back': [];
   'update:current-step': [step: number];
 }>();
+
+const props = withDefaults(
+  defineProps<{
+    currentStep?: number;
+  }>(),
+  { currentStep: 1 }
+);
 
 // Глобальное состояние для хранения данных между шагами
 interface TrackData {
@@ -50,7 +57,14 @@ interface AlbumData {
   tracks: AlbumTrackData[];
 }
 
-const currentStep = ref(1);
+const currentStep = ref(props.currentStep);
+
+watch(
+  () => props.currentStep,
+  (v) => {
+    currentStep.value = v;
+  }
+);
 
 // Референсы для дочерних компонентов
 const quiz1Ref = ref<InstanceType<typeof Quiz1> | null>(null);
