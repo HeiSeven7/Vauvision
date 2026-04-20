@@ -203,15 +203,17 @@ const handleSubmit = async () => {
 </section>
 </template>
 
-<style lang="css" scoped>
+<style lang="scss" scoped>
 .error {
   color: var(--el-color-danger);
   font-size: 12px;
   margin-top: 4px;
 }
 
-.form__group :deep(.el-input.error .el-input__wrapper) {
-  box-shadow: 0 0 0 1px var(--el-color-danger) inset;
+.form__group {
+  :deep(.el-input.error .el-input__wrapper) {
+    box-shadow: 0 0 0 1px var(--el-color-danger) inset;
+  }
 }
 
 .success-message {

@@ -1,0 +1,30 @@
+:root {
+  --inc-step: 1;
+  --height: 100vh;
+  --tg-height: 100vh;
+  --x: 0px;
+  --y: 0px;
+  --relx: 0px;
+  --rely: 0px;
+  --size: 400px;
+  --bg: #fff;
+  --bg-gray: #F9F9F9;
+  --bg-color: #F2F1EF;
+  --text: #131313;
+  --text-gray: #85858E;
+  --white: #fff;
+  --black: #131313;
+  --color: #AB1115;
+  --yellow: #E2B63F;
+  --dark-color: rgba(29, 27, 41, 1);
+  --border: #E8E8E8;
+  --dborder: rgba(255, 255, 255, 0.3);
+  --error: #c01818;
+  --safe-area-inset-top: env(safe-area-inset-top);
+  --safe-area-inset-right: env(safe-area-inset-right);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom);
+  --safe-area-inset-left: env(safe-area-inset-left);
+  --el-input-hover-border-color: #AB1115;
+  --el-color-primary: #AB1115;
+  --scroll: 0;
+}

@@ -5,4 +5,4 @@
   <ellipse cx="13.3581" cy="18.9221" rx="7.79167" ry="4.45238" fill="currentColor" fill-opacity="0.22"/>
 </svg>
 </template>
-<style scoped></style>
+<style lang="scss" scoped></style>

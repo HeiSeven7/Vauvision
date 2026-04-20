@@ -2,9 +2,14 @@
 import { ref, onMounted, watch, onUnmounted, nextTick } from 'vue';
 import { openDB } from 'idb';
 
-const props = defineProps<{
-  currentStep: number;
-}>();
+const props = withDefaults(
+  defineProps<{
+    currentStep: number;
+    /** Все шаги доступны (возврат с оплаты / превью экрана статуса) */
+    unlockAllSteps?: boolean;
+  }>(),
+  { unlockAllSteps: false }
+);
 
 const emit = defineEmits<{
   'go-to-step': [step: number];
@@ -155,6 +160,12 @@ const isStepCompleted = async (step: number): Promise<boolean> => {
 };
 
 const loadStepsAvailability = async () => {
+  if (props.unlockAllSteps) {
+    availableSteps.value = [true, true, true, true, true, true, true, true];
+    isLoading.value = false;
+    return;
+  }
+
   if (!dbInitialized.value) return;
   
   isLoading.value = true;
@@ -233,6 +244,14 @@ watch(() => props.currentStep, () => {
   scrollActiveStepIntoView();
 });
 
+watch(
+  () => props.unlockAllSteps,
+  () => {
+    loadStepsAvailability();
+    scrollActiveStepIntoView();
+  }
+);
+
 watch(isLoading, (loading) => {
   if (!loading) scrollActiveStepIntoView();
 });
@@ -265,67 +284,15 @@ onUnmounted(() => {
 </div>
 </template>
 
-<style lang="css" scoped>
+<style lang="scss" scoped>
 .quiz__menu {
   display: flex;
   width: 330px;
   flex: 0 0 auto;
   flex-direction: column;
   border-right: 1px solid var(--border);
-}
-.quiz__menu_loading {
-  padding: 20px;
-  text-align: center;
-  color: var(--text-gray);
-}
-.quiz__menu_button {
-  display: flex;
-  padding: 14px 30px;
-  align-items: center;
-  gap: 8px;
-  position: relative;
-  color: var(--text-gray);
-  background-color: var(--bg);
-  text-transform: none;
-  transition: color 0.15s linear, background-color 0.15s linear;
-  border: none;
-  cursor: pointer;
-}
-.quiz__menu_button.available {
-  color: var(--text);
-  cursor: pointer;
-}
-.quiz__menu_button.available:hover {
-  color: var(--text);
-  background-color: var(--bg-color);
-}
-.quiz__menu_button.disabled {
-  color: var(--text-gray);
-  cursor: not-allowed;
-  opacity: 0.5;
-  pointer-events: none;
-}
-.quiz__menu_button.active {
-  color: var(--text);
-  background-color: var(--bg-color);
-}
-.quiz__menu_button::after {
-  content: "";
-  width: 3px;
-  height: 100%;
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 1;
-  background-color: var(--yellow);
-  opacity: 0;
-  transition: opacity 0.15s linear;
-}
-.quiz__menu_button.active::after {
-  opacity: 1;
-}
-@media (max-width: 1439px) {
-  .quiz__menu {
+
+  @media (max-width: 1439px) {
     padding: 0;
     flex-direction: row;
     flex-wrap: nowrap;
@@ -337,41 +304,108 @@ onUnmounted(() => {
     min-width: 0;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+      width: 0;
+      height: 0;
+    }
   }
-  .quiz__menu::-webkit-scrollbar {
-    display: none;
-    width: 0px;
-    height: 0px;
+
+  &_loading {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-gray);
   }
-  .quiz__menu_button {
-    flex: 0 0 auto;
-    padding: 10px 20px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    border: 1px solid var(--border);
-    border-radius: 30px;
-  }
-  .quiz__menu_button::after {
-    display: none;
-  }
-  .quiz__menu_button span {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    word-break: keep-all;
-  }
-  .quiz__menu_button.available {
-    border-color: var(--border);
-  }
-  .quiz__menu_button.disabled {
-    border-color: var(--border-light);
-  }
-  .quiz__menu_button.active {
-    border-color: var(--yellow);
-  }
-}
-@media (max-width: 767px) {
-  .quiz__menu_button {
-    padding: 12px 15px;
+
+  &_button {
+    display: flex;
+    padding: 14px 30px;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    color: var(--text-gray);
+    background-color: var(--bg);
+    text-transform: none;
+    transition:
+      color 0.15s linear,
+      background-color 0.15s linear;
+    border: none;
+    cursor: pointer;
+
+    &::after {
+      content: "";
+      width: 3px;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      right: 0;
+      z-index: 1;
+      background-color: var(--yellow);
+      opacity: 0;
+      transition: opacity 0.15s linear;
+    }
+
+    &.available {
+      color: var(--text);
+      cursor: pointer;
+
+      &:hover {
+        color: var(--text);
+        background-color: var(--bg-color);
+      }
+    }
+
+    &.disabled {
+      color: var(--text-gray);
+      cursor: not-allowed;
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    &.active {
+      color: var(--text);
+      background-color: var(--bg-color);
+
+      &::after {
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 1439px) {
+      flex: 0 0 auto;
+      padding: 10px 20px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      border: 1px solid var(--border);
+      border-radius: 30px;
+
+      &::after {
+        display: none;
+      }
+
+      span {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        word-break: keep-all;
+      }
+
+      &.available {
+        border-color: var(--border);
+      }
+
+      &.disabled {
+        border-color: var(--border-light);
+      }
+
+      &.active {
+        border-color: var(--yellow);
+      }
+    }
+
+    @media (max-width: 767px) {
+      padding: 12px 15px;
+    }
   }
 }
 </style>

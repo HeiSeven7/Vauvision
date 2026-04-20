@@ -217,168 +217,201 @@ onMounted(() => {
 </section>
 </template>
 
-<style lang="css" scoped>
-.loading__container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-.loading__svg {
-  width: 100px;
-  height: 100px;
+<style lang="scss" scoped>
+.loading {
+  &__container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  &__svg {
+    width: 100px;
+    height: 100px;
+  }
 }
 
 .personal {
   margin: 0 0 auto;
 }
-.faq__content {
-  display: flex;
-  width: calc(100% - 440px);
-  flex-direction: column;
-  gap: 20px;
+
+.faq {
+  &__content {
+    display: flex;
+    width: calc(100% - 440px);
+    flex-direction: column;
+    gap: 20px;
+
+    @media (max-width: 1919px) {
+      width: calc(100% - 340px);
+      gap: 30px;
+    }
+
+    @media (max-width: 1439px) {
+      width: 100%;
+    }
+
+    @media (max-width: 767px) {
+      gap: 15px;
+    }
+  }
+
+  &__top {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+
+    @media (max-width: 1439px) {
+      gap: 15px;
+    }
+  }
+
+  &__head {
+    text-transform: uppercase;
+  }
+
+  &__support-link {
+    color: var(--primary);
+    text-decoration: underline;
+    transition: opacity 0.3s ease;
+
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  &__item {
+    background-color: var(--bg);
+    border: 1px solid var(--border);
+
+    &.active .faq__button {
+      padding: 40px 40px 20px;
+
+      @media (max-width: 1919px) {
+        padding: 30px 30px 15px;
+      }
+
+      @media (max-width: 767px) {
+        padding: 20px 20px 15px;
+      }
+    }
+  }
+
+  &__button {
+    display: flex;
+    width: 100%;
+    padding: 40px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    text-align: left;
+    transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+
+    @media (max-width: 1919px) {
+      padding: 30px;
+    }
+
+    @media (max-width: 767px) {
+      padding: 20px;
+    }
+  }
+
+  &__arrow {
+    display: flex;
+    width: 24px;
+    height: 24px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+
+    svg {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    &.active {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__info {
+    max-height: 0;
+    opacity: 0;
+    transition:
+      max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.3s ease 0.1s;
+    overflow: hidden;
+  }
+
+  &__description {
+    max-width: 780px;
+    padding: 0 40px 40px;
+
+    @media (max-width: 1919px) {
+      padding: 0 30px 30px;
+    }
+
+    @media (max-width: 767px) {
+      padding: 0 20px 20px;
+    }
+
+    :deep(p) {
+      margin-bottom: 15px;
+    }
+
+    :deep(p:last-child) {
+      margin-bottom: 0;
+    }
+
+    :deep(a) {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+
+    :deep(b),
+    :deep(strong) {
+      font-weight: 600;
+    }
+  }
+
+  &__error,
+  &__empty {
+    padding: 60px 40px;
+    text-align: center;
+    background-color: var(--bg);
+    border: 1px solid var(--border);
+
+    @media (max-width: 767px) {
+      padding: 40px 20px;
+    }
+  }
+
+  &__retry-btn {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.3s ease;
+
+    &:hover {
+      opacity: 0.8;
+    }
+  }
 }
-.faq__top {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.faq__head {
-  text-transform: uppercase;
-}
-.faq__support-link {
-  color: var(--primary);
-  text-decoration: underline;
-  transition: opacity 0.3s ease;
-}
-.faq__support-link:hover {
-  opacity: 0.8;
-}
-.faq__list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.faq__item {
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-}
-.faq__button {
-  display: flex;
-  width: 100%;
-  padding: 40px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  text-align: left;
-  transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-}
-.faq__item.active .faq__button {
-  padding: 40px 40px 20px;
-}
-.faq__arrow {
-  display: flex;
-  width: 24px;
-  height: 24px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
-}
-.faq__arrow svg {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.faq__arrow.active {
-  transform: rotate(180deg);
-}
-.faq__info {
-  max-height: 0;
-  opacity: 0;
-  transition: 
-    max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.3s ease 0.1s;
-  overflow: hidden;
-}
-.faq__description {
-  max-width: 780px;
-  padding: 0 40px 40px;
-}
-.faq__description :deep(p) {
-  margin-bottom: 15px;
-}
-.faq__description :deep(p:last-child) {
-  margin-bottom: 0;
-}
-.faq__description :deep(a) {
-  color: var(--primary);
-  text-decoration: underline;
-}
-.faq__description :deep(b),
-.faq__description :deep(strong) {
-  font-weight: 600;
-}
-.faq__error,
-.faq__empty {
-  padding: 60px 40px;
-  text-align: center;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-}
-.faq__retry-btn {
-  margin-top: 20px;
-  padding: 10px 20px;
-  background-color: var(--primary);
-  color: white;
-  border: none;
-  cursor: pointer;
-  transition: opacity 0.3s ease;
-}
-.faq__retry-btn:hover {
-  opacity: 0.8;
-}
+
 @media (max-width: 1919px) {
   .faq__flex {
     gap: 20px;
-  }
-  .faq__content {
-    width: calc(100% - 340px);
-    gap: 30px;
-  }
-  .faq__button {
-    padding: 30px;
-  }
-  .faq__item.active .faq__button {
-    padding: 30px 30px 15px;
-  }
-  .faq__description {
-    padding: 0 30px 30px;
-  }
-}
-@media (max-width: 1439px) {
-  .faq__content {
-    width: 100%;
-  }
-  .faq__top {
-    gap: 15px;
-  }
-}
-@media (max-width: 767px) {
-  .faq__content {
-    gap: 15px;
-  }
-  .faq__button {
-    padding: 20px;
-  }
-  .faq__item.active .faq__button {
-    padding: 20px 20px 15px;
-  }
-  .faq__description {
-    padding: 0 20px 20px;
-  }
-  .faq__error,
-  .faq__empty {
-    padding: 40px 20px;
   }
 }
 </style>

@@ -488,85 +488,114 @@ onUnmounted(() => {
 });
 </script>
 
-<style lang="css" scoped>
+<style lang="scss" scoped>
 .quiz__form {
   width: calc(100% - 330px);
   padding: 0 40px 0 60px;
+
+  @media (max-width: 1439px) {
+    width: 100%;
+    padding: 0;
+  }
+
+  @media (max-width: 767px) {
+    padding: 0;
+  }
+
+  &_head {
+    margin-bottom: 20px;
+  }
+
+  &_description {
+    color: var(--text-gray);
+    margin-bottom: 40px;
+  }
+
+  &_loading {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+    font-size: 16px;
+  }
+
+  &_error {
+    text-align: center;
+    padding: 40px;
+    background-color: #fef0f0;
+    border: 1px solid #fde2e2;
+    border-radius: 4px;
+    margin-bottom: 20px;
+
+    .error {
+      color: #f56c6c;
+      font-size: 16px;
+    }
+  }
+
+  &_bottom {
+    display: flex;
+    padding: 60px 0 0;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+
+    @media (max-width: 767px) {
+      padding: 40px 0 0;
+      align-items: flex-start;
+      flex-direction: column-reverse;
+      gap: 40px;
+    }
+  }
+
+  &_buttons {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+  }
+
+  &_agreement {
+    display: flex;
+    padding: 20px 0 0;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  &_agreement_page {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+    background-color: #f5f5f5;
+    min-height: 200px;
+
+    img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    &_number {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+  }
+
+  &_checkboxes {
+    display: flex;
+    padding: 20px 0 0;
+    flex-direction: column;
+    gap: 10px;
+  }
 }
-.quiz__form_head {
-  margin-bottom: 20px;
-}
-.quiz__form_description {
-  color: var(--text-gray);
-  margin-bottom: 40px;
-}
-.quiz__form_loading {
-  text-align: center;
-  padding: 40px;
-  color: #999;
-  font-size: 16px;
-}
-.quiz__form_error {
-  text-align: center;
-  padding: 40px;
-  background-color: #fef0f0;
-  border: 1px solid #fde2e2;
-  border-radius: 4px;
-  margin-bottom: 20px;
-}
-.quiz__form_error .error {
-  color: #f56c6c;
-  font-size: 16px;
-}
-.quiz__form_bottom {
-  display: flex;
-  padding: 60px 0 0;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-}
-.quiz__form_buttons {
-  display: flex;
-  align-items: center;
-  gap: 30px;
-}
-.quiz__form_agreement {
-  display: flex;
-  padding: 20px 0 0;
-  flex-direction: column;
-  gap: 20px;
-}
-.quiz__form_agreement_page {
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
-  position: relative;
-  background-color: #f5f5f5;
-  min-height: 200px;
-}
-.quiz__form_agreement_page img {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-.quiz__form_agreement_page_number {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-.quiz__form_checkboxes {
-  display: flex;
-  padding: 20px 0 0;
-  flex-direction: column;
-  gap: 10px;
-}
+
 .form__checkbox_group .el-checkbox {
   display: flex;
   min-height: auto;
@@ -574,18 +603,22 @@ onUnmounted(() => {
   gap: 10px;
   color: var(--text-gray);
 }
+
 .form__group .form__checkbox_group .el-checkbox {
   padding: 10px 0 0;
 }
+
 .checkbox__link {
   color: var(--color);
   text-decoration: underline;
 }
+
 .error {
   color: #f56c6c;
   font-size: 12px;
   margin-top: 5px;
 }
+
 .loading-spinner {
   display: inline-block;
   width: 40px;
@@ -596,25 +629,10 @@ onUnmounted(() => {
   animation: spin 1s ease-in-out infinite;
   margin-bottom: 15px;
 }
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
 
-@media (max-width: 1439px) {
-  .quiz__form {
-    width: 100%;
-    padding: 0;
-  }
-}
-@media (max-width: 767px) {
-  .quiz__form_bottom {
-    padding: 40px 0 0;
-    align-items: flex-start;
-    flex-direction: column-reverse;
-    gap: 40px;
-  }
-  .quiz__form {
-    padding: 0;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 </style>

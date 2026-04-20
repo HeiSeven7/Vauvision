@@ -96,7 +96,7 @@ onMounted(async () => {
 </section>
 </template>
 
-<style lang="css" scoped>
+<style lang="scss" scoped>
 .auth__form--centered {
   display: flex;
   flex-direction: column;
@@ -108,22 +108,31 @@ onMounted(async () => {
   margin: 24px 0 16px;
   color: #52c41a;
   animation: scaleIn 0.5s ease-out;
-}
 
-.success-icon svg {
-  width: 80px;
-  height: 80px;
+  svg {
+    width: 80px;
+    height: 80px;
+
+    @media (max-width: 768px) {
+      width: 60px;
+      height: 60px;
+    }
+  }
 }
 
 .success-message {
   max-width: 400px;
   margin: 0 auto 32px;
-}
 
-.success-message__text {
-  font-size: 16px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.8);
+  &__text {
+    font-size: 16px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.8);
+
+    @media (max-width: 768px) {
+      font-size: 14px;
+    }
+  }
 }
 
 .form__buttons--single {
@@ -133,62 +142,51 @@ onMounted(async () => {
   width: 100%;
   max-width: 300px;
   margin: 0 auto;
-}
 
-.form__buttons--single .form__send {
-  width: 100%;
-  justify-content: center;
+  @media (max-width: 768px) {
+    max-width: 100%;
+  }
+
+  .form__send {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .additional-info {
   margin-top: 32px;
   padding-top: 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+
+  &__text {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  &__link {
+    color: #fff;
+    text-decoration: none;
+    transition: opacity 0.2s ease;
+
+    &:hover {
+      opacity: 0.8;
+      text-decoration: underline;
+    }
+  }
 }
 
-.additional-info__text {
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.additional-info__link {
-  color: #fff;
-  text-decoration: none;
-  transition: opacity 0.2s ease;
-}
-
-.additional-info__link:hover {
-  opacity: 0.8;
-  text-decoration: underline;
-}
-
-/* Анимация появления иконки */
 @keyframes scaleIn {
   0% {
     transform: scale(0);
     opacity: 0;
   }
+
   50% {
     transform: scale(1.2);
   }
+
   100% {
     transform: scale(1);
     opacity: 1;
-  }
-}
-
-/* Адаптивность */
-@media (max-width: 768px) {
-  .success-icon svg {
-    width: 60px;
-    height: 60px;
-  }
-
-  .success-message__text {
-    font-size: 14px;
-  }
-
-  .form__buttons--single {
-    max-width: 100%;
   }
 }
 </style>

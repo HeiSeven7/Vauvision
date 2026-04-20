@@ -113,6 +113,32 @@ export const bitrixUserId = ref("");
 export const labelReturnUserId = ref<string | null>(readStoredLabelReturnUserId());
 /** Логин из getData — для проверки псевдонима без привязки к Menu.userData */
 export const labelMenuUserLogin = ref("");
+/** Имя / фамилия из getData — публичное отображение может отличаться от логина */
+export const labelMenuUserName = ref("");
+export const labelMenuUserLastName = ref("");
+
+function normalizeAliasForCompare(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** Ввод совпадает с логином или с отображаемым именем (отдельно или «имя фамилия» в любом порядке). */
+function isSameAsCurrentUserIdentity(artistName: string): boolean {
+  const input = normalizeAliasForCompare(artistName);
+  if (!input) return false;
+  const candidates = new Set<string>();
+  const add = (v: string) => {
+    const n = normalizeAliasForCompare(v);
+    if (n) candidates.add(n);
+  };
+  add(labelMenuUserLogin.value);
+  add(labelMenuUserName.value);
+  add(labelMenuUserLastName.value);
+  const nm = labelMenuUserName.value;
+  const fn = labelMenuUserLastName.value;
+  add([nm, fn].filter(Boolean).join(" "));
+  add([fn, nm].filter(Boolean).join(" "));
+  return candidates.has(input);
+}
 
 function mapGroupMembers(members: unknown): LabelArtist[] {
   if (!Array.isArray(members)) return [];
@@ -218,13 +244,21 @@ export const showStandaloneAddArtist = computed(
   () => !useDropdownArtistList.value
 );
 
-export function isLabelAccountRow(artistId: string): boolean {
-  if (apiIsLabel.value && String(artistId) === String(bitrixUserId.value))
-    return true;
-  const ret = labelReturnUserId.value;
-  if (ret && String(artistId) === String(ret)) return true;
-  return false;
-}
+/** Псевдоним текущего кабинета в ростере лейбла или отображаемое имя / логин из getData */
+export const labelCabinetPseudonym = computed(() => {
+  const id = bitrixUserId.value;
+  const fromRoster = id
+    ? labelArtists.value.find((a) => String(a.id) === String(id))
+    : undefined;
+  const pseudo = (fromRoster?.pseudonym ?? "").trim();
+  if (pseudo) return pseudo;
+  const login = labelMenuUserLogin.value.trim();
+  const nm = labelMenuUserName.value.trim();
+  const fn = labelMenuUserLastName.value.trim();
+  const fromProfile =
+    login || [nm, fn].filter(Boolean).join(" ").trim();
+  return fromProfile || login;
+});
 
 export function refreshLabelArtists() {
   labelReturnUserId.value = readStoredLabelReturnUserId();
@@ -278,9 +312,15 @@ export function syncLabelMenuFromGetDataResponse(
     bitrixUserId.value =
       uid != null && uid !== "" ? String(uid) : "";
     labelMenuUserLogin.value = String(u.login ?? "");
+    labelMenuUserName.value = String(u.name ?? "").trim();
+    labelMenuUserLastName.value = String(
+      u.lastName ?? u.LAST_NAME ?? ""
+    ).trim();
   } else {
     bitrixUserId.value = "";
     labelMenuUserLogin.value = "";
+    labelMenuUserName.value = "";
+    labelMenuUserLastName.value = "";
   }
   if (data.profile) {
     syncLabelFromProfile(
@@ -388,22 +428,26 @@ export async function submitNewArtist() {
     return;
   }
 
-  if (!apiIsLabel.value && !viewingArtistAsLabelManager.value) {
-    const login = labelMenuUserLogin.value.trim().toLowerCase();
-    if (login && artistName.trim().toLowerCase() === login) {
-      addArtistError.value =
-        "Укажите другой псевдоним, отличный от вашего логина — так вы добавите артиста и перейдёте в формат лейбла.";
-      return;
-    }
-  }
-
-  const lable = labelGroupId.value;
-  const nameLable = labelGroupName.value;
-  if (!lable || lable === 0 || lable === "" || !nameLable) {
+  if (isSameAsCurrentUserIdentity(artistName)) {
     addArtistError.value =
-      "Нет группы лейбла (нужна группа Bitrix с ID > 4 в вашем аккаунте и имя группы в профиле). Обновите страницу или обратитесь в поддержку.";
+      "Укажите другой псевдоним, отличный от вашего логина и отображаемого имени — так вы добавите артиста и перейдёте в формат лейбла.";
     return;
   }
+
+  /**
+   * addLableUser.php: группа создаётся/ищется по логину владельца; LABLE/nameLable в запросе
+   * для актуального скрипта не участвуют в полях нового пользователя — передаём их при наличии
+   * из getData для совместимости, иначе пустые строки.
+   */
+  const loginTrim = labelMenuUserLogin.value.trim();
+  const gid = labelGroupId.value;
+  const gidNum = gid === "" || gid == null ? NaN : Number(gid);
+  const hasProfileGroup =
+    Number.isFinite(gidNum) && gidNum > 0 && String(labelGroupName.value || "").trim() !== "";
+  const lable = hasProfileGroup ? String(gid) : "";
+  const nameLable = hasProfileGroup
+    ? String(labelGroupName.value).trim()
+    : loginTrim;
 
   addArtistSubmitting.value = true;
   try {

@@ -1,0 +1,201 @@
+.quiz {
+  &__form {
+    width: calc(100% - 330px);
+    padding: 0 40px 0 60px;
+
+    &_bottom {
+      display: flex;
+      padding: 60px 0 0;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    &_buttons {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 30px;
+    }
+
+    &_cover_upload {
+      display: flex;
+      padding: 20px;
+      align-items: center;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      gap: 16px;
+      background-color: var(--bg-gray);
+      border: 2px dashed var(--border);
+      margin: 10px 0;
+      transition: all 0.3s linear;
+      cursor: pointer;
+
+      &:hover {
+        border-color: var(--color);
+        background-color: rgba(0, 0, 0, 0.02);
+
+        .quiz__form_cover_upload_button {
+          color: var(--text);
+        }
+      }
+
+      &.drag-over {
+        border-color: var(--color);
+        background-color: rgba(0, 0, 0, 0.05);
+        transform: scale(1.01);
+      }
+
+      &_content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+
+      &_button {
+        color: var(--color);
+        transition: color 0.3s linear;
+      }
+
+      &_hint {
+        max-width: 300px;
+        color: var(--text-gray);
+      }
+    }
+
+    &_single_name {
+      display: flex;
+      width: 100%;
+      padding: 20px;
+      margin: 0 0 20px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background-color: #edfbe2;
+
+      &_left {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      &_size {
+        color: var(--text-gray);
+      }
+
+      &_svg {
+        display: flex;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        transform: rotate(0deg);
+        transition: transform 0.15s linear;
+
+        &:hover {
+          transform: rotate(90deg);
+        }
+
+        svg {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
+      }
+    }
+
+    &_description {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      svg {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+      }
+    }
+
+    &_top {
+      display: flex;
+      width: 100%;
+      padding: 0 0 40px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 20px;
+    }
+  }
+
+  &__form_single_buttons,
+  &__album_track_buttons {
+    padding: 20px 0 0;
+  }
+
+  &__section {
+    display: flex;
+    padding: 20px 0;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__album_tracks_list {
+    padding: 0 0 30px;
+  }
+
+  &__album_track_header {
+    padding: 0 0 20px;
+  }
+
+  &__single_item_title,
+  &__section_title,
+  &__album_item_title {
+    padding: 20px 0;
+  }
+
+  &__important_list {
+    display: flex;
+    padding: 20px 0 0;
+    flex-direction: column;
+    gap: 5px;
+    counter-reset: quiz-counter;
+    list-style: none;
+    padding-left: 0;
+
+    li {
+      position: relative;
+      padding-left: 30px;
+      counter-increment: quiz-counter;
+
+      &::before {
+        content: counter(quiz-counter) ".";
+        position: absolute;
+        left: 0;
+        top: 2.3px;
+      }
+    }
+  }
+
+  &__important_head {
+    color: var(--color);
+  }
+
+  &__flex a {
+    color: var(--color);
+
+    &:hover {
+      color: var(--hover);
+    }
+  }
+}
+
+.form__hint_list {
+  list-style-type: disc;
+  padding-left: 13px;
+}
+
+.form__hint_item::marker {
+  font-size: 14px;
+  color: var(--text-gray);
+}

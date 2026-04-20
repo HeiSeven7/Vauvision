@@ -28,33 +28,38 @@ const clickHome = () => {
 <Footer></Footer>
 </template>
 
-<style lang="css" scoped>
+<style lang="scss" scoped>
 .errorPage {
   margin: auto 0;
-}
-.errorPage__block {
-  display: flex;
-  width: 100%;
-  padding: 40px 0 80px;
-  flex-direction: column;
-  gap: 30px;
-}
-.errorPage__info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  text-align: center;
-}
-.errorPage__head {
-  font-weight: 700;
-  text-align: center;
-}
-.errorPage__desc {
-  text-align: center;
-}
-.errorPage__link {
-  max-width: 200px;
+
+  &__block {
+    display: flex;
+    width: 100%;
+    padding: 40px 0 80px;
+    flex-direction: column;
+    gap: 30px;
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    text-align: center;
+  }
+
+  &__head {
+    font-weight: 700;
+    text-align: center;
+  }
+
+  &__desc {
+    text-align: center;
+  }
+
+  &__link {
+    max-width: 200px;
+  }
 }
 </style>

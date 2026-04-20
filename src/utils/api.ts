@@ -154,14 +154,17 @@ const BearerRequest = async (typeRequest:string, url:string, data:any) => {
 }
 
 const FileRequest = async (typeRequest:string, url:string, data:any) => {
+  // Не задаём Content-Type для FormData: нужен boundary (multipart/form-data; boundary=...).
+  // Ручной "multipart/form-data" без boundary ломает разбор тела на PHP — $_POST пустой, нет trackID[].
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
   let config = {
     method: typeRequest,
     maxBodyLength: Infinity,
     url: url,
-    headers: { 
-      'Content-Type': 'multipart/form-data',
-      Accept: 'application/json',
-      'Accept-Language': `${localStorage.getItem("user-locale")}`,
+    headers: {
+      Accept: "application/json",
+      "Accept-Language": `${localStorage.getItem("user-locale")}`,
+      ...(isFormData ? {} : { "Content-Type": "multipart/form-data" }),
     },
     withCredentials: true,
     data: data

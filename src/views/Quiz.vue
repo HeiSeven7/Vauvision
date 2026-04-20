@@ -18,7 +18,8 @@
                 <p class="quiz__preview_desc">Треки выходят на площадках в 00:00 выбранной даты (по Москве).</p>
               </li>
               <li>
-                <p class="quiz__preview_desc">Для редактирования размера обложек (формат JPEG, от 1500x1500 пикселей) <a href="https://pixlr.com" target="_blank">используйте сайт</a></p>
+                <p class="quiz__preview_desc">Для редактирования размера обложек (формат JPEG, от 1500x1500 пикселей) используйте вкладку «Обложка» на нашем <a href="https://vauvision.com/photos" target="_blank" rel="noopener noreferrer">сайте</a>
+                </p>
               </li>
               <li>
                 <p class="quiz__preview_desc">Для редактирования формата треков (.wav, 16 bit, 44.1 Khz) <a href="https://online-audio-converter.com" target="_blank">используйте конвертер</a></p>
@@ -67,14 +68,30 @@
 import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
 import QuizForm from "@/components/layout/QuizForm.vue";
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import Tr from "@/i18n/translation";
+
+const route = useRoute();
 
 // Состояния для переключения
 const showForm = ref(false);
 const currentStep = ref(1);
 const isRestarting = ref(false);
 const hasSavedData = ref(true);
+
+/** Прямой заход на экран статуса оплаты: /release?payment=success|error */
+watch(
+  () => route.query.payment,
+  (p) => {
+    const v = Array.isArray(p) ? p[0] : p;
+    if (v === 'success' || v === 'error') {
+      showForm.value = true;
+      currentStep.value = 8;
+    }
+  },
+  { immediate: true }
+);
 
 // Проверка наличия сохранений в IndexedDB
 const checkSavedData = async () => {
@@ -324,58 +341,111 @@ onMounted(() => {
 });
 </script>
 
-<style lang="css" scoped>
+<style lang="scss" scoped>
 .personal {
   margin: 0 0 auto;
+
+    &__block {
+    @media (max-width: 1919px) {
+      width: calc(100% - 230px);
+    }
+
+    @media (max-width: 1439px) {
+      width: 100%;
+    }
+  }
 }
+
+
+
 .quiz__preview {
   display: flex;
   padding: 40px;
   flex-direction: column;
   border: 1px solid var(--border);
   background-color: var(--bg);
-}
-.quiz__preview_description,
-.quiz__preview_attention {
-  padding: 30px 0 0;
-}
-.quiz__preview_attention {
-  color: var(--color);
-}
-.quiz__preview_list {
-  padding: 20px 0 0;
-}
-.quiz__preview_buttons {
-  padding: 60px 0 0;
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-.quiz__preview_list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  counter-reset: quiz-counter;
-  list-style: none;
-  padding-left: 0;
-}
-.quiz__preview_list li {
-  position: relative;
-  padding-left: 30px;
-  counter-increment: quiz-counter;
-}
-.quiz__preview_list li::before {
-  content: counter(quiz-counter) ".";
-  position: absolute;
-  left: 0;
-  top: 2.3px;
-}
-.quiz__preview_heading,
-.quiz__preview_description,
-.quiz__preview_attention,
-.quiz__preview_list,
-.quiz__preview_buttons {
-  max-width: 860px;
+
+  @media (max-width: 1439px) {
+    padding: 30px;
+  }
+
+  @media (max-width: 1023px) {
+    padding: 30px 20px;
+  }
+
+  @media (max-width: 767px) {
+    padding: 30px 15px;
+  }
+
+  &_description,
+  &_attention {
+    padding: 30px 0 0;
+    max-width: 860px;
+
+    @media (max-width: 1439px) {
+      padding: 15px 0 0;
+    }
+  }
+
+  &_attention {
+    color: var(--color);
+  }
+
+  &_heading {
+    max-width: 860px;
+  }
+
+  &_list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    counter-reset: quiz-counter;
+    list-style: none;
+    padding: 20px 0 0;
+    padding-left: 0;
+    max-width: 860px;
+
+    li {
+      position: relative;
+      padding-left: 30px;
+      counter-increment: quiz-counter;
+
+      &::before {
+        content: counter(quiz-counter) ".";
+        position: absolute;
+        left: 0;
+        top: 2.3px;
+      }
+    }
+  }
+
+  &_buttons {
+    padding: 60px 0 0;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    max-width: 860px;
+
+    @media (max-width: 1439px) {
+      padding: 50px 0 0;
+    }
+
+    @media (max-width: 1023px) {
+      gap: 15px;
+    }
+
+    @media (max-width: 767px) {
+      padding: 30px 0 0;
+      flex-direction: column;
+    }
+  }
+
+  &_button,
+  .quiz__restart_button {
+    @media (max-width: 767px) {
+      width: 100%;
+    }
+  }
 }
 
 .quiz__restart_button:disabled {
@@ -386,36 +456,6 @@ onMounted(() => {
 @media (max-width: 1439px) {
   .personal__container {
     padding: 0;
-  }
-  .quiz__preview {
-    padding: 30px;
-  }
-  .quiz__preview_description {
-    padding: 15px 0 0;
-  }
-  .quiz__preview_buttons {
-    padding: 50px 0 0;
-  }
-}
-@media (max-width: 1023px) {
-  .quiz__preview {
-    padding: 30px 20px;
-  }
-  .quiz__preview_buttons {
-    gap: 15px;
-  }
-}
-@media (max-width: 767px) {
-  .quiz__preview {
-    padding: 30px 15px;
-  }
-  .quiz__preview_buttons {
-    padding: 30px 0 0;
-    flex-direction: column;
-  }
-  .quiz__preview_button,
-  .quiz__restart_button {
-    width: 100%;
   }
 }
 </style>

@@ -1,0 +1,199 @@
+@font-face {
+  font-family: "Libertinus Sans";
+  src: url("@/styles/fonts/LiberationSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Libertinus Sans";
+  src: url("@/styles/fonts/LiberationSans-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Libertinus Sans";
+  src: url("@/styles/fonts/LiberationSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Libertinus Sans";
+  src: url("@/styles/fonts/LiberationSans-BoldItalic.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --title-font: "Libertinus Sans", sans-serif;
+  --text-font: "Libertinus Sans", sans-serif;
+}
+
+@mixin title-heading($size, $line: 110%) {
+  font-family: var(--title-font);
+  font-size: $size;
+  font-weight: 700;
+  line-height: $line;
+  letter-spacing: -1px;
+  color: var(--text);
+  text-transform: uppercase;
+}
+
+@mixin body-text {
+  font-family: var(--text-font);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+h1,
+.title_one {
+  @include title-heading(64px);
+
+  @media (max-width: 1919px) {
+    font-size: 48px;
+  }
+
+  @media (max-width: 1023px) {
+    font-size: 48px;
+  }
+
+  @media (max-width: 767px) {
+    font-size: 40px;
+  }
+}
+
+h2,
+.title_two {
+  @include title-heading(48px);
+
+  @media (max-width: 1919px) {
+    font-size: 32px;
+  }
+
+  @media (max-width: 1023px) {
+    font-size: 32px;
+  }
+
+  @media (max-width: 767px) {
+    font-size: 32px;
+  }
+}
+
+h3,
+.title_three {
+  @include title-heading(32px);
+
+  @media (max-width: 1919px) {
+    font-size: 26px;
+  }
+
+  @media (max-width: 1023px) {
+    font-size: 26px;
+  }
+
+  @media (max-width: 767px) {
+    font-size: 24px;
+  }
+}
+
+h4,
+.title_four {
+  @include title-heading(24px, 120%);
+
+  @media (max-width: 1919px) {
+    font-size: 20px;
+  }
+
+  @media (max-width: 1023px) {
+    font-size: 20px;
+  }
+
+  @media (max-width: 767px) {
+    font-size: 18px;
+  }
+}
+
+h5,
+.title_five {
+  @include title-heading(20px, 130%);
+
+  @media (max-width: 1919px) {
+    font-size: 18px;
+  }
+
+  @media (max-width: 1023px) {
+    font-size: 18px;
+  }
+
+  @media (max-width: 767px) {
+    font-size: 16px;
+  }
+}
+
+p,
+.text_one,
+.breadcrumbs__item:not(:last-child):after,
+input {
+  @include body-text;
+  font-size: 16px;
+  line-height: 140%;
+}
+
+button,
+.button {
+  @include body-text;
+  font-size: 14px;
+  line-height: 140%;
+
+  @media (max-width: 1919px) {
+    font-size: 13px;
+  }
+
+  @media (max-width: 1023px) {
+    font-size: 12px;
+  }
+
+  @media (max-width: 767px) {
+    font-size: 12px;
+  }
+}
+
+.button {
+  text-transform: uppercase;
+
+  @media (max-width: 1919px) {
+    font-size: 12px;
+  }
+
+  @media (max-width: 1023px) {
+    font-size: 12px;
+  }
+
+  @media (max-width: 767px) {
+    font-size: 12px;
+  }
+}
+
+.text_small,
+small {
+  @include body-text;
+  font-size: 14px;
+  line-height: 135%;
+}
+
+.text_very {
+  @include body-text;
+  font-size: 12px;
+  line-height: 140%;
+}
+
+small {
+  color: var(--error);
+}

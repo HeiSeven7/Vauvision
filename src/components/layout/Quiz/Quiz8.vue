@@ -1215,6 +1215,94 @@ const goBack = () => {
   emit('go-back');
 };
 
+/** Разбор JSON из order.php независимо от того, пришёл объект или строка */
+const parseOrderPhpPayload = (raw: unknown): { error: number; message: string } | null => {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'object' && raw !== null && 'error' in raw) {
+    const o = raw as { error: number; message?: string };
+    return {
+      error: Number(o.error),
+      message: typeof o.message === 'string' ? o.message : '',
+    };
+  }
+  if (typeof raw === 'string') {
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const o = JSON.parse(jsonMatch[0]) as { error?: number; message?: string };
+        if (o.error !== undefined) {
+          return { error: Number(o.error), message: typeof o.message === 'string' ? o.message : '' };
+        }
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+};
+
+/** Номер для UI: из "class 890" или код error */
+const getOrderErrorDisplayNumber = (payload: { error: number; message: string }): string => {
+  const m = payload.message.match(/class\s+(\d+)/i);
+  if (m) return m[1];
+  if (Number.isFinite(payload.error)) return String(payload.error);
+  return '—';
+};
+
+/** Краткое пояснение, каких данных не хватает или что проверить */
+const mapOrderServerMessageToHint = (message: string): string => {
+  const t = message.toLowerCase();
+  if (t.includes('trackid')) {
+    return 'не переданы идентификаторы синглов (trackID) — проверьте шаг с треками и загрузку на сервер';
+  }
+  if (t.includes('albumid')) {
+    return 'не переданы идентификаторы треков альбома (albumID)';
+  }
+  if (t.includes('path-file-album') || t.includes('path-file')) {
+    return 'не переданы пути к аудиофайлам (path-file) — треки должны быть загружены';
+  }
+  if (t.includes('названия релиза') || t.includes('name_relize') || t.includes('name-relize')) {
+    return 'не указано название релиза';
+  }
+  if (t.includes('не заполнено') && t.includes('альбом')) {
+    return 'для альбома не заполнены поля артиста / авторов музыки и текста';
+  }
+  if (t.includes('фио авторов') || t.includes('имя артиста')) {
+    return 'не заполнены артист, авторы музыки и текста по синглу';
+  }
+  if (t.includes('договор') && (t.includes('не найден') || t.includes('ошибка'))) {
+    return 'не найден файл договора (docx/pdf) — повторите шаг с договором';
+  }
+  if (t.includes('согласие') || t.includes('оферт') || t.includes('персональн')) {
+    return 'не приняты обязательные согласия';
+  }
+  if (t.includes('авторизац') || t.includes('сессии')) {
+    return 'сессия истекла — войдите в аккаунт заново';
+  }
+  if (t.includes('бонус')) {
+    return 'ошибка списания бонусов — проверьте сумму и баланс бонусов';
+  }
+  if (t.includes('обложк') && t.includes('больш')) {
+    return 'файл обложки слишком большой';
+  }
+  if (t.includes('сохранения заказа') || t.includes('создания релиза')) {
+    return 'сервер не смог сохранить заказ или создать релиз';
+  }
+  return message.trim() || 'сервер отклонил запрос без пояснения';
+};
+
+const showOrderSubmissionError = (payload: { error: number; message: string }) => {
+  const num = getOrderErrorDisplayNumber(payload);
+  const hint = mapOrderServerMessageToHint(payload.message);
+  const text = `Ошибка (${num}): ${hint}. Проверьте правильность заполнения данных или пришлите скриншот ошибки в тех. поддержку`;
+  ElMessage.error({
+    message: text,
+    duration: 0,
+    showClose: true,
+    grouping: true,
+  });
+};
+
 const handleFinish = async () => {
   try {
     isSubmitting.value = true;
@@ -1419,49 +1507,44 @@ const handleFinish = async () => {
     console.log('✅ Данные ответа (raw):', response.data);
 
     if (response && response.data) {
-      
-      let responseData = response.data;
-      let parsedData = null;
-      let paymentUrl = null;
-      let orderId = null;
-      
+      const responseData = response.data;
+
+      const orderPayload = parseOrderPhpPayload(responseData);
+      if (orderPayload && orderPayload.error !== 0) {
+        console.error('❌ order.php вернул ошибку:', orderPayload);
+        showOrderSubmissionError(orderPayload);
+        return;
+      }
+
+      let paymentUrl: string | null | undefined = null;
+      let orderId: string | number | null | undefined = null;
+
       if (typeof responseData === 'string') {
         console.log('🔍 Анализируем строку ответа...');
-        
         const jsonMatch = responseData.match(/\{.*\}/s);
         if (jsonMatch) {
           try {
-            parsedData = JSON.parse(jsonMatch[0]);
+            const parsedData = JSON.parse(jsonMatch[0]);
             console.log('✅ Найден JSON в ответе:', parsedData);
-            
             if (parsedData.error === 0) {
               paymentUrl = parsedData.data?.payment_url;
               orderId = parsedData.data?.order_id;
-              
-              console.log('💰 Извлеченные данные:', {
-                orderId: orderId,
-                paymentUrl: paymentUrl
-              });
+              console.log('💰 Извлеченные данные:', { orderId, paymentUrl });
             }
           } catch (e) {
             console.error('❌ Ошибка парсинга JSON:', e);
           }
         }
-      } 
-      else if (typeof responseData === 'object') {
+      } else if (typeof responseData === 'object' && responseData !== null) {
         console.log('🔍 Ответ уже является объектом:', responseData);
-        
-        if (responseData.error === 0) {
-          paymentUrl = responseData.data?.payment_url;
-          orderId = responseData.data?.order_id;
-          
-          console.log('💰 Извлеченные данные из объекта:', {
-            orderId: orderId,
-            paymentUrl: paymentUrl
-          });
+        const o = responseData as { error?: number; data?: { payment_url?: string; order_id?: string | number } };
+        if (o.error === 0) {
+          paymentUrl = o.data?.payment_url;
+          orderId = o.data?.order_id;
+          console.log('💰 Извлеченные данные из объекта:', { orderId, paymentUrl });
         }
       }
-      
+
       if (paymentUrl) {
         ElMessage.success('Заказ успешно оформлен! Сейчас вы будете перенаправлены на страницу оплаты...');
         
@@ -1478,9 +1561,13 @@ const handleFinish = async () => {
         
         return;
       } 
-      else if (responseData && typeof responseData === 'object' && responseData.payment_url) {
-        paymentUrl = responseData.payment_url;
-        orderId = responseData.order_id;
+      else if (
+        responseData &&
+        typeof responseData === 'object' &&
+        (responseData as { payment_url?: string }).payment_url
+      ) {
+        paymentUrl = (responseData as { payment_url: string }).payment_url;
+        orderId = (responseData as { order_id?: string | number }).order_id;
         
         ElMessage.success('Заказ успешно оформлен! Сейчас вы будете перенаправлены на страницу оплаты...');
         
@@ -1505,28 +1592,62 @@ const handleFinish = async () => {
       }
       else {
         console.error('❌ Payment URL не найден в ответе сервера');
-        ElMessage.warning('Заказ оформлен, но ссылка на оплату не получена');
+        ElMessage.warning(
+          'Заказ оформлен, но ссылка на оплату не получена. Проверьте правильность заполнения данных или пришлите скриншот ошибки в тех. поддержку',
+        );
         emit('finish');
         return;
       }
     } else {
       console.error('❌ Пустой ответ от сервера');
-      ElMessage.error('Сервер вернул пустой ответ');
+      ElMessage.error({
+        message:
+          'Ошибка (—): сервер вернул пустой ответ. Проверьте правильность заполнения данных или пришлите скриншот ошибки в тех. поддержку',
+        duration: 0,
+        showClose: true,
+      });
       emit('finish');
     }
     
   } catch (error: any) {
     console.error('❌ Ошибка при отправке заказа:', error);
-    
-    if (error.response) {
+
+    const payload =
+      error.response?.data !== undefined
+        ? parseOrderPhpPayload(error.response.data)
+        : null;
+    if (payload && payload.error !== 0) {
+      showOrderSubmissionError(payload);
+    } else if (error.response) {
       console.error('❌ Статус ошибки:', error.response.status);
       console.error('❌ Данные ошибки:', error.response.data);
-      ElMessage.error(`Ошибка сервера: ${error.response.status}`);
+      const raw = error.response.data;
+      if (typeof raw === 'string' && raw.trim()) {
+        showOrderSubmissionError({
+          error: error.response.status,
+          message: raw.replace(/<[^>]+>/g, '').slice(0, 500),
+        });
+      } else {
+        ElMessage.error({
+          message: `Ошибка (${error.response.status}): ответ сервера без распознанного формата. Проверьте правильность заполнения данных или пришлите скриншот ошибки в тех. поддержку`,
+          duration: 0,
+          showClose: true,
+        });
+      }
     } else if (error.request) {
       console.error('❌ Нет ответа от сервера:', error.request);
-      ElMessage.error('Нет ответа от сервера. Проверьте соединение.');
+      ElMessage.error({
+        message:
+          'Ошибка (сеть): нет ответа от сервера. Проверьте соединение или пришлите скриншот ошибки в тех. поддержку',
+        duration: 0,
+        showClose: true,
+      });
     } else {
-      ElMessage.error(error.message || 'Произошла ошибка при отправке данных');
+      ElMessage.error({
+        message: `Ошибка (—): ${error.message || 'Не удалось отправить данные'}. Проверьте правильность заполнения данных или пришлите скриншот ошибки в тех. поддержку`,
+        duration: 0,
+        showClose: true,
+      });
     }
   } finally {
     isSubmitting.value = false;
@@ -1548,44 +1669,76 @@ onMounted(async () => {
 });
 </script>
 
-<style lang="css" scoped>
+<style lang="scss" scoped>
 .quiz__form {
   width: calc(100% - 330px);
   padding: 0 40px 0 60px;
-}
-.quiz__form_head {
-  margin-bottom: 20px;
-}
-.quiz__form_loading {
-  text-align: center;
-  padding: 40px;
-  color: #999;
-  font-size: 16px;
-}
-.quiz__form_error {
-  text-align: center;
-  padding: 40px;
-  background-color: #fef0f0;
-  border: 1px solid #fde2e2;
-  border-radius: 4px;
-  margin-bottom: 20px;
-}
-.quiz__form_error .error {
-  color: #f56c6c;
-  font-size: 16px;
-}
-.quiz__form_bottom {
-  display: flex;
-  padding: 60px 0 0;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-}
-.quiz__form_buttons {
-  display: flex;
-  align-items: center;
-  gap: 30px;
+
+  @media (max-width: 1439px) {
+    width: 100%;
+    padding: 0;
+  }
+
+  @media (max-width: 767px) {
+    padding: 0;
+  }
+
+  &_head {
+    margin-bottom: 20px;
+  }
+
+  &_loading {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+    font-size: 16px;
+  }
+
+  &_error {
+    text-align: center;
+    padding: 40px;
+    background-color: #fef0f0;
+    border: 1px solid #fde2e2;
+    border-radius: 4px;
+    margin-bottom: 20px;
+
+    .error {
+      color: #f56c6c;
+      font-size: 16px;
+    }
+  }
+
+  &_bottom {
+    display: flex;
+    padding: 60px 0 0;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+
+    @media (max-width: 767px) {
+      padding: 40px 0 0;
+      align-items: flex-start;
+      flex-direction: column-reverse;
+      gap: 40px;
+    }
+  }
+
+  &_buttons {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+  }
+
+  &_contract_loading {
+    position: relative;
+    margin: 20px 0 30px;
+    padding: 30px;
+    background-color: var(--bg-color);
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid var(--color);
+  }
 }
 
 .quiz__simple_summary {
@@ -1596,16 +1749,6 @@ onMounted(async () => {
   background-color: var(--bg-color);
   font-size: 16px;
   line-height: 2;
-}
-
-.quiz__form_contract_loading {
-  position: relative;
-  margin: 20px 0 30px;
-  padding: 30px;
-  background-color: var(--bg-color);
-  border-radius: 8px;
-  text-align: center;
-  border: 1px solid var(--color);
 }
 
 .loading-spinner {
@@ -1620,29 +1763,13 @@ onMounted(async () => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .text_small {
   font-size: 12px;
   color: var(--text-gray);
-}
-
-@media (max-width: 1439px) {
-  .quiz__form {
-    width: 100%;
-    padding: 0;
-  }
-}
-@media (max-width: 767px) {
-  .quiz__form_bottom {
-    padding: 40px 0 0;
-    align-items: flex-start;
-    flex-direction: column-reverse;
-    gap: 40px;
-  }
-  .quiz__form {
-    padding: 0;
-  }
 }
 </style>

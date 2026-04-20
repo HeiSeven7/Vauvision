@@ -351,9 +351,9 @@ const cardName = computed(() => {
 // Пояснительные тексты для каждой позиции
 const tooltipTexts = {
   single: 'Сингл — это один трек. Вы можете загрузить несколько синглов одновременно. Каждый сингл обрабатывается отдельно и требует своей обложки. Стоимость указана за один сингл.',
-  album: 'Альбом — это сборник из нескольких треков (обычно от 4 и более). Все треки альбома объединены общей обложкой и концепцией. Стоимость указана за весь альбом целиком.',
+  album: 'Альбом – это сборник из двух и более треков. Все треки с альбома выходят как один релиз с общей обложкой. Стоимость указана за альбом, независимо от количества треков.',
   clip: 'Клип — это видеоролик на ваш трек. Мы поможем с загрузкой и оптимизацией видео для всех площадок, поддерживающих видеоформат. Стоимость указана за один клип.',
-  card: 'Оформление карточки — это дополнительные материалы для вашего релиза: баннеры, обложки для плейлистов, промо-материалы. Эта услуга помогает выделить ваш релиз среди других.'
+  card: 'Оформление карточки – это установка фотографий в карточки на площадках VK Музыка и Яндекс Музыка. Также сюда входит привязка соц. сетей к карточкам. Карточка артиста появляется после выхода первого релиза артиста.'
 };
 
 // Проверка, выбран ли хотя бы один сингл или альбом
@@ -839,18 +839,33 @@ if (typeof window !== 'undefined') {
         <span>{{ isLoading ? 'Загрузка...' : 'Продолжить' }}</span>
       </button>
     </div>
-    <div class="quiz__form_sum">
-      <p class="quiz__form_sum_text">Итого к оплате:</p>
-      <h4 class="quiz__form_total">
-        <span>{{ formatPrice(totalSum) }}</span> {{ currencySymbol }}
-      </h4>
+    <div class="quiz__form_sum_container">
+      <div class="quiz__form_sum">
+        <p class="quiz__form_sum_text">Итого к оплате:</p>
+        <h4 class="quiz__form_total">
+          <span>{{ formatPrice(totalSum) }}</span> {{ currencySymbol }}
+        </h4>
+      </div>
+      <div class="quiz__form_sum_bonus">
+        <p class="quiz__form_sum_bonus_text">Будет начислено бонусов:</p>
+        <div class="quiz__form_sum_bonus_total">
+          <span>{{ formatPrice(Math.round(totalSum * 0.07)) }}</span>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 </template>
 
-<style lang="css" scoped>
-/* Основные стили */
+<style lang="scss" scoped>
+@mixin quiz-popup-callout {
+  background-color: var(--bg-color);
+  border-left: 4px solid var(--color);
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+}
+
 .quiz__form_top {
   display: flex;
   width: 100%;
@@ -859,53 +874,123 @@ if (typeof window !== 'undefined') {
   justify-content: space-between;
   gap: 20px;
 }
+
 .quiz__additional {
   text-transform: uppercase;
 }
+
 .quiz__form_one_list {
   padding: 30px;
   border: 1px solid var(--border);
+
+  @media (max-width: 767px) {
+    padding: 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
 }
+
+.quiz__form_one {
+  @media (max-width: 767px) {
+    padding: 15px;
+  }
+}
+
 .quiz__form_one_item {
   display: flex;
   padding: 20px 0;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+  }
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
 }
-.quiz__form_one_item:not(:last-child) {
-  border-bottom: 1px solid var(--border);
-}
+
 .quiz__form_one_left {
   display: flex;
   align-items: center;
   gap: 10px;
+
+  @media (max-width: 767px) {
+    gap: 8px;
+  }
 }
+
 .quiz__form_one_head {
   text-transform: uppercase;
   margin: 0;
 }
+
 .quiz__form_one_right {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
   gap: 65px;
+
+  @media (max-width: 767px) {
+    gap: 20px;
+  }
+
+  @media (max-width: 480px) {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
+
 .quiz__form_loading {
   text-align: center;
   padding: 15px;
   color: #999;
   font-size: 14px;
 }
+
 .quiz__form_sum {
   display: flex;
   align-items: center;
   gap: 15px;
+  &_container{
+    display: flex;
+    flex-direction: column;
+  }
+  &_text {
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 140%;
+    color: #131313;
+  }
+  &_bonus {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    &_text {
+      font-weight: 400;
+      font-size: 14px;
+      line-height: 140%;
+      color: #85858E;
+    }
+    &_total {
+      font-weight: 400;
+      font-size: 14px;
+      line-height: 140%;
+      color: #85858E;
+    }
+  }
 }
+
 .quiz__form_total {
   color: var(--color);
   transform: translateY(-2.5px);
 }
+
 .quiz__form_one_price {
   flex: 0 0 auto;
 }
@@ -917,7 +1002,6 @@ if (typeof window !== 'undefined') {
   cursor: not-allowed;
 }
 
-/* Стили для попапа */
 .quiz-popup__overlay {
   position: fixed;
   top: 0;
@@ -938,134 +1022,185 @@ if (typeof window !== 'undefined') {
   max-width: 600px;
   position: relative;
   background-color: var(--bg);
+
+  &__close {
+    display: flex;
+    padding: 8px;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0;
+    left: -60px;
+    background: var(--bg);
+    cursor: pointer;
+    color: var(--text);
+    border: none;
+    z-index: 1002;
+
+    @media (max-width: 767px) {
+      top: -60px;
+      left: auto;
+      right: 0;
+      background: var(--bg);
+    }
+
+    @media (max-width: 480px) {
+      top: -50px;
+    }
+  }
+
+  &__content {
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    padding: 30px;
+
+    @media (max-width: 767px) {
+      padding: 20px;
+    }
+
+    @media (max-width: 480px) {
+      padding: 15px;
+    }
+
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 4px;
+
+      &:hover {
+        background: #555;
+      }
+    }
+  }
+
+  &__body {
+    padding: 0 0 20px;
+  }
+
+  &__title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #000;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    @media (max-width: 767px) {
+      font-size: 20px;
+    }
+  }
+
+  &__text {
+    font-size: 16px;
+    line-height: 1.5;
+    color: #333;
+    margin-bottom: 20px;
+
+    @media (max-width: 767px) {
+      font-size: 14px;
+    }
+  }
+
+  &__warning {
+    @include quiz-popup-callout;
+
+    strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #856404;
+      font-size: 16px;
+    }
+  }
+
+  &__info {
+    @include quiz-popup-callout;
+  }
+
+  &__message {
+    @include quiz-popup-callout;
+
+    a {
+      color: var(--color);
+      text-decoration: underline;
+
+      &:hover {
+        color: var(--text);
+      }
+    }
+  }
+
+  &__links {
+    background-color: var(--bg-color);
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+
+    p:first-child {
+      margin-bottom: 12px;
+    }
+
+    a {
+      color: var(--color);
+      text-decoration: none;
+      font-weight: 500;
+      border-bottom: 1px dashed var(--color);
+
+      &:hover {
+        color: var(--text);
+        border-bottom-color: var(--text);
+      }
+    }
+  }
+
+  &__instruction {
+    background-color: var(--bg-color);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+
+    a {
+      color: var(--color);
+      text-decoration: none;
+      font-weight: 600;
+      border-bottom: 2px solid var(--color);
+
+      &:hover {
+        color: var(--text);
+        border-bottom-color: var(--text);
+      }
+    }
+  }
+
+  &__footer {
+    padding: 20px 0 0;
+    text-align: center;
+  }
+
+  &__button {
+    @media (max-width: 767px) {
+      min-width: 160px;
+      padding: 12px 24px;
+      font-size: 14px;
+    }
+  }
 }
 
-.quiz-popup__close {
-  display: flex;
-  padding: 8px;
-  align-items: center;
-  justify-content: center;
-  position: absolute;
-  top: 0;
-  left: -60px;
-  background: var(--bg);
-  cursor: pointer;
-  color: var(--text);
-  border: none;
-  z-index: 1002;
-}
-
-.quiz-popup__content {
-  max-height: calc(100vh - 100px);
-  overflow-y: auto;
-  padding: 30px;
-}
-
-.quiz-popup__body {
-  padding: 0 0 20px;
-}
-
-.quiz-popup__title {
-  font-size: 24px;
-  font-weight: 600;
-  margin-bottom: 20px;
-  color: #000;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.quiz-popup__text {
-  font-size: 16px;
-  line-height: 1.5;
-  color: #333;
-  margin-bottom: 20px;
-}
-
-.quiz-popup__warning {
-  background-color: var(--bg-color);
-  border-left: 4px solid var(--color);
-  padding: 15px;
-  margin-bottom: 20px;
-  border-radius: 8px;
-}
-
-.quiz-popup__warning strong {
-  display: block;
-  margin-bottom: 8px;
-  color: #856404;
-  font-size: 16px;
-}
-
-.quiz-popup__info {
-  background-color: var(--bg-color);
-  border-left: 4px solid var(--color);
-  padding: 15px;
-  margin-bottom: 20px;
-  border-radius: 8px;
-}
-
-.quiz-popup__links {
-  background-color: var(--bg-color);
-  padding: 20px;
-  margin-bottom: 20px;
-  border-radius: 8px;
-}
-
-.quiz-popup__links p:first-child {
-  margin-bottom: 12px;
-}
-
-.quiz-popup__links a {
-  color: var(--color);
-  text-decoration: none;
-  font-weight: 500;
-  border-bottom: 1px dashed var(--color);
-}
-
-.quiz-popup__links a:hover {
-  color: var(--text);
-  border-bottom-color: var(--text);
-}
-
-.quiz-popup__message {
-  background-color: var(--bg-color);
-  border-left: 4px solid var(--color);
-  padding: 15px;
-  margin-bottom: 20px;
-  border-radius: 8px;
-}
-
-.quiz-popup__message a {
-  color: var(--color);
-  text-decoration: underline;
-}
-
-.quiz-popup__message a:hover {
-  color: var(--text);
-}
-
-.quiz-popup__instruction {
-  background-color: var(--bg-color);
-  padding: 15px;
-  border-radius: 8px;
-  text-align: center;
-}
-
-.quiz-popup__instruction a {
-  color: var(--color);
-  text-decoration: none;
-  font-weight: 600;
-  border-bottom: 2px solid var(--color);
-}
-
-.quiz-popup__instruction a:hover {
-  color: var(--text);
-  border-bottom-color: var(--text);
-}
-
-.quiz-popup__footer {
-  padding: 20px 0 0;
-  text-align: center;
+@media (max-width: 767px) {
+  .quiz-popup__warning p,
+  .quiz-popup__info p,
+  .quiz-popup__links p,
+  .quiz-popup__message p,
+  .quiz-popup__instruction p {
+    font-size: 14px;
+  }
 }
 
 .popup-fade-enter-active,
@@ -1078,25 +1213,6 @@ if (typeof window !== 'undefined') {
   opacity: 0;
 }
 
-.quiz-popup__content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.quiz-popup__content::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.quiz-popup__content::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
-}
-
-.quiz-popup__content::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-/* Стили для тултипов */
 .tooltip-container {
   position: relative;
   display: inline-flex;
@@ -1114,20 +1230,25 @@ if (typeof window !== 'undefined') {
   color: #999;
   transition: color 0.2s ease;
   border-radius: 50%;
-}
 
-.tooltip-trigger:hover {
-  color: #333;
-}
+  &:hover {
+    color: #333;
+  }
 
-.tooltip-trigger:focus-visible {
-  outline: 2px solid #007bff;
-  outline-offset: 2px;
-}
+  &:focus-visible {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+  }
 
-.tooltip-trigger svg {
-  width: 18px;
-  height: 18px;
+  svg {
+    width: 18px;
+    height: 18px;
+
+    @media (max-width: 767px) {
+      width: 16px;
+      height: 16px;
+    }
+  }
 }
 
 .tooltip-content {
@@ -1142,133 +1263,20 @@ if (typeof window !== 'undefined') {
   font-size: 13px;
   line-height: 1.5;
   border-radius: 6px;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: left;
   z-index: 100;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   pointer-events: none;
   min-width: 250px;
-  white-space: normal;
-  text-align: left;
-}
 
-.tooltip-content::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 6px;
-  border-style: solid;
-  border-color: #333 transparent transparent transparent;
-}
-
-/* Анимация для тултипов */
-.tooltip-fade-enter-active,
-.tooltip-fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.tooltip-fade-enter-from,
-.tooltip-fade-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(5px);
-}
-
-.tooltip-fade-enter-to,
-.tooltip-fade-leave-from {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-/* Медиа-запросы */
-@media (max-width: 1439px) {
-  .quiz__form_one_list {
-    padding: 30px;
-  }
-}
-@media (max-width: 767px) {
-  .quiz-popup__close {
-    top: -60px;
-    left: auto;
-    right: 0;
-    background: var(--bg);
-  }
-  
-  .quiz-popup__content {
-    padding: 20px;
-  }
-  
-  .quiz-popup__title {
-    font-size: 20px;
-  }
-  
-  .quiz-popup__text {
-    font-size: 14px;
-  }
-  
-  .quiz-popup__warning p,
-  .quiz-popup__info p,
-  .quiz-popup__links p,
-  .quiz-popup__message p,
-  .quiz-popup__instruction p {
-    font-size: 14px;
-  }
-  
-  .quiz-popup__button {
-    min-width: 160px;
-    padding: 12px 24px;
-    font-size: 14px;
-  }
-  
-  .quiz__form_one {
-    padding: 15px;
-  }
-  .quiz__form_one_right {
-    gap: 20px;
-  }
-  .quiz__form_one_list {
-    padding: 0;
-  }
-  .quiz__form_one_list {
-    border: 0;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-  }
-  .quiz__form_one_left {
-    gap: 8px;
-  }
-  .tooltip-trigger svg {
-    width: 16px;
-    height: 16px;
-  }
-  .tooltip-content {
+  @media (max-width: 767px) {
     min-width: 200px;
     font-size: 12px;
     padding: 10px 12px;
   }
-}
 
-@media (max-width: 480px) {
-  .quiz-popup__close {
-    top: -50px;
-  }
-  
-  .quiz-popup__content {
-    padding: 15px;
-  }
-  
-  .quiz__form_one_item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-  
-  .quiz__form_one_right {
-    width: 100%;
-    justify-content: space-between;
-  }
-  
-  .tooltip-content {
+  @media (max-width: 480px) {
     left: 0;
     transform: none;
     bottom: auto;
@@ -1276,20 +1284,48 @@ if (typeof window !== 'undefined') {
     margin-top: 8px;
     margin-bottom: 0;
   }
-  
-  .tooltip-content::after {
-    top: auto;
-    bottom: 100%;
-    border-color: transparent transparent #333 transparent;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: #333 transparent transparent transparent;
+
+    @media (max-width: 480px) {
+      top: auto;
+      bottom: 100%;
+      border-color: transparent transparent #333 transparent;
+    }
   }
-  
-  .tooltip-fade-enter-from,
-  .tooltip-fade-leave-to {
+}
+
+.tooltip-fade-enter-active,
+.tooltip-fade-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.tooltip-fade-enter-from,
+.tooltip-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(5px);
+
+  @media (max-width: 480px) {
     transform: translateY(-5px);
   }
-  
-  .tooltip-fade-enter-to,
-  .tooltip-fade-leave-from {
+}
+
+.tooltip-fade-enter-to,
+.tooltip-fade-leave-from {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+
+  @media (max-width: 480px) {
     transform: translateY(0);
   }
 }

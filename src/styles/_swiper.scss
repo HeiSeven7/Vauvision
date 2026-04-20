@@ -1,0 +1,214 @@
+@use 'mixins' as *;
+
+.swiper {
+  width: 100%;
+  @include user-select-none;
+
+  &-slide {
+    -webkit-transform: translateZ(0);
+    -o-transform: translateZ(0);
+    -moz-transform: translateZ(0);
+    -ms-transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
+
+  &-wrapper {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-transform-style: preserve-3d;
+    transform-style: preserve-3d;
+  }
+
+  &-container {
+    @include user-select-none;
+  }
+
+  &-button-prev::after,
+  &-button-next::after {
+    display: none;
+  }
+
+  &-rtl .swiper-button-next::after,
+  &-rtl .swiper-button-prev::after {
+    display: none;
+  }
+
+  &-button-lock {
+    visibility: hidden;
+    opacity: 0;
+  }
+
+  &-horizontal > .swiper-pagination-bullets .swiper-pagination-bullet,
+  &-pagination-horizontal.swiper-pagination-bullets .swiper-pagination-bullet {
+    margin: 0;
+  }
+
+  &-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+
+    &-bullet {
+      background: transparent;
+      display: flex;
+      width: 18px;
+      height: 18px;
+      align-items: center;
+      justify-content: center;
+      background-color: transparent;
+      border-radius: 100%;
+      opacity: 1;
+
+      &-active {
+        opacity: 1;
+        background: transparent;
+
+        &.swiper-pagination-bullet::after {
+          background-color: var(--text);
+        }
+      }
+
+      &::after {
+        content: "";
+        width: 6px;
+        height: 6px;
+        background: transparent;
+        background-color: transparent;
+        border: 1px solid var(--text);
+        border-radius: 100%;
+        -webkit-transition: background-color 0.2s linear;
+        transition: background-color 0.2s linear;
+      }
+    }
+
+  }
+
+  &-pagination-clickable .swiper-pagination-bullet {
+    cursor: pointer;
+  }
+
+  &-button-next.swiper-button-disabled,
+  &-button-prev.swiper-button-disabled {
+    pointer-events: none;
+    opacity: 0.5;
+    cursor: pointer;
+  }
+
+  &-horizontal > .swiper-pagination-bullets,
+  &-pagination-bullets.swiper-pagination-horizontal,
+  &-pagination-custom,
+  &-pagination-fraction {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    -webkit-transform: translateX(-50%);
+    transform: translateX(-50%);
+  }
+
+  &-button-next,
+  &-button-prev {
+    display: flex;
+    width: 34px;
+    height: 34px;
+    margin-top: 0;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    top: 0;
+    z-index: 10;
+    cursor: pointer;
+    background-color: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--color);
+    -webkit-transition:
+      background-color 0.2s linear,
+      color 0.2s linear,
+      border-color 0.2s linear;
+    transition:
+      background-color 0.2s linear,
+      color 0.2s linear,
+      border-color 0.2s linear;
+
+    &:hover {
+      background-color: var(--color);
+      border-color: var(--color);
+      color: var(--white);
+    }
+
+    svg {
+      width: 14px;
+      height: 14px;
+      object-fit: contain;
+    }
+  }
+
+  &-button-next,
+  &-rtl .swiper-button-prev,
+  &-button-prev,
+  &-rtl .swiper-button-next {
+    right: 0;
+    left: 0;
+  }
+
+  &-button-next svg {
+    -webkit-transform: rotate(180deg);
+    transform: rotate(180deg);
+  }
+
+  &__navigation {
+    display: flex;
+    align-items: center;
+  }
+}
+
+.swiper-button-prev:after,
+.swiper-rtl .swiper-button-next::after,
+.swiper-button-next:after,
+.swiper-rtl .swiper-button-prev::after {
+  display: none;
+}
+
+.swiper-wrapper,
+.swiper-container-3d .swiper-cube-shadow,
+.swiper-container-3d .swiper-slide,
+.swiper-container-3d .swiper-slide-shadow-bottom,
+.swiper-container-3d .swiper-slide-shadow-left,
+.swiper-container-3d .swiper-slide-shadow-right,
+.swiper-container-3d .swiper-slide-shadow-top,
+.swiper-container-3d .swiper-wrapper,
+.swiper-3d .swiper-cube-shadow,
+.swiper-3d .swiper-slide,
+.swiper-3d {
+  will-change: transform, -webkit-transform, -moz-transform, -ms-transform, -o-transform;
+  -webkit-transition-property: -webkit-transform;
+  transition-property: -webkit-transform;
+  -o-transition-property: transform;
+  transition-property: transform;
+  transition-property:
+    transform,
+    -webkit-transform,
+    -moz-transform,
+    -ms-transform,
+    -o-transform;
+}
+
+[data-scroll-section],
+.swiper-container-3d .swiper-cube-shadow,
+.swiper-container-3d .swiper-slide,
+.swiper-container-3d .swiper-slide-shadow-bottom,
+.swiper-container-3d .swiper-slide-shadow-left,
+.swiper-container-3d .swiper-slide-shadow-right,
+.swiper-container-3d .swiper-slide-shadow-top,
+.swiper-3d .swiper-cube-shadow,
+.swiper-3d .swiper-slide {
+  perspective: 111px !important;
+}
+
+.swiper-button-next::after,
+.swiper-button-prev::after {
+  display: none;
+}

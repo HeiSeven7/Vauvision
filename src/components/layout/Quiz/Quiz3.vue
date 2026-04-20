@@ -961,8 +961,12 @@ onUnmounted(() => {
           <li class="form__hint_item">
             <p class="form__hint text_small">На обложке нельзя использовать нецензурные надписи. Нецензурные жесты должны быть сильно размыты, заблюрены или закрыты. Из надписей допускаются только псевдонимы артистов и название релиза, на 100% совпадающие по языку и написанию с тем, как они указаны в релизе. Несоблюдение этих критериев может задержать выход релиза.</p>
           </li>
-          <li class="form__hint_item">
+          <!-- <li class="form__hint_item">
             <p class="form__hint text_small">Правильные размеры обложки вы можете сделать тут в разделе «Обложка»: <a href="vauvision.com/photos" target="_blank" rel="noopener noreferrer">vauvision.com/photos</a></p>
+          </li> -->
+          <li class="form__hint_item">
+            <p class="form__hint text_bold_red">Для редактирования размера обложек (формат JPEG, от 1500x1500 пикселей) используйте вкладку «Обложка» на нашем <a href="https://vauvision.com/photos" target="_blank" rel="noopener noreferrer">сайте</a>
+                </p>
           </li>
         </ul>
         
@@ -1122,16 +1126,18 @@ onUnmounted(() => {
 </div>
 </template>
 
-<style lang="css" scoped>
+<style lang="scss" scoped>
 .quiz__form_single {
   padding: 20px 0 0;
 }
+
 .quiz__form_loading {
   text-align: center;
   padding: 40px;
   color: #999;
   font-size: 16px;
 }
+
 .quiz__form_single_name {
   display: flex;
   width: 100%;
@@ -1141,31 +1147,42 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 10px;
   background-color: #EDFBE2;
+
+  @media (max-width: 767px) {
+    padding: 15px;
+    align-items: flex-start;
+  }
+
+  &_svg {
+    display: flex;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    transform: rotate(0deg);
+    transition: transform 0.15s linear;
+
+    &:hover {
+      transform: rotate(90deg);
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  }
+
+  &_left {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  &_size {
+    color: var(--text-gray);
+  }
 }
-.quiz__form_single_name_svg {
-  display: flex;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  transform: rotate(0deg);
-  transition: transform 0.15s linear;
-}
-.quiz__form_single_name_svg:hover {
-  transform: rotate(90deg);
-}
-.quiz__form_single_name_svg svg {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.quiz__form_single_name_left {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.quiz__form_single_name_size {
-  color: var(--text-gray);
-}
+
 .quiz__form_single_error {
   margin-top: 10px;
   color: #f56c6c;
@@ -1175,10 +1192,12 @@ onUnmounted(() => {
   border-radius: 4px;
 }
 
-@media (max-width: 767px) {
-  .quiz__form_single_name {
-    padding: 15px;
-    align-items: flex-start;
+.text_bold_red {
+  font-weight: 800;
+  color: var(--color);
+
+  a {
+    text-decoration: underline;
   }
 }
 </style>

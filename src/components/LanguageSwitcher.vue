@@ -94,38 +94,44 @@ const changeLang = reactive({
 </div>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
 .language {
   display: none;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-}
-.language__icon {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.language__icon svg {
-  color: var(--text-gray);
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    svg {
+      color: var(--text-gray);
+    }
+  }
 }
 </style>
 
-<style>
-.language .el-select__placeholder {
-  position: relative;
-  top: 0;
-  transform: none;
-  color: var(--hover);
-}
-.language .el-select__wrapper,
-.language .el-select__wrapper:hover {
-  border: none;
-  box-shadow: none;
-  background-color: transparent;
-}
-.language .el-select__prefix,
-.language .el-select__suffix {
-  display: none;
+<style lang="scss">
+.language {
+  .el-select__placeholder {
+    position: relative;
+    top: 0;
+    transform: none;
+    color: var(--hover);
+  }
+
+  .el-select__wrapper,
+  .el-select__wrapper:hover {
+    border: none;
+    box-shadow: none;
+    background-color: transparent;
+  }
+
+  .el-select__prefix,
+  .el-select__suffix {
+    display: none;
+  }
 }
 </style>

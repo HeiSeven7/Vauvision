@@ -122,7 +122,14 @@
       <!-- Бонусы -->
       <div class="form__group">
         <label for="bonuses" class="form__label button">Бонусы</label>
-        <p class="form__hint text_small">У вас доступно {{ userBonuses }} бонусов. 1 бонус = 1 {{ currencySymbol }}. Максимум можно использовать {{ maxBonuses }} бонусов.</p>
+        <ul class="form__hint_list">
+          <li class="form__hint_item">
+            <p class="form__hint text_small">У вас доступно {{ userBonuses }} бонусов. 1 бонус = 1 {{ currencySymbol }}. Бонусами можно списать не более 50% от стоимости заказа.</p>
+          </li>
+          <li class="form__hint_item">
+            <p class="form__hint text_small">Новые бонусы рассчитываются от финальной стоимости с учётом скидки.</p>
+          </li>
+        </ul>
         <div class="form__bonus_input">
           <el-input-number
             v-model="formData.usedBonuses"
@@ -162,6 +169,12 @@
             <p v-if="finalAmount < 1" class="quiz__form_error_price">
               Сумма не может быть меньше 1 {{ currencySymbol }}
             </p>
+          </div>
+        </div>
+        <div class="quiz__form_sum_bonus">
+          <p class="quiz__form_sum_bonus_text">Будет начислено бонусов:</p>
+          <div class="quiz__form_sum_bonus_total">
+            <span>{{ formatPrice(Math.round(finalAmount * 0.07)) }}</span>
           </div>
         </div>
       </div>
@@ -1720,146 +1733,240 @@ onUnmounted(() => {
 });
 </script>
 
-<style lang="css" scoped>
+<style lang="scss" scoped>
 .quiz__form {
   width: calc(100% - 330px);
   padding: 0 40px 0 60px;
+
+  @media (max-width: 1439px) {
+    width: 100%;
+    padding: 0;
+  }
+
+  @media (max-width: 767px) {
+    padding: 0;
+  }
+
+  &_head {
+    margin-bottom: 20px;
+  }
+
+  &_bottom {
+    display: flex;
+    padding: 60px 0 0;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+
+    @media (max-width: 767px) {
+      padding: 40px 0 0;
+      align-items: flex-start;
+      flex-direction: column-reverse;
+      gap: 40px;
+    }
+  }
+
+  &_buttons {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+  }
+
+  &_sum {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+
+    &_container{
+      display: flex;
+      flex-direction: column;
+    }
+    &_text {
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 140%;
+      color: #131313;
+    }
+    &_bonus {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      &_text {
+        font-weight: 400;
+        font-size: 14px;
+        line-height: 140%;
+        color: #85858E;
+      }
+      &_total {
+        font-weight: 400;
+        font-size: 14px;
+        line-height: 140%;
+        color: #85858E;
+      }
+    }
+
+  }
+
+  &_total_wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &_price_container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+
+    @media (max-width: 767px) {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 5px;
+    }
+  }
+
+  &_total {
+    display: flex;
+    color: var(--color);
+    transform: translateY(-2.5px);
+  }
+
+  &_original_price_strikethrough {
+    display: flex;
+    color: var(--text-gray);
+    font-size: 18px;
+    text-decoration: line-through;
+    opacity: 0.7;
+  }
+
+  &_discount_info {
+    color: #67c23a;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+
+  &_error_price {
+    color: #f56c6c;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+
+  &_loading {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+    font-size: 16px;
+  }
+
+  &_contract_loading {
+    position: relative;
+    margin: 20px 0 30px;
+    padding: 30px;
+    background-color: var(--bg-color);
+    border-radius: 8px;
+    text-align: center;
+  }
 }
-.quiz__form_head {
-  margin-bottom: 20px;
+
+.form__checkbox_group {
+  .el-checkbox {
+    display: flex;
+    min-height: auto;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-gray);
+  }
 }
-.quiz__form_bottom {
-  display: flex;
-  padding: 60px 0 0;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
+
+.form__group {
+  .form__checkbox_group .el-checkbox {
+    padding: 10px 0 0;
+  }
 }
-.quiz__form_buttons {
-  display: flex;
-  align-items: center;
-  gap: 30px;
-}
-.form__checkbox_group .el-checkbox {
-  display: flex;
-  min-height: auto;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-gray);
-}
-.form__group .form__checkbox_group .el-checkbox {
-  padding: 10px 0 0;
-}
-.quiz__form_sum {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-.quiz__form_total_wrapper {
-  display: flex;
-  flex-direction: column;
-}
-.quiz__form_price_container {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-.quiz__form_total {
-  color: var(--color);
-  transform: translateY(-2.5px);
-}
-.quiz__form_original_price_strikethrough {
-  color: var(--text-gray);
-  font-size: 18px;
-  text-decoration: line-through;
-  opacity: 0.7;
-}
-.quiz__form_discount_info {
-  color: #67c23a;
-  font-size: 12px;
-  margin-top: 2px;
-}
-.quiz__form_error_price {
-  color: #f56c6c;
-  font-size: 12px;
-  margin-top: 2px;
-}
+
 .error {
   color: #f56c6c;
   font-size: 12px;
   margin-top: 5px;
 }
+
 .warning {
   color: #e6a23c;
   font-size: 12px;
   margin-top: 5px;
 }
+
 .form__group_inner {
   margin-top: 15px;
 }
+
 .form__bonus_input {
   display: flex;
   align-items: center;
   gap: 15px;
+
+  @media (max-width: 767px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
 }
+
 .form__promo_input {
   display: flex;
   align-items: center;
   gap: 15px;
+
+  @media (max-width: 767px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
 }
+
 .form__bonus_hint {
   color: var(--text-gray);
   font-size: 14px;
 }
+
 .promo_loading {
-  color: var(text-gray);
+  color: var(--text-gray);
   font-size: 14px;
 }
+
 .promo_discount_info {
   color: #67c23a;
   font-size: 14px;
   margin-top: 5px;
 }
-.quiz__form_loading {
-  text-align: center;
-  padding: 40px;
-  color: #999;
-  font-size: 16px;
-}
+
 .upload_progress {
   margin: 20px 0;
   padding: 20px;
   background-color: #f5f7fa;
   border-radius: 4px;
   text-align: center;
-}
-.upload_progress_bar {
-  width: 100%;
-  height: 20px;
-  background-color: #e4e7ed;
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 10px;
-}
-.upload_progress_bar_fill {
-  height: 100%;
-  background-color: var(--color);
-  transition: width 0.3s ease;
-}
-.upload_progress_count {
-  color: #909399;
-  font-size: 14px;
-}
 
-.quiz__form_contract_loading {
-  position: relative;
-  margin: 20px 0 30px;
-  padding: 30px;
-  background-color: var(--bg-color);
-  border-radius: 8px;
-  text-align: center;
+  &_bar {
+    width: 100%;
+    height: 20px;
+    background-color: #e4e7ed;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+
+    &_fill {
+      height: 100%;
+      background-color: var(--color);
+      transition: width 0.3s ease;
+    }
+  }
+
+  &_count {
+    color: #909399;
+    font-size: 14px;
+  }
 }
 
 .loading-spinner {
@@ -1874,45 +1981,14 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .blur-content {
   opacity: 0.5;
   pointer-events: none;
   transition: opacity 0.3s ease;
-}
-
-@media (max-width: 1439px) {
-  .quiz__form {
-    width: 100%;
-    padding: 0;
-  }
-}
-@media (max-width: 767px) {
-  .quiz__form_bottom {
-    padding: 40px 0 0;
-    align-items: flex-start;
-    flex-direction: column-reverse;
-    gap: 40px;
-  }
-  .quiz__form {
-    padding: 0;
-  }
-  .form__bonus_input {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .form__promo_input {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-  .quiz__form_price_container {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 5px;
-  }
 }
 </style>

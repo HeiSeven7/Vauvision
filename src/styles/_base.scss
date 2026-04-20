@@ -1,0 +1,264 @@
+@use 'mixins' as *;
+
+* {
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+*::-moz-selection {
+  background-color: var(--text);
+  color: var(--bg);
+}
+
+*::selection {
+  background-color: var(--text);
+  color: var(--bg);
+}
+
+input {
+  outline: none;
+
+  &::-moz-selection {
+    background-color: var(--color);
+    color: var(--white);
+  }
+
+  &::selection {
+    background-color: var(--color);
+    color: var(--white);
+  }
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    display: none;
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+
+  &:-webkit-autofill {
+    border: none;
+    -webkit-text-fill-color: var(--text);
+    -webkit-box-shadow: 0 0 0 1000px var(--bg) inset;
+    color: var(--text);
+    box-shadow: 0 0 0 1000px var(--bg) inset;
+  }
+}
+
+textarea {
+  outline: none;
+  resize: none;
+
+  &:-webkit-autofill {
+    border: none;
+    -webkit-text-fill-color: var(--text);
+    -webkit-box-shadow: 0 0 0 1000px var(--bg) inset;
+    color: var(--text);
+    box-shadow: 0 0 0 1000px var(--bg) inset;
+  }
+}
+
+select:-webkit-autofill {
+  border: none;
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg) inset;
+  color: var(--text);
+  box-shadow: 0 0 0 1000px var(--bg) inset;
+}
+
+label {
+  cursor: pointer;
+}
+
+*::marker {
+  font-size: 0;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  background: var(--bg);
+
+  &-thumb {
+    width: 4px;
+    background: var(--color);
+  }
+}
+
+html,
+body {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html {
+  height: var(--height);
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  overflow-y: scroll;
+
+  &.noscroll {
+    overflow: hidden;
+  }
+}
+
+body {
+  position: relative;
+  height: 100%;
+  font-family: var(--text-font);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+  background-color: var(--bg);
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+
+button {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  -webkit-transition:
+    color 0.15s linear,
+    background-color 0.15s linear;
+  transition:
+    color 0.15s linear,
+    background-color 0.15s linear;
+  cursor: pointer;
+
+  &,
+  &:hover {
+    outline: 0;
+    border: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+.main {
+  display: flex;
+  min-height: var(--height);
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
+  flex-direction: column;
+}
+
+.overlay {
+  width: 100%;
+  height: 100%;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 299;
+  opacity: 0;
+  visibility: hidden;
+  background: transparent;
+  transition:
+    visibility 0s linear,
+    opacity 0.3s linear,
+    background-color 0.3s linear;
+  transition-delay: 0.3s, 0.2s, 0.2s;
+
+  &.active {
+    opacity: 0.6;
+    visibility: visible;
+    background-color: var(--text);
+    transition-delay: 0s;
+
+    ~ section,
+    ~ header {
+      filter: blur(5px);
+      transition-delay: 0s;
+    }
+  }
+}
+
+section,
+header {
+  transition: filter 0.3s linear;
+  transition-delay: 0.2s;
+}
+
+.error {
+  color: var(--error);
+}
+
+img {
+  pointer-events: none;
+  @include user-select-none;
+}
+
+img,
+svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+svg {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+form {
+  @include user-select-none;
+}
+
+a {
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  @include user-select-none;
+  -webkit-transition: color 0.15s linear;
+  transition: color 0.15s linear;
+
+  & svg {
+    -webkit-transition: color 0.15s linear;
+    transition: color 0.15s linear;
+  }
+
+  &:hover {
+    color: var(--color);
+    text-decoration: none;
+  }
+}
+
+ul,
+ol,
+p,
+div,
+a,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  padding: 0;
+}
+
+.app {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+section {
+  margin: 0 0 auto;
+  pointer-events: all;
+  background-color: var(--bg);
+}
+
+.container {
+  width: 100%;
+  height: 100%;
+  max-width: 1920px;
+  padding: 0 80px;
+  margin: 0 auto;
+  position: relative;
+}

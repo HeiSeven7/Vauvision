@@ -95,24 +95,27 @@ import ArticlesSVG from "@/uikit/menu/ArticlesSVG.vue";
 </section>
 </template>
 
-<style lang="css" scoped>
+<style lang="scss" scoped>
 .home {
   margin: 0 0 auto;
-}
-.home__block {
-  display: flex;
-  padding: 60px 0;
-  align-items: center;
-  justify-content: center;
-}
-.home__list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.home__link {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+
+  &__block {
+    display: flex;
+    padding: 60px 0;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  &__link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
 }
 </style>

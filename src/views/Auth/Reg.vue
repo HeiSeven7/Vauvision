@@ -804,7 +804,7 @@ onMounted(() => {
 </section>
 </template>
 
-<style lang="css" scoped>
+<style lang="scss" scoped>
 .form__labels {
   display: flex;
   gap: 20px;
@@ -837,10 +837,10 @@ onMounted(() => {
 .policy-link {
   color: var(--el-color-primary);
   text-decoration: underline;
-}
 
-.policy-link:hover {
-  text-decoration: none;
+  &:hover {
+    text-decoration: none;
+  }
 }
 
 .error {
@@ -863,17 +863,17 @@ onMounted(() => {
   justify-content: center;
   gap: 10px;
   margin-top: 30px;
-}
 
-.form__step span {
-  width: 40px;
-  height: 4px;
-  background-color: var(--el-border-color);
-  border-radius: 2px;
-  transition: background-color 0.3s;
-}
+  span {
+    width: 40px;
+    height: 4px;
+    background-color: var(--el-border-color);
+    border-radius: 2px;
+    transition: background-color 0.3s;
 
-.form__step span.active {
-  background-color: var(--el-color-primary);
+    &.active {
+      background-color: var(--el-color-primary);
+    }
+  }
 }
 </style>

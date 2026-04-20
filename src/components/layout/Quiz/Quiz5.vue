@@ -1299,16 +1299,18 @@ onUnmounted(() => {
 </div>
 </template>
 
-<style lang="css" scoped>
+<style lang="scss" scoped>
 .quiz__form_single {
   padding: 20px 0 0;
 }
+
 .quiz__form_loading {
   text-align: center;
   padding: 40px;
   color: #999;
   font-size: 16px;
 }
+
 .quiz__form_single_name {
   display: flex;
   width: 100%;
@@ -1318,31 +1320,42 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 10px;
   background-color: #EDFBE2;
+
+  @media (max-width: 767px) {
+    padding: 15px;
+    align-items: flex-start;
+  }
+
+  &_svg {
+    display: flex;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    transform: rotate(0deg);
+    transition: transform 0.15s linear;
+
+    &:hover {
+      transform: rotate(90deg);
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  }
+
+  &_left {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  &_size {
+    color: var(--text-gray);
+  }
 }
-.quiz__form_single_name_svg {
-  display: flex;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  transform: rotate(0deg);
-  transition: transform 0.15s linear;
-}
-.quiz__form_single_name_svg:hover {
-  transform: rotate(90deg);
-}
-.quiz__form_single_name_svg svg {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.quiz__form_single_name_left {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.quiz__form_single_name_size {
-  color: var(--text-gray);
-}
+
 .quiz__form_single_error {
   margin-top: 10px;
   color: #f56c6c;
@@ -1350,12 +1363,5 @@ onUnmounted(() => {
   background-color: #fef0f0;
   border: 1px solid #fde2e2;
   border-radius: 4px;
-}
-
-@media (max-width: 767px) {
-  .quiz__form_single_name {
-    padding: 15px;
-    align-items: flex-start;
-  }
 }
 </style>

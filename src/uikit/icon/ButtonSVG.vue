@@ -4,4 +4,4 @@
   <path id="Icon" d="M8.75 11.66L4.08 6.99L8.75 2.33" stroke="currentColor" stroke-opacity="1.000000" stroke-width="2.000000" stroke-linejoin="round" stroke-linecap="round"/>
 </svg>
 </template>
-<style scoped></style>
+<style lang="scss" scoped></style>

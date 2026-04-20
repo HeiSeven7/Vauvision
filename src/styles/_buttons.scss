@@ -1,0 +1,217 @@
+.button__primary,
+.button__red,
+.button__black,
+.button__second,
+.button__pagination {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 5px;
+
+  &:disabled {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
+    -webkit-transition:
+      color 0.2s linear,
+      background-color 0.2s linear,
+      border-color 0.2s linear;
+    transition:
+      color 0.2s linear,
+      background-color 0.2s linear,
+      border-color 0.2s linear;
+  }
+
+  svg {
+    display: flex;
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+  }
+}
+
+.button__primary span,
+.button__red span,
+.button__black span {
+  min-width: 240px;
+}
+
+.button__primary span {
+  padding: 14px 30px;
+  font-weight: 400;
+  text-transform: uppercase;
+  color: var(--text);
+  background-color: var(--bg);
+  border: 1px solid var(--text);
+}
+
+.button__black span {
+  padding: 14px 30px;
+  font-weight: 400;
+  text-transform: uppercase;
+  color: var(--bg);
+  background-color: var(--text);
+}
+
+.button__red span {
+  padding: 14px 30px;
+  font-weight: 400;
+  text-transform: uppercase;
+  color: var(--white);
+  background-color: var(--color);
+}
+
+.button__second span {
+  color: var(--color);
+}
+
+.button__second:hover span {
+  color: var(--text);
+}
+
+.button__black:hover span,
+.button__black.active span,
+.button__pagination:hover span,
+.button__pagination.active span {
+  color: var(--white);
+  background-color: var(--color);
+}
+
+.button__primary:hover span,
+.button__primary.active span {
+  color: var(--white);
+  background-color: var(--black);
+}
+
+.button__red:hover span,
+.button__red.active span {
+  color: var(--white);
+  background-color: var(--black);
+}
+
+.button__pagination span {
+  height: 40px;
+  color: var(--text);
+  background-color: var(--bg);
+}
+
+.pagination__buttons {
+  display: flex;
+  width: 100%;
+  margin: 30px 0 0;
+  padding: 20px 0 0;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+
+  &_button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  &_info {
+    padding: 8px 12px;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+}
+
+.button__pagination_next span:first-child,
+.button__pagination_prev span:last-child {
+  display: none !important;
+  margin: 0;
+  width: 235px;
+  padding: 10.5px 20px;
+}
+
+.button__pagination_next span:first-child {
+  margin: 0 10px 0 0;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.button__pagination_prev span:last-child {
+  margin: 0 0 0 10px;
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.button__pagination_next span:last-child,
+.button__pagination_prev span:first-child {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+  }
+}
+
+.button__pagination_next span:last-child svg {
+  -webkit-transform: rotate(180deg);
+  transform: rotate(180deg);
+}
+
+.link {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  color: var(--text);
+  -webkit-transition: color 0.15s linear;
+  transition: color 0.15s linear;
+
+  &:hover {
+    color: var(--color);
+
+    svg {
+      right: -10px;
+      -webkit-transform: rotate(45deg);
+      transform: rotate(45deg);
+    }
+  }
+
+  svg {
+    width: 12px;
+    height: 13.24px;
+    position: relative;
+    right: -5px;
+    object-fit: contain;
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+    -webkit-transition:
+      -webkit-transform 0.15s linear,
+      right 0.15s linear;
+    transition:
+      transform 0.15s linear,
+      right 0.15s linear;
+  }
+}
+
+.no_check {
+  .el-checkbox__input {
+    display: none;
+    position: absolute;
+    -webkit-appearance: none;
+    appearance: none;
+
+    &.is-checked + .el-checkbox__label {
+      color: var(--text);
+    }
+  }
+}

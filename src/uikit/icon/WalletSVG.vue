@@ -8,4 +8,4 @@
   <path fill-rule="evenodd" clip-rule="evenodd" d="M15.8327 11.6667C15.8327 12.1269 15.4596 12.5 14.9994 12.5C14.5391 12.5 14.166 12.1269 14.166 11.6667C14.166 11.2064 14.5391 10.8333 14.9994 10.8333C15.4596 10.8333 15.8327 11.2064 15.8327 11.6667Z" fill="currentColor"/>
 </svg>
 </template>
-<style scoped></style>
+<style lang="scss" scoped></style>

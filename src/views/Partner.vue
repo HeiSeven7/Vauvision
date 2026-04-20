@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import Header from "@/components/layout/Header.vue";
 import Menu from "@/components/layout/Menu.vue";
 import PersonalSVG from "@/uikit/icon/PersonalSVG.vue";
@@ -39,6 +39,78 @@ const referralData = ref({
 const referralUsers = ref<ReferralUser[]>([]);
 const isAccepting = ref(false);
 const copySuccess = ref(false);
+
+/** При ширине окна < 540px и ширине ячейки email > 130px — обрезка; раскрытие по клику */
+const PARTNER_EMAIL_VIEWPORT_MAX = 539;
+const PARTNER_EMAIL_CELL_TRUNCATE_MIN = 130;
+
+const isPartnerEmailNarrowViewport = ref(false);
+const partnerEmailClampActive = ref<Record<number, boolean>>({});
+const expandedPartnerEmailIds = ref<Record<number, boolean>>({});
+
+const partnerEmailCellEls = new Map<number, HTMLElement>();
+const partnerEmailCellObservers = new Map<number, ResizeObserver>();
+
+const updatePartnerEmailClampForWidth = (id: number, width: number) => {
+  const active =
+    isPartnerEmailNarrowViewport.value && width > PARTNER_EMAIL_CELL_TRUNCATE_MIN;
+  partnerEmailClampActive.value = {
+    ...partnerEmailClampActive.value,
+    [id]: active,
+  };
+  if (!active && expandedPartnerEmailIds.value[id]) {
+    const next = { ...expandedPartnerEmailIds.value };
+    delete next[id];
+    expandedPartnerEmailIds.value = next;
+  }
+};
+
+const recalcAllPartnerEmailClamps = () => {
+  partnerEmailCellEls.forEach((el, id) => {
+    updatePartnerEmailClampForWidth(id, el.getBoundingClientRect().width);
+  });
+};
+
+const bindPartnerEmailCell = (id: number, el: unknown) => {
+  const html = el instanceof HTMLElement ? el : null;
+  const prev = partnerEmailCellObservers.get(id);
+  if (prev) {
+    prev.disconnect();
+    partnerEmailCellObservers.delete(id);
+  }
+  if (!html) {
+    partnerEmailCellEls.delete(id);
+    const nextClamp = { ...partnerEmailClampActive.value };
+    delete nextClamp[id];
+    partnerEmailClampActive.value = nextClamp;
+    return;
+  }
+
+  partnerEmailCellEls.set(id, html);
+  const ro = new ResizeObserver((entries) => {
+    const w = entries[0]?.contentRect.width ?? html.getBoundingClientRect().width;
+    updatePartnerEmailClampForWidth(id, w);
+  });
+  ro.observe(html);
+  partnerEmailCellObservers.set(id, ro);
+  updatePartnerEmailClampForWidth(id, html.getBoundingClientRect().width);
+};
+
+const togglePartnerEmail = (id: number) => {
+  if (!partnerEmailClampActive.value[id]) return;
+  expandedPartnerEmailIds.value = {
+    ...expandedPartnerEmailIds.value,
+    [id]: !expandedPartnerEmailIds.value[id],
+  };
+};
+
+let partnerEmailMql: MediaQueryList | null = null;
+
+const onPartnerEmailViewportChange = () => {
+  if (!partnerEmailMql) return;
+  isPartnerEmailNarrowViewport.value = partnerEmailMql.matches;
+  recalcAllPartnerEmailClamps();
+};
 
 // Пагинация для партнеров
 const partnersPerPage = ref<number>(6);
@@ -90,12 +162,14 @@ const formatReleases = (releases: string | number) => {
 const nextPartnersPage = () => {
   if (currentPartnersPage.value < totalPartnersPages.value) {
     currentPartnersPage.value++;
+    expandedPartnerEmailIds.value = {};
   }
 };
 
 const prevPartnersPage = () => {
   if (currentPartnersPage.value > 1) {
     currentPartnersPage.value--;
+    expandedPartnerEmailIds.value = {};
   }
 };
 
@@ -159,7 +233,20 @@ const copyReferralLink = () => {
 
 // Загружаем данные при монтировании
 onMounted(() => {
+  partnerEmailMql = window.matchMedia(
+    `(max-width: ${PARTNER_EMAIL_VIEWPORT_MAX}px)`
+  );
+  isPartnerEmailNarrowViewport.value = partnerEmailMql.matches;
+  partnerEmailMql.addEventListener("change", onPartnerEmailViewportChange);
   fetchData();
+});
+
+onUnmounted(() => {
+  partnerEmailMql?.removeEventListener("change", onPartnerEmailViewportChange);
+  partnerEmailMql = null;
+  partnerEmailCellObservers.forEach((ro) => ro.disconnect());
+  partnerEmailCellObservers.clear();
+  partnerEmailCellEls.clear();
 });
 </script>
 
@@ -245,7 +332,15 @@ onMounted(() => {
                     </div>
                     <span class="partner__name-text">{{ partner.name }}</span>
                   </div>
-                  <div class="partner__cell partner__email">
+                  <div
+                    class="partner__cell partner__email"
+                    :class="{
+                      'partner__email--clamp': partnerEmailClampActive[partner.id],
+                      'partner__email--expanded': expandedPartnerEmailIds[partner.id],
+                    }"
+                    :ref="(el) => bindPartnerEmailCell(partner.id, el)"
+                    @click="togglePartnerEmail(partner.id)"
+                  >
                     <span class="partner__email-text">{{ partner.email }}</span>
                   </div>
                   <div class="partner__cell partner__date">
@@ -347,16 +442,19 @@ onMounted(() => {
 </section>
 </template>
 
-<style lang="css" scoped>
-.loading__container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-.loading__svg {
-  width: 100px;
-  height: 100px;
+<style lang="scss" scoped>
+.loading {
+  &__container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  &__svg {
+    width: 100px;
+    height: 100px;
+  }
 }
 
 .personal {
@@ -371,397 +469,450 @@ onMounted(() => {
   background-color: var(--bg);
   border: 1px solid var(--border);
   margin-bottom: 20px;
-}
 
-.partner__agreement_info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.partner__agreement_head {
-  text-transform: uppercase;
-  font-weight: 500;
-}
-
-.partner__agreement_desc {
-  color: var(--text-gray);
-}
-
-.partner__agreement_buttons {
-  display: flex;
-  gap: 10px;
-}
-
-.partner__agreement_button {
-  padding: 12px 24px;
-  text-transform: uppercase;
-}
-
-.partner__loading,
-.partner__empty {
-  padding: 40px;
-  text-align: center;
-  color: var(--text-gray);
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-}
-
-.partner__flex {
-  display: flex;
-  gap: 40px;
-}
-
-.partner__content,
-.partner__top {
-  display: flex;
-  width: calc(100% - 440px);
-  flex: 0 0 auto;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.partner__top,
-.partner__table {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.partner__table {
-  padding: 40px;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-}
-
-.partner__head,
-.partner__heading,
-.partner__conditions_head,
-.partner__agreement_head {
-  text-transform: uppercase;
-}
-
-.partner__list {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  background-color: var(--border);
-}
-
-.partner__item {
-  display: flex;
-  width: 100%;
-  padding: 20px 0;
-  align-items: center;
-  background-color: var(--bg);
-  gap: 20px;
-}
-
-.partner__header,
-.partner__header .partner__earnings {
-  text-transform: capitalize;
-  color: var(--text-gray);
-}
-
-.partner__cell {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.partner__name {
-  flex: 2;
-  min-width: 140px;
-}
-
-.partner__email {
-  flex: 2;
-  min-width: 140px;
-}
-
-.partner__date {
-  flex: 1;
-  min-width: 140px;
-}
-
-.partner__earnings {
-  flex: 1;
-  min-width: 100px;
-  font-weight: 500;
-  color: var(--color);
-}
-
-.partner__releases {
-  flex: 1;
-  min-width: 100px;
-}
-
-.partner__actions {
-  flex: 0 0 40px;
-  min-width: 40px;
-  justify-content: flex-end;
-}
-
-.partner__user {
-  display: flex;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  overflow: hidden;
-  color: #00000038;
-  background-color: var(--bg-gray);
-}
-
-.partner__user svg {
-  width: 24px;
-  height: 24px;
-  object-fit: cover;
-}
-
-.partner__more {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: var(--text-gray);
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-.partner__more:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-.partner__more svg {
-  width: 20px;
-  height: 20px;
-}
-
-.partner__load {
-  margin: 30px auto 0;
-}
-
-.partner__right {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-
-.partner__conditions,
-.partner__referral {
-  display: flex;
-  padding: 40px;
-  flex-direction: column;
-  gap: 30px;
-  position: relative;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
-}
-
-.partner__conditions_info,
-.partner__referral_info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.partner__conditions_desc,
-.partner__referral_desc {
-  color: var(--text-gray);
-}
-
-.partner__conditions_copy {
-  width: 100%;
-  padding: 15px 20px;
-  color: var(--text);
-  background-color: var(--bg);
-  border: 1px solid var(--text);
-  transition: background-color 0.15s linear, border-color 0.15s linear, color 0.15s linear;
-  cursor: pointer;
-}
-
-.partner__conditions_copy:hover:not(:disabled) {
-  color: var(--white);
-  background-color: var(--color);
-  border-color: var(--color);
-}
-
-.partner__conditions_copy:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.partner__conditions_copy span {
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
-  -webkit-box-orient: vertical;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  overflow: hidden;
-}
-
-.partner__conditions_copy_with-icon {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.partner__conditions_copy_with-icon svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
-
-.partner__referral_link {
-  position: relative;
-}
-
-.partner__copy_success {
-  position: absolute;
-  top: -30px;
-  right: 0;
-  background-color: var(--color);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.partner__referral_notice {
-  width: 100%;
-}
-
-@media (max-width: 1919px) {
-  .partner__flex {
-    gap: 20px;
-  }
-  .partner__content,
-  .partner__top {
-    width: calc(100% - 340px);
-  }
-  .partner__releases {
-    display: none;
-  }
-}
-
-@media (max-width: 1439px) {
-  .partner__content,
-  .partner__top {
-    width: 100%;
-  }
-  .partner__flex {
+  &_info {
+    display: flex;
     flex-direction: column;
+    gap: 8px;
   }
-  .partner__right {
-    flex-direction: row;
+
+  &_head {
+    text-transform: uppercase;
+    font-weight: 500;
   }
-  .partner__conditions,
-  .partner__referral {
-    width: calc(50% - 10px);
+
+  &_desc {
+    color: var(--text-gray);
   }
-  .partner__conditions {
-    justify-content: space-between;
+
+  &_buttons {
+    display: flex;
+    gap: 10px;
   }
-  
-  .partner__agreement {
+
+  &_button {
+    padding: 12px 24px;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 1439px) {
     flex-direction: column;
     align-items: flex-start;
     gap: 20px;
+
+    &_buttons {
+      width: 100%;
+    }
+
+    &_button {
+      flex: 1;
+    }
   }
-  
-  .partner__agreement_buttons {
-    width: 100%;
-  }
-  
-  .partner__agreement_button {
-    flex: 1;
+
+  @media (max-width: 767px) {
+    padding: 20px 15px;
+
+    &_buttons {
+      flex-direction: column;
+    }
+
+    &_button {
+      width: 100%;
+    }
   }
 }
 
-@media (max-width: 767px) {
-  .partner__table {
-    padding: 30px 15px;
+.partner {
+  &__loading,
+  &__empty {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-gray);
+    background-color: var(--bg);
+    border: 1px solid var(--border);
   }
-  .partner__header {
-    display: none;
+
+  &__flex {
+    display: flex;
+    gap: 40px;
+
+    @media (max-width: 1919px) {
+      gap: 20px;
+    }
+
+    @media (max-width: 1439px) {
+      flex-direction: column;
+    }
+
+    @media (max-width: 767px) {
+      flex-direction: column;
+      gap: 20px;
+    }
   }
-  .partner__item {
-    flex-wrap: wrap;
-    gap: 10px 20px;
-    padding: 15px 0;
-  }
-  .partner__name {
-    width: calc(100% - 50px - 20px);
-    min-width: auto;
+
+  &__content,
+  &__top {
+    display: flex;
+    width: calc(100% - 440px);
     flex: 0 0 auto;
-    order: 1;
+    flex-direction: column;
+    gap: 20px;
+
+    @media (max-width: 1919px) {
+      width: calc(100% - 340px);
+    }
+
+    @media (max-width: 1439px) {
+      width: 100%;
+    }
   }
-  .partner__actions {
-    width: 50px;
-    min-width: auto;
-    flex: 0 0 auto;
-    order: 2;
-  }
-  .partner__date {
-    min-width: auto;
-    margin: 0 0 0 55px;
-    flex: 0 0 auto;
-    order: 3;
-  }
-  .partner__email {
-    min-width: auto;
-    flex: 0 0 auto;
-    order: 4;
-  }
-  .partner__earnings {
-    min-width: auto;
-    margin: 0 0 0 auto;
-    flex: 0 0 auto;
-    justify-content: flex-end;
-    order: 5;
-  }
-  .partner__load {
-    margin: 20px 0 0;
-  }
-  
-  .partner__flex {
+
+  &__top,
+  &__table {
+    display: flex;
     flex-direction: column;
     gap: 20px;
   }
-  .partner__right {
+
+  &__table {
+    padding: 40px;
+    background-color: var(--bg);
+    border: 1px solid var(--border);
+
+    @media (max-width: 767px) {
+      padding: 30px 15px;
+    }
+  }
+
+  &__head,
+  &__heading,
+  &__conditions_head,
+  &__agreement_head {
+    text-transform: uppercase;
+  }
+
+  &__list {
+    display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 1px;
+    background-color: var(--border);
   }
-  .partner__conditions,
-  .partner__referral {
+
+  &__item {
+    display: flex;
     width: 100%;
+    padding: 20px 0;
+    align-items: center;
+    background-color: var(--bg);
+    gap: 20px;
+
+    @media (max-width: 1023px) {
+      display: grid;
+      grid-template-columns: 73px 1fr 1fr 1fr;
+      grid-gap: 15px 30px;
+      padding: 15px 0;
+    }
+    @media (max-width: 540px) {
+      grid-gap: 15px 20px;
+    }
   }
-  
-  .partner__agreement {
-    padding: 20px 15px;
+
+  &__header {
+    text-transform: capitalize;
+    color: var(--text-gray);
+
+    & .partner__earnings {
+      text-transform: capitalize;
+      color: var(--text-gray);
+    }
+
+    @media (max-width: 1023px) {
+      display: none;
+    }
   }
-  
-  .partner__agreement_buttons {
+
+  &__cell {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+
+  &__name {
+    flex: 2;
+    min-width: 140px;
+    &-text {
+      font-weight: 400;
+      font-size: 14px;
+      line-height: 140%;
+      color: #181818;
+    }
+
+    @media (max-width: 1023px) {
+      grid-column: 1 / 4;
+      grid-row: 1 / 2;
+    }
+  }
+
+  &__email {
+    flex: 2;
+    min-width: 140px;
+    &-text {
+      font-weight: 400;
+      font-size: 14px;
+      line-height: 140%;
+    }
+
+    @media (max-width: 1023px) {
+      min-width: auto;
+      grid-column: 2 / 4;
+      grid-row: 2 / 3;
+    }
+
+    &.partner__email--clamp {
+      min-width: 0;
+      max-width: 100%;
+      cursor: pointer;
+
+      .partner__email-text {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      &.partner__email--expanded .partner__email-text {
+        white-space: normal;
+        word-break: break-word;
+        overflow: visible;
+        text-overflow: clip;
+      }
+    }
+  }
+
+  &__date {
+    flex: 1;
+    min-width: 140px;
+    &-text {
+      font-weight: 400;
+      font-size: 14px;
+      line-height: 140%;
+    }
+
+    @media (max-width: 1023px) {
+      min-width: auto;
+      grid-column: 1 / 2;
+      grid-row: 2 / 3;
+    }
+  }
+
+  &__earnings {
+    flex: 1;
+    min-width: 100px;
+    color: var(--color);
+    &-text {
+      font-weight: 400;
+      font-size: 14px;
+      line-height: 140%;
+    }
+
+    @media (max-width: 1023px) {
+      min-width: auto;
+      grid-column: 4 / 5;
+      grid-row: 2 / 3;
+      justify-content: flex-end;
+    }
+  }
+
+  &__releases {
+    flex: 1;
+    min-width: 100px;
+
+    @media (max-width: 1919px) {
+      display: none;
+    }
+  }
+
+  &__actions {
+    flex: 0 0 40px;
+    min-width: 40px;
+    justify-content: flex-end;
+
+    @media (max-width: 1023px) {
+      grid-column: 4 / 5;
+      grid-row: 1 / 2;
+    }
+  }
+
+  &__user {
+    display: flex;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    overflow: hidden;
+    color: #00000038;
+    background-color: var(--bg-gray);
+
+    svg {
+      width: 24px;
+      height: 24px;
+      object-fit: cover;
+    }
+  }
+
+  &__more {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-gray);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  &__load {
+    margin: 30px auto 0;
+
+    @media (max-width: 767px) {
+      margin: 20px 0 0;
+    }
+  }
+
+  &__right {
+    display: flex;
     flex-direction: column;
+    flex-wrap: wrap;
+    gap: 20px;
+
+    @media (max-width: 1439px) {
+      flex-direction: row;
+    }
+
+    @media (max-width: 767px) {
+      flex-direction: column;
+      gap: 10px;
+    }
   }
-  
-  .partner__agreement_button {
+
+  &__conditions,
+  &__referral {
+    display: flex;
+    padding: 40px;
+    flex-direction: column;
+    gap: 30px;
+    position: relative;
+    background-color: var(--bg);
+    border: 1px solid var(--border);
+
+    @media (max-width: 1439px) {
+      width: calc(50% - 10px);
+    }
+
+    @media (max-width: 767px) {
+      width: 100%;
+    }
+  }
+
+  &__conditions {
+    @media (max-width: 1439px) {
+      justify-content: space-between;
+    }
+  }
+
+  &__conditions_info,
+  &__referral_info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__conditions_desc,
+  &__referral_desc {
+    color: var(--text-gray);
+  }
+
+  &__conditions_copy {
     width: 100%;
+    padding: 15px 20px;
+    color: var(--text);
+    background-color: var(--bg);
+    border: 1px solid var(--text);
+    transition: background-color 0.15s linear, border-color 0.15s linear, color 0.15s linear;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      color: var(--white);
+      background-color: var(--color);
+      border-color: var(--color);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    span {
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      line-clamp: 1;
+      -webkit-box-orient: vertical;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      overflow: hidden;
+    }
+
+    &_with-icon {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+
+      svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+      }
+    }
   }
-  
-  .partner__copy_success {
-    top: auto;
-    bottom: -25px;
+
+  &__referral_link {
+    position: relative;
+  }
+
+  &__copy_success {
+    position: absolute;
+    top: -30px;
+    right: 0;
+    background-color: var(--color);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+
+    @media (max-width: 767px) {
+      top: auto;
+      bottom: -25px;
+    }
+  }
+
+  &__referral_notice {
+    width: 100%;
   }
 }
 </style>

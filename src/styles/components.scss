@@ -1,0 +1,470 @@
+@use 'mixins' as *;
+
+textarea,
+.el-textarea__inner {
+  resize: none;
+}
+
+.el-button {
+  border: none;
+}
+
+.el-form-item {
+  margin: 0 !important;
+
+  &__label {
+    width: auto !important;
+  }
+
+  &__content {
+    display: flex;
+    margin-left: 0 !important;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &.is-error {
+    .el-input__wrapper,
+    .el-input__wrapper.is-focus,
+    .el-input__wrapper:focus,
+    .el-input__wrapper:hover,
+    .el-select__wrapper,
+    .el-select__wrapper.is-focus,
+    .el-select__wrapper:focus,
+    .el-select__wrapper:hover,
+    .el-textarea__inner,
+    .el-textarea__inner.is-focus,
+    .el-textarea__inner:focus,
+    .el-textarea__inner:hover {
+      border-radius: 0;
+    }
+  }
+}
+
+.el-loading-mask {
+  display: flex;
+  height: calc(100vh - 143px);
+  align-items: center;
+  justify-content: center;
+}
+
+.el-loading-mask,
+.el-loading-spinner {
+  position: relative;
+  z-index: 0;
+  background-color: transparent;
+}
+
+.el-loading-spinner {
+  margin-top: 0;
+  top: 0;
+
+  .circular {
+    width: 100px;
+    height: 100px;
+  }
+
+  .path {
+    stroke: var(--color);
+  }
+}
+
+.vti {
+  &__dropdown-arrow {
+    position: relative;
+    top: 2px;
+    color: var(--text-gray);
+  }
+
+  &__dropdown {
+    &,
+    &:hover,
+    &:active,
+    &:focus {
+      background-color: var(--bg-gray) !important;
+    }
+  }
+
+  &__dropdown-item.highlighted {
+    color: var(--bg);
+    background-color: var(--color);
+  }
+
+  &__dropdown-list {
+    background-color: var(--bg);
+    border: 1px solid var(--border);
+    width: 480px;
+
+    &.below {
+      width: 480px;
+      padding: 40px 0 0;
+      top: 40px;
+    }
+  }
+
+  &__search_box {
+    width: 100%;
+    height: 40px;
+    margin: 0;
+    border: 1px solid var(--border);
+  }
+
+  &__search_box_container {
+    width: 100%;
+    height: 40px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+  }
+}
+
+.vue-tel-input {
+  border: 1px solid var(--el-border-color-hover);
+
+  &:focus {
+    border: 1px solid var(--el-color-primary);
+  }
+}
+
+.el-select-dropdown__wrap {
+  max-height: 150px;
+}
+
+.ProseMirror {
+  min-height: 80px;
+  max-height: 200px;
+  padding: 6px 11px;
+  border: none;
+  outline: none;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px var(--el-input-border-color, var(--el-border-color)) inset;
+  -webkit-transition: box-shadow 0.15s linear;
+  transition: box-shadow 0.15s linear;
+  overflow-y: scroll;
+  overflow-x: hidden;
+
+  ul,
+  ol {
+    padding: 0 0 0 16px;
+
+    li::marker {
+      font-size: 1em;
+    }
+  }
+
+  &::-webkit-scrollbar,
+  &::-webkit-scrollbar-thumb {
+    display: none;
+    width: 0;
+  }
+
+  &:hover {
+    box-shadow: 0 0 0 1px var(--el-border-color-hover) inset;
+  }
+
+  &:focus,
+  &-focused {
+    border: none;
+    box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+  }
+}
+
+.editor {
+  &__flex {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__buttons {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__button {
+    display: flex;
+    width: 30px;
+    height: 30px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-radius: 4px;
+    box-shadow: 0 0 0 1px var(--el-border-color-hover) inset;
+    background-color: transparent;
+    -webkit-transition:
+      box-shadow 0.15s linear,
+      background-color 0.15s linear;
+    transition:
+      box-shadow 0.15s linear,
+      background-color 0.15s linear;
+    cursor: pointer;
+
+    svg {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+      color: var(--el-color-info);
+      -webkit-transition: color 0.15s linear;
+      transition: color 0.15s linear;
+    }
+
+    &.is-active {
+      box-shadow: 0 0 0 1px var(--hover) inset;
+      background-color: var(--hover);
+
+      svg {
+        color: var(--white);
+      }
+    }
+  }
+
+  &__count {
+    color: var(--el-color-info);
+    text-align: right;
+  }
+}
+
+.el-date-picker {
+  width: 100%;
+  @include user-select-none;
+
+  &__header-label {
+    pointer-events: none;
+  }
+}
+
+.el-checkbox {
+  height: auto;
+  min-height: 40px;
+  white-space: unset;
+
+  &__label {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  &__input.is-checked {
+    + .el-checkbox__label {
+      color: var(--text);
+    }
+
+    .el-checkbox__inner {
+      background-color: var(--color);
+      border-color: var(--color);
+    }
+  }
+
+  &__inner {
+    width: 16px;
+    height: 16px;
+
+    &::after {
+      height: 9px;
+      top: 2px;
+      left: 6.5px;
+    }
+  }
+
+  &.el-checkbox--large {
+    display: flex;
+    height: auto;
+    min-height: auto;
+    align-items: center;
+    gap: 10px;
+
+    .el-checkbox__inner {
+      display: flex;
+      height: 20px;
+      width: 20px;
+      padding: 0;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition:
+        background-color 0.15s linear,
+        border-color 0.15s linear;
+    }
+
+    .el-checkbox__label {
+      transform: translateY(1.5px);
+    }
+  }
+}
+
+.el-select {
+  &__wrapper {
+    background-color: transparent;
+    border: 1px solid var(--border);
+    box-shadow: none;
+
+    &.is-hovering:not(.is-focused),
+    &.is-focused {
+      box-shadow: none;
+    }
+  }
+
+  &__placeholder.is-transparent,
+  &__caret {
+    color: var(--text);
+  }
+}
+
+.el-select-dropdown__list {
+  padding: 0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.el-select-dropdown__item {
+  &:hover {
+    color: var(--white);
+    background-color: var(--color);
+  }
+
+  &.is-selected {
+    color: var(--color);
+
+    &:hover {
+      color: var(--white);
+    }
+  }
+}
+
+.el-input {
+  &.is-disabled .el-input__wrapper {
+    pointer-events: none;
+    background: transparent;
+  }
+
+  &__wrapper {
+    box-shadow: none !important;
+    border: 1px solid var(--border);
+  }
+
+  &__suffix {
+    cursor: pointer;
+  }
+
+  .el-input__icon {
+    color: var(--text-gray);
+  }
+}
+
+.el-textarea__inner {
+  &,
+  &:hover,
+  &:focus {
+    border-radius: 0;
+  }
+}
+
+.el-input__wrapper,
+.el-textarea__inner,
+.el-textarea__inner:hover {
+  border-radius: 0;
+}
+
+.el-input__wrapper.is-focus,
+.el-input__wrapper:focus,
+.el-textarea__inner:focus {
+  border-radius: 0;
+}
+
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--color) inset;
+}
+
+.el-input-number {
+  width: 120px;
+
+  &__decrease,
+  &__increase {
+    border-radius: 0;
+    background-color: transparent;
+    transition: background-color 0.3s linear;
+
+    &:hover {
+      background-color: var(--color);
+
+      .el-icon {
+        color: var(--white);
+      }
+    }
+
+    .el-icon {
+      transition: color 0.3s linear;
+      color: var(--text-gray);
+    }
+  }
+}
+
+@media (max-width: 580px) {
+  .el-popper.is-pure,
+  .el-picker-panel__body-wrapper,
+  .el-date-range-picker {
+    width: 100%;
+    left: 0 !important;
+    right: 0 !important;
+  }
+
+  .el-date-range-picker .el-picker-panel__body {
+    display: flex;
+    width: 100%;
+    min-width: auto;
+  }
+
+  .el-date-range-picker__content.is-left,
+  .el-date-range-picker .el-picker-panel__content {
+    width: 100%;
+  }
+
+  .el-picker-panel__content.el-date-range-picker__content.is-right .el-date-table,
+  .el-picker-panel__content.el-date-range-picker__content.is-right .el-date-range-picker__header div {
+    display: none;
+  }
+
+  .el-picker-panel__content.el-date-range-picker__content.is-right {
+    width: 0;
+    padding: 16px 0;
+
+    .el-date-range-picker__header [class*="arrow-right"] {
+      padding: 0 16px 0 0;
+    }
+  }
+
+  .el-picker-panel__content.el-date-range-picker__content .el-picker-panel__icon-btn {
+    margin: 0;
+    font-size: 20px;
+  }
+
+  .el-date-range-picker__content.is-left {
+    border: 0;
+  }
+
+  .el-select__input,
+  .el-range-input {
+    display: none;
+    pointer-events: none;
+  }
+
+  .select_skills .el-select__input {
+    display: block;
+    pointer-events: auto;
+  }
+
+  .el-date-picker .el-picker-panel__content {
+    width: calc(100% - 30px);
+  }
+}
+
+@media (max-width: 512px) {
+  .vti__dropdown-list.below,
+  .vti__dropdown-list {
+    width: calc(100vw - 32px);
+  }
+}

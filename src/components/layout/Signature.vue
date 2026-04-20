@@ -297,7 +297,7 @@ onUnmounted(() => {
 </div>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
 .signature__popup_overlay {
   position: fixed;
   top: 0;
@@ -312,25 +312,34 @@ onUnmounted(() => {
   padding: 20px;
   backdrop-filter: blur(5px);
 }
+
 .signature__popup {
   width: 100%;
   padding: 30px;
   max-width: 600px;
   position: relative;
   background-color: var(--bg);
+
+  &_close {
+    display: flex;
+    padding: 8px;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0;
+    left: -60px;
+    background: var(--bg);
+    cursor: pointer;
+    color: var(--text);
+
+    @media (max-width: 767px) {
+      top: -60px;
+      left: auto;
+      right: 0;
+    }
+  }
 }
-.signature__popup_close {
-  display: flex;
-  padding: 8px;
-  align-items: center;
-  justify-content: center;
-  position: absolute;
-  top: 0;
-  left: -60px;
-  background: var(--bg);
-  cursor: pointer;
-  color: var(--text);
-}
+
 .signature__canvas_container canvas {
   width: 100%;
   height: 330px;
@@ -338,19 +347,14 @@ onUnmounted(() => {
   cursor: crosshair;
   touch-action: none;
 }
+
 .signature__controls {
   display: flex;
   margin-top: 20px;
   gap: 15px;
 }
+
 .signature__hint {
   margin: 20px 0 0;
-}
-@media (max-width: 767px) {
-  .signature__popup_close {
-    top: -60px;
-    left: auto;
-    right: 0;
-  }
 }
 </style>

@@ -4,8 +4,8 @@
 <template>
   <RouterView />
 </template>
-<div class="el-slider__button hover el-tooltip__trigger el-tooltip__trigger" aria-describedby="el-id-5996-12"></div>
-<style>
+
+<style lang="scss">
   @import 'element-plus/dist/index.css';
   @import 'element-plus/theme-chalk/dark/css-vars.css';
   @import 'vue-tel-input/vue-tel-input.css';
@@ -13,8 +13,8 @@
   @import 'swiper/css/navigation';
   @import 'swiper/css/pagination';
   @import 'swiper/css/scrollbar';
-  @import "@/styles/reset.css";
-  @import "@/styles/fonts.css";
-  @import "@/styles/main.css";
-  @import "@/styles/components.css";
+  @import "@/styles/reset.scss";
+  @import "@/styles/fonts.scss";
+  @import "@/styles/main.scss";
+  @import "@/styles/components.scss";
 </style>

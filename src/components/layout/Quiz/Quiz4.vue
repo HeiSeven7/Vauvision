@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { ElInput, ElMessage, ElSelect, ElOption, ElDatePicker } from 'element-plus';
 import { sendRequest } from '@/utils/api';
 import BackSVG from "@/uikit/icon/BackSVG.vue";
@@ -21,6 +21,8 @@ const isLoading = ref(true);
 const dataLoaded = ref(false);
 const quizDB = ref<any>(null);
 const dbInitialized = ref(false);
+
+const otherCitizenshipInputRef = ref<InstanceType<typeof ElInput> | null>(null);
 
 // Данные формы
 const formData = reactive({
@@ -77,9 +79,6 @@ const citizenshipOptions = [
   { label: 'Российская Федерация', value: 'RU' },
   { label: 'Другое', value: 'other' }
 ];
-
-// Флаг показа поля для другого гражданства
-const showOtherCitizenshipInput = ref(false);
 
 // Таймер для debounce сохранения
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -165,7 +164,6 @@ const saveStateToDB = async () => {
           passportIssueDate: formData.passportIssueDate,
           registrationAddress: formData.registrationAddress
         },
-        showOtherCitizenshipInput: showOtherCitizenshipInput.value,
         timestamp: Date.now()
       };
       
@@ -214,16 +212,6 @@ const loadStateFromDB = async () => {
           formData.passportIssuedBy = savedState.formData.passportIssuedBy || '';
           formData.passportIssueDate = savedState.formData.passportIssueDate || '';
           formData.registrationAddress = savedState.formData.registrationAddress || '';
-        }
-        
-        // Восстанавливаем состояние поля для другого гражданства
-        if (savedState.showOtherCitizenshipInput !== undefined) {
-          showOtherCitizenshipInput.value = savedState.showOtherCitizenshipInput;
-        }
-        
-        // Если гражданство "Другое", убедимся что поле отображается
-        if (formData.citizenship === 'other' && !showOtherCitizenshipInput.value) {
-          showOtherCitizenshipInput.value = true;
         }
         
         console.log('✅ Restored userType:', formData.userType);
@@ -279,10 +267,12 @@ const loadUserData = async () => {
       
       if (citizenship === 'Российская Федерация' || citizenship === 'РФ' || citizenship === 'Russia') {
         formData.citizenship = 'RU';
+      } else if (citizenship === 'Другое') {
+        formData.citizenship = 'other';
+        formData.otherCitizenship = '';
       } else {
         formData.citizenship = 'other';
         formData.otherCitizenship = citizenship;
-        showOtherCitizenshipInput.value = true;
       }
     }
     
@@ -486,10 +476,11 @@ const handleUserTypeChange = () => {
 
 const handleCitizenshipChange = () => {
   errors.citizenship = '';
-  errors.otherCitizenship = '';
-  showOtherCitizenshipInput.value = formData.citizenship === 'other';
-  if (formData.citizenship !== 'other') formData.otherCitizenship = '';
-  if (dataLoaded.value) debouncedSave();
+  if (formData.citizenship === 'other') {
+    nextTick(() => {
+      otherCitizenshipInputRef.value?.focus?.();
+    });
+  }
 };
 
 const goBack = () => emit('go-back');
@@ -519,9 +510,16 @@ watch(() => formData.userType, (newVal) => {
   }
 });
 
-watch(() => formData.citizenship, () => {
-  if (dataLoaded.value) debouncedSave();
-});
+watch(
+  () => formData.citizenship,
+  (newVal) => {
+    if (newVal !== 'other') {
+      formData.otherCitizenship = '';
+      errors.otherCitizenship = '';
+    }
+    if (dataLoaded.value) debouncedSave();
+  }
+);
 
 watch(() => formData.lastName, () => {
   if (dataLoaded.value) debouncedSave();
@@ -590,10 +588,6 @@ watch(() => formData.correspondentAccount, () => {
 
 watch(() => formData.bankLegalAddress, () => {
   if (dataLoaded.value && formData.userType === 'entrepreneur') debouncedSave();
-});
-
-watch(showOtherCitizenshipInput, () => {
-  if (dataLoaded.value) debouncedSave();
 });
 
 onMounted(async () => {
@@ -882,9 +876,10 @@ onUnmounted(() => {
       </div>
       
       <!-- Поле для ввода другого гражданства -->
-      <div v-if="showOtherCitizenshipInput" class="form__group" style="margin-top: 10px;">
+      <div v-if="formData.citizenship === 'other'" class="form__group" style="margin-top: 10px;">
         <label for="otherCitizenship" class="form__label button">Укажите ваше гражданство<span>*</span></label>
         <el-input
+          ref="otherCitizenshipInputRef"
           id="otherCitizenship"
           v-model="formData.otherCitizenship"
           type="text"
@@ -1052,14 +1047,17 @@ onUnmounted(() => {
 </div>
 </template>
 
-<style lang="css" scoped>
-.form__flex {
-  padding: 20px 0 0;
-}
-.quiz__form_loading {
-  text-align: center;
-  padding: 40px;
-  color: #999;
-  font-size: 16px;
+<style lang="scss" scoped>
+.quiz__form {
+  &_loading {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+    font-size: 16px;
+  }
+
+  .form__flex {
+    padding: 20px 0 0;
+  }
 }
 </style>

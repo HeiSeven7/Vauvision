@@ -1,0 +1,129 @@
+.form {
+  &__heading {
+    display: flex;
+    padding: 0 0 60px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    text-align: center;
+  }
+
+  &__desc {
+    max-width: 600px;
+  }
+
+  &__flex {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
+
+  &__group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__hint {
+    color: var(--text-gray);
+  }
+
+  &__buttons {
+    display: flex;
+    padding: 40px 0 0;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 30px;
+  }
+
+  &__step {
+    display: flex;
+    max-width: 560px;
+    padding: 20px 0 0;
+    margin: auto 0 0 auto;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+
+    span {
+      width: 16px;
+      height: 8px;
+      position: relative;
+      background-color: var(--border);
+      overflow: hidden;
+
+      &::before {
+        content: "";
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1;
+        background-color: var(--yellow);
+        transform: translateX(-100%);
+        transition: transform 0.15s linear;
+      }
+
+      &.active::before {
+        transform: translateX(0%);
+      }
+    }
+  }
+
+  &__row {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  &__checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  &__labels {
+    display: flex;
+    padding: 17px 0;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  &__label {
+    display: inline-flex;
+    gap: 4px;
+
+    span {
+      color: var(--error);
+    }
+
+    .form__label_text {
+      padding: 10px 20px;
+      color: var(--text);
+      background-color: var(--bg-color);
+      border-radius: 30px;
+      transition: background-color 0.15s linear;
+    }
+
+    &:hover .form__label_text {
+      background-color: var(--border);
+    }
+
+    &_input:checked + .form__label_text {
+      background-color: var(--yellow);
+    }
+
+    input {
+      display: none;
+    }
+  }
+
+  &__description {
+    color: var(--text-gray);
+  }
+}

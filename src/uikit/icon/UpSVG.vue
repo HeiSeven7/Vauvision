@@ -4,4 +4,4 @@
 	<path id="Vector 17" d="M0 8.51852L4.1791 4.25926L0 0" stroke="currentColor" stroke-width="1.5" transform="matrix(0,-1,1,0,0.525391,5.23047)"/>
 </svg>
 </template>
-<style scoped></style>
+<style lang="scss" scoped></style>

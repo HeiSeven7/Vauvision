@@ -1,110 +1,110 @@
 <template>
-<div class="menu__back"></div>
-<div class="menu__block">
-  <div class="menu__scroll">
-    <div class="menu__personal">
-      <div class="menu__personal_logo">
-        <img 
-          v-if="userData.avatar"
-          :src="getAvatarUrl(userData.avatar)"
-          @error="handleAvatarError"
-          alt="Avatar"
-          class="menu__avatar"
+  <div class="menu__back"></div>
+  <div class="menu__block">
+    <div class="menu__scroll">
+      <div class="menu__personal">
+        <div class="menu__personal_logo">
+          <img 
+            v-if="userData.avatar"
+            :src="getAvatarUrl(userData.avatar)"
+            @error="handleAvatarError"
+            alt="Avatar"
+            class="menu__avatar"
+          >
+          <PersonalSVG v-else />
+        </div>
+        <div class="menu__personal_info">
+          <h6 class="menu__personal_name">{{ userData.name }}</h6>
+          <p class="menu__personal_mail">{{ userData.email }}</p>
+        </div>
+      </div>
+
+      <!-- Кнопка Баланс -->
+      <div class="menu__balance">
+        <div 
+          class="menu__balance_button" 
+          :title="'Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится'"
         >
-        <PersonalSVG v-else />
+          <PaySVG />
+          <span>Баланс: {{ formattedBalance(userData.balance) }} руб.</span>
+        </div>
       </div>
-      <div class="menu__personal_info">
-        <h6 class="menu__personal_name">{{ userData.name }}</h6>
-        <p class="menu__personal_mail">{{ userData.email }}</p>
-      </div>
+
+      <LabelArtistsMenuBlock />
+
+      <!-- Основная навигация -->
+      <ul class="menu__list">
+        <li class="menu__item">
+          <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'personal' })">
+            <span><HomeSVG /></span>
+            <span>Главная</span>
+          </RouterLink>
+        </li>
+        <li class="menu__item">
+          <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'release' })">
+            <span><UploadSVG /></span>
+            <span>Выложить релиз</span>
+          </RouterLink>
+        </li>
+        <li class="menu__item">
+          <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'setting' })">
+            <span><SettingSVG /></span>
+            <span>Настройки</span>
+          </RouterLink>
+        </li>
+        <li class="menu__item">
+          <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'partner' })">
+            <span><PartnerSVG /></span>
+            <span>Стать партнером</span>
+          </RouterLink>
+        </li>
+        <li class="menu__item">
+          <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'faq' })">
+            <span><FaqSVG /></span>
+            <span>FAQ</span>
+          </RouterLink>
+        </li>
+        <li class="menu__item">
+          <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'articles' })">
+            <span><ArticlesSVG /></span>
+            <span>Статьи</span>
+          </RouterLink>
+        </li>
+        <li class="menu__item">
+          <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'support' })">
+            <span><FaqSVG /></span>
+            <span>Связь с поддержкой</span>
+          </RouterLink>
+        </li>
+        <li class="menu__item">
+          <a href="#" target="_blank" class="menu__link" @click.prevent="goToOldVersion">
+            <span><FaqSVG /></span>
+            <span>Старая версия</span>
+          </a>
+        </li>
+        
+        <!-- Кнопка Выйти из аккаунта -->
+        <li class="menu__item menu__logout">
+          <button class="menu__link" @click="handleLogout">
+            <span><LogoutSVG /></span>
+            <span>Выйти из аккаунта</span>
+          </button>
+        </li>
+
+        <!-- Политика конфиденциальности -->
+        <li class="menu__item menu__privacy">
+          <a 
+            :href="`${baseUrl}/upload/policy.pdf`" 
+            class="menu__link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Политика конфиденциальности
+          </a>
+        </li>
+      </ul>
     </div>
-
-    <!-- Кнопка Баланс -->
-    <div class="menu__balance">
-      <div 
-        class="menu__balance_button" 
-        :title="'Счёт обновляется после скачивания отчёта. Пожалуйста, скачайте отчёт, после этого сумма на балансе обновится'"
-      >
-        <PaySVG />
-        <span>Баланс: {{ formattedBalance(userData.balance) }} руб.</span>
-      </div>
-    </div>
-
-    <LabelArtistsMenuBlock />
-
-    <!-- Основная навигация -->
-    <ul class="menu__list">
-      <li class="menu__item">
-        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'personal' })">
-          <span><HomeSVG /></span>
-          <span>Главная</span>
-        </RouterLink>
-      </li>
-      <li class="menu__item">
-        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'release' })">
-          <span><UploadSVG /></span>
-          <span>Выложить релиз</span>
-        </RouterLink>
-      </li>
-      <li class="menu__item">
-        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'setting' })">
-          <span><SettingSVG /></span>
-          <span>Настройки</span>
-        </RouterLink>
-      </li>
-      <li class="menu__item">
-        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'partner' })">
-          <span><PartnerSVG /></span>
-          <span>Стать партнером</span>
-        </RouterLink>
-      </li>
-      <li class="menu__item">
-        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'faq' })">
-          <span><FaqSVG /></span>
-          <span>FAQ</span>
-        </RouterLink>
-      </li>
-      <li class="menu__item">
-        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'articles' })">
-          <span><ArticlesSVG /></span>
-          <span>Статьи</span>
-        </RouterLink>
-      </li>
-      <li class="menu__item">
-        <RouterLink class="menu__link" :to="Tr.i18nRoute({ name: 'support' })">
-          <span><FaqSVG /></span>
-          <span>Связь с поддержкой</span>
-        </RouterLink>
-      </li>
-      <li class="menu__item">
-        <a href="#" target="_blank" class="menu__link" @click.prevent="goToOldVersion">
-          <span><FaqSVG /></span>
-          <span>Старая версия</span>
-        </a>
-      </li>
-      
-      <!-- Кнопка Выйти из аккаунта -->
-      <li class="menu__item menu__logout">
-        <button class="menu__link" @click="handleLogout">
-          <span><LogoutSVG /></span>
-          <span>Выйти из аккаунта</span>
-        </button>
-      </li>
-
-      <!-- Политика конфиденциальности -->
-      <li class="menu__item menu__privacy">
-        <a 
-          :href="`${baseUrl}/upload/policy.pdf`" 
-          class="menu__link"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Политика конфиденциальности
-        </a>
-      </li>
-    </ul>
   </div>
-</div>
 </template>
 
 <script setup lang="ts">
@@ -372,7 +372,7 @@ onUnmounted(() => {
 });
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .menu__block {
   display: flex;
   width: 319px;
@@ -386,17 +386,36 @@ onUnmounted(() => {
   border-right: 1px solid var(--border);
   background-color: var(--bg);
   transform: translateX(-50%);
-}
 
-.menu__block::after {
-  content: "";
-  height: 100vh;
-  width: calc(100vw + 320px);
-  position: absolute;
-  left: -100vw;
-  top: 0;
-  z-index: 1;
-  background-color: var(--bg);
+  &::after {
+    content: "";
+    height: 100vh;
+    width: calc(100vw + 320px);
+    position: absolute;
+    left: -100vw;
+    top: 0;
+    z-index: 1;
+    background-color: var(--bg);
+
+    @media (max-width: 1919px) {
+      width: calc(100vw + 230px);
+    }
+  }
+
+  @media (max-width: 1919px) {
+    left: 20px;
+    transform: none;
+    max-width: 250px;
+    width: 100%;
+  }
+
+  @media (max-width: 1439px) {
+    display: none;
+  }
+
+  @media (max-width: 1023px) {
+    left: 15px;
+  }
 }
 
 .menu__scroll {
@@ -409,16 +428,16 @@ onUnmounted(() => {
   z-index: 2;
   overflow-y: auto;
   overflow-x: hidden;
-}
 
-.menu__scroll::-webkit-scrollbar {
-  display: none;
-  width: 0px;
-}
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0px;
+  }
 
-.menu__scroll::-webkit-scrollbar-thumb {
-  display: none;
-  width: 0px;
+  &::-webkit-scrollbar-thumb {
+    display: none;
+    width: 0px;
+  }
 }
 
 .menu__back {
@@ -431,6 +450,10 @@ onUnmounted(() => {
   z-index: 1;
   background-color: var(--bg);
   transform: translateX(-50%);
+
+  @media (max-width: 1439px) {
+    display: none;
+  }
 }
 
 /* Стили для блока个人信息 */
@@ -455,13 +478,13 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
-}
 
-.menu__personal_logo svg {
-  width: 32px;
-  height: 32px;
-  opacity: 0.8;
-  display: block;
+  svg {
+    width: 32px;
+    height: 32px;
+    opacity: 0.8;
+    display: block;
+  }
 }
 
 .menu__avatar {
@@ -517,22 +540,22 @@ onUnmounted(() => {
   transition: border-color 0.15s linear;
   cursor: pointer;
   font-size: 14px;
-}
 
-.menu__balance_button:hover {
-  border-color: var(--text);
-}
+  &:hover {
+    border-color: var(--text);
+  }
 
-.menu__balance_button svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
+  svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
 
-.menu__balance_button span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 /* Основной список навигации */
@@ -552,6 +575,15 @@ onUnmounted(() => {
   border-top: 1px solid var(--border);
   margin-top: 10px;
   padding-top: 10px;
+
+  .menu__link {
+    color: var(--text);
+
+    &:hover {
+      color: var(--color);
+      background-color: var(--bg-color);
+    }
+  }
 }
 
 .menu__privacy {
@@ -574,75 +606,42 @@ onUnmounted(() => {
   cursor: pointer;
   font-size: 14px;
   text-align: left;
-}
 
-.menu__link::after {
-  content: "";
-  width: 3px;
-  height: 100%;
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 1;
-  background-color: var(--color);
-  opacity: 0;
-  transition: opacity 0.15s linear;
-}
-
-.menu__link.router-link-exact-active,
-.menu__link:hover {
-  color: var(--text);
-  background-color: var(--bg-color);
-}
-
-.menu__link.router-link-exact-active::after {
-  opacity: 1;
-}
-
-.menu__link svg {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-
-.menu__link span:last-child {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Стили для кнопки выхода */
-.menu__logout .menu__link {
-  color: var(--text);
-}
-
-.menu__logout .menu__link:hover {
-  color: var(--color);
-  background-color: var(--bg-color);
-}
-
-@media (max-width: 1919px) {
-  .menu__block {
-    left: 40px;
-    transform: none;
+  &::after {
+    content: "";
+    width: 3px;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 1;
+    background-color: var(--color);
+    opacity: 0;
+    transition: opacity 0.15s linear;
   }
-}
 
-@media (max-width: 1439px) {
-  .menu__back,
-  .menu__block {
-    display: none;
+  &.router-link-exact-active,
+  &:hover {
+    color: var(--text);
+    background-color: var(--bg-color);
   }
-}
 
-@media (max-width: 1023px) {
-  .menu__block {
-    left: 15px;
+  &.router-link-exact-active::after {
+    opacity: 1;
   }
-}
 
-@media (max-width: 767px) {
+  svg {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  span:last-child {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 </style>
